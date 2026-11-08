@@ -13,6 +13,8 @@ export function stateText(row: RowLike): string {
   const { state, driver, remaining } = row.status
   if (state === 'unknown') return 'Set last done'
   const overdue = state === 'overdue'
+  const left = driver === 'hours' ? remaining.hoursTenths : driver === 'km' ? remaining.km : remaining.days
+  if (overdue && !left) return 'due now'
   const amount = (): string => {
     if (driver === 'hours') return hoursShort(Math.abs(remaining.hoursTenths ?? 0))
     if (driver === 'km') return formatKm(Math.abs(remaining.km ?? 0))

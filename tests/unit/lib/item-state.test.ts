@@ -23,6 +23,11 @@ describe('stateText (right-hand text, driver unit)', () => {
     expect(stateText(row('overdue', 'months', { days: -61 }))).toBe('overdue 2 months')
     expect(stateText(row('overdue', 'months', { days: -5 }))).toBe('overdue 5 days')
   })
+  it('exactly at the limit reads due now', () => {
+    expect(stateText(row('overdue', 'hours', { hoursTenths: 0 }))).toBe('due now')
+    expect(stateText(row('overdue', 'km', { km: 0 }))).toBe('due now')
+    expect(stateText(row('overdue', 'months', { days: 0 }))).toBe('due now')
+  })
   it('unknown', () => expect(stateText(row('unknown', null, {}))).toBe('Set last done'))
 })
 
