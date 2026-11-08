@@ -90,15 +90,8 @@ async function save(confirmBigJump = false) {
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-40 flex items-end bg-black/60" data-testid="log-sheet-backdrop" @click.self="open = false">
-    <form
-      role="dialog"
-      aria-label="Log ride"
-      class="mx-auto w-full max-w-md rounded-t-2xl bg-surface p-4 pb-6"
-      data-testid="log-sheet"
-      @submit.prevent="save(false)"
-    >
-      <h2 class="mb-3 text-base font-bold text-white">Log ride / update meters</h2>
+  <Sheet v-model:open="open" title="Log ride / update meters" testid="log-sheet">
+    <form @submit.prevent="save(false)">
       <div class="flex gap-2.5">
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Hours
@@ -148,5 +141,5 @@ async function save(confirmBigJump = false) {
       </div>
       <button v-if="!jump" type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60">Save</button>
     </form>
-  </div>
+  </Sheet>
 </template>

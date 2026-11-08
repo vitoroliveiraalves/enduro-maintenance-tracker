@@ -9,7 +9,7 @@ import type { BikeSummary, ItemRow } from '../domain/item-row'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const DATE = /^\d{4}-\d{2}-\d{2}$/
-const bad = (msg: string) => createError({ statusCode: 400, statusMessage: msg })
+export const bad = (msg: string) => createError({ statusCode: 400, statusMessage: msg })
 
 export type ItemInput = {
   name: string
@@ -32,22 +32,48 @@ export type BikeInput = {
   items: ItemInput[]
 }
 
-type Obj = Record<string, unknown>
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
+export type Obj = Record<string, unknown>
+export const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 
-function str(v: unknown, field: string, max = 80): string {
+export function str(v: unknown, field: string, max = 80): string {
   if (typeof v !== 'string' || !v.trim() || v.trim().length > max) throw bad(`Invalid ${field}`)
   return v.trim()
 }
-function int(v: unknown, field: string, min = 0, max = 10_000_000): number {
+export function int(v: unknown, field: string, min = 0, max = 10_000_000): number {
   if (typeof v !== 'number' || !Number.isInteger(v) || v < min || v > max) throw bad(`Invalid ${field}`)
   return v
 }
-function optInt(v: unknown, field: string, min = 0): number | null {
+export function optInt(v: unknown, field: string, min = 0): number | null {
   return v === undefined || v === null ? null : int(v, field, min)
 }
-function uuid(v: unknown): string {
-  if (typeof v !== 'string' || !UUID.test(v)) throw bad('Invalid clientId')
+/** A calendar day "YYYY-MM-DD" that really exists and is not in the future (1 day of slack for timezones). */
+export function cleanDate(v: unknown, label: string): string {
+  if (typeof v !== 'string') throw bad(`Invalid ${label} date`)
+  const at = v.slice(0, 10)
+  const parsedAt = new Date(`${at}T00:00:00Z`)
+  if (!DATE.test(at) || Number.isNaN(parsedAt.getTime()) || parsedAt.toISOString().slice(0, 10) !== at) {
+    throw bad(`Invalid ${label} date`)
+  }
+  if (at > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw bad(`${label === 'lastDone' ? 'Last done' : 'The'} date is in the future`)
+  return at
+}
+
+/** Throws 400 when hours/km are above the bike's current meters. */
+export function assertNotAboveMeters(
+  what: string,
+  done: { hoursTenths?: number | null; km?: number | null },
+  current: { hoursTenths: number; km: number },
+) {
+  if (done.hoursTenths != null && done.hoursTenths > current.hoursTenths) {
+    throw bad(`${what}: ${(done.hoursTenths / 10).toFixed(1)} h is more than the bike's current ${(current.hoursTenths / 10).toFixed(1)} h`)
+  }
+  if (done.km != null && done.km > current.km) {
+    throw bad(`${what}: ${done.km} km is more than the bike's current ${current.km} km`)
+  }
+}
+
+export function uuid(v: unknown, field = 'clientId'): string {
+  if (typeof v !== 'string' || !UUID.test(v)) throw bad(`Invalid ${field}`)
   return v
 }
 
@@ -86,13 +112,7 @@ function cleanItem(raw: unknown): CleanItem {
   if (raw.lastDone !== undefined && raw.lastDone !== null) {
     const l = raw.lastDone
     if (!isObj(l) || typeof l.at !== 'string') throw bad('Invalid lastDone')
-    const at = l.at.slice(0, 10)
-    const parsedAt = new Date(`${at}T00:00:00Z`)
-    if (!DATE.test(at) || Number.isNaN(parsedAt.getTime()) || parsedAt.toISOString().slice(0, 10) !== at) {
-      throw bad('Invalid lastDone date')
-    }
-    // one day of slack for server/client timezone differences
-    if (at > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw bad('Last done date is in the future')
+    const at = cleanDate(l.at, 'lastDone')
     lastDone = { at, hoursTenths: optInt(l.hoursTenths, 'lastDone hours'), km: optInt(l.km, 'lastDone km') }
   }
   return { name: str(raw.name, 'item name'), conditionMultipliers: multipliers(raw.conditionMultipliers), ...intervals(raw), lastDone }
@@ -114,13 +134,7 @@ export function parseBikeInput(raw: unknown) {
     items: raw.items.map(cleanItem),
   }
   for (const it of parsed.items) {
-    const l = it.lastDone
-    if (l?.hoursTenths != null && l.hoursTenths > parsed.hoursTenths) {
-      throw bad(`${it.name}: last done at ${(l.hoursTenths / 10).toFixed(1)} h is more than the bike's current ${(parsed.hoursTenths / 10).toFixed(1)} h`)
-    }
-    if (l?.km != null && l.km > parsed.km) {
-      throw bad(`${it.name}: last done at ${l.km} km is more than the bike's current ${parsed.km} km`)
-    }
+    if (it.lastDone) assertNotAboveMeters(it.name, it.lastDone, parsed)
   }
   return parsed
 }

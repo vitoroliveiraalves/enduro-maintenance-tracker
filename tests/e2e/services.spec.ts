@@ -1,0 +1,66 @@
+import { expect, test } from '@playwright/test'
+import { loginAs } from './helpers/login'
+
+test('mark done with a comma cost, standalone expense, history, delete', async ({ page }) => {
+  await loginAs(page)
+  await page.getByTestId('add-bike').click()
+  await page.getByLabel('Name').fill('Svc Bike')
+  await page.getByLabel('Make').fill('KTM')
+  await page.getByLabel('Model').fill('300 EXC')
+  await page.getByLabel('Current hours').fill('142,5')
+  await page.getByLabel('Current km').fill('3812')
+  await page.getByRole('button', { name: 'Next: maintenance items' }).click()
+  const draft = page.getByTestId('item-draft').filter({ has: page.locator('input[aria-label="Item name"]') }).first()
+  await draft.locator('summary').click()
+  await page.getByLabel('Gearbox oil last done hours').fill('122')
+  await page.getByRole('button', { name: 'Save bike' }).click()
+  await expect(page).toHaveURL(/\/bikes\/[0-9a-f-]{36}$/)
+
+  const gearbox = page.getByTestId('item-row').filter({ hasText: 'Gearbox oil' })
+  await expect(gearbox.getByTestId('item-state')).toHaveText(/overdue/)
+
+  // Mark done: sheet is an accessible dialog; Esc closes and focus returns to the button
+  const trigger = gearbox.getByTestId('mark-done')
+  await trigger.click()
+  const dialog = page.getByRole('dialog', { name: 'Mark done: Gearbox oil' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toHaveAttribute('aria-modal', 'true')
+  await expect(page.getByTestId('md-date')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+
+  await trigger.click()
+  await expect(page.getByTestId('md-hours')).toHaveValue('142.5')
+  await page.getByTestId('md-cost').fill('abc')
+  await page.getByTestId('md-save').click()
+  await expect(page.getByTestId('md-error')).toContainText('Enter the cost')
+  await page.getByTestId('md-cost').fill('24,90')
+  if (process.env.SCREENSHOTS) await page.screenshot({ path: 'tests/e2e/__screenshots__/mark-done.png' })
+  await page.getByTestId('md-save').click()
+  await expect(dialog).toHaveCount(0)
+  await expect(gearbox.getByTestId('item-state')).not.toHaveText(/overdue/)
+
+  // Standalone expense from History
+  await page.getByTestId('tab-history').click()
+  const svcRow = page.getByTestId('history-service').filter({ hasText: 'Svc Bike' }).filter({ hasText: '24,90 €' })
+  await expect(svcRow).toContainText('Gearbox oil')
+  await expect(svcRow).toContainText('DIY')
+  await expect(svcRow.getByTestId('history-amount')).toHaveText('24,90 €')
+  await page.getByTestId('add-expense').click()
+  await page.getByTestId('ex-amount').fill('41,60')
+  await page.getByTestId('ex-description').fill('Fuel for the e2e')
+  await page.getByTestId('ex-save').click()
+  await expect(page.getByTestId('expense-sheet')).toHaveCount(0)
+  const fuel = page.getByTestId('history-expense').filter({ hasText: 'Fuel for the e2e' })
+  await expect(fuel).toContainText('Fuel & 2T oil')
+  await expect(fuel.getByTestId('history-amount')).toHaveText('41,60 €')
+  if (process.env.SCREENSHOTS) await page.screenshot({ path: 'tests/e2e/__screenshots__/history.png' })
+
+  // Delete the service with an in-page confirmation: status falls back to overdue
+  await svcRow.getByTestId('delete-service').click()
+  await svcRow.getByTestId('confirm-delete').click()
+  await expect(svcRow).toHaveCount(0)
+  await page.getByTestId('tab-bike').click()
+  await expect(page.getByTestId('item-row').filter({ hasText: 'Gearbox oil' }).getByTestId('item-state')).toHaveText(/overdue/)
+})

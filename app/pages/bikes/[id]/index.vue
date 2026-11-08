@@ -16,6 +16,13 @@ const store = useBikesStore()
 const data = ref<Detail | null>(null)
 const error = ref('')
 const sheetOpen = ref(false)
+const doneOpen = ref(false)
+const doneItemId = ref<string | null>(null)
+
+function markDone(itemId: string) {
+  doneItemId.value = itemId
+  doneOpen.value = true
+}
 
 onMounted(async () => {
   try {
@@ -58,11 +65,23 @@ const tone = (s: string) => (s === 'overdue' ? 'text-danger' : s === 'soon' ? 't
         + Log ride / update meters
       </button>
       <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" @saved="onSaved" />
+      <MarkDoneSheet v-model:open="doneOpen" :bike-id="data.bike.id" :items="data.items" :current="data.latestReading" :item-id="doneItemId" @saved="onSaved" />
       <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">Maintenance · due soonest first</h2>
       <ul class="space-y-2">
-        <li v-for="it in data.items" :key="it.id" class="flex justify-between rounded-xl bg-surface px-3 py-2.5 text-sm" data-testid="item-row">
-          <span class="font-semibold text-white">{{ it.name }}</span>
-          <span :class="tone(it.status.state)" data-testid="item-state">{{ stateText(it) }}</span>
+        <li v-for="it in data.items" :key="it.id" class="flex items-center justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-sm" data-testid="item-row">
+          <span class="min-w-0">
+            <span class="block font-semibold text-white">{{ it.name }}</span>
+            <span :class="tone(it.status.state)" data-testid="item-state">{{ stateText(it) }}</span>
+          </span>
+          <button
+            type="button"
+            class="shrink-0 rounded-full bg-bg px-3 py-1.5 text-xs font-semibold text-accent"
+            :aria-label="`Mark ${it.name} done`"
+            data-testid="mark-done"
+            @click="markDone(it.id)"
+          >
+            Mark done
+          </button>
         </li>
       </ul>
     </template>

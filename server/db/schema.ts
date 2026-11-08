@@ -367,3 +367,5 @@ export type Bike = typeof bikes.$inferSelect
 export type MaintenanceItem = typeof maintenanceItems.$inferSelect
 export type Document = typeof documents.$inferSelect
 export type Expense = typeof expenses.$inferSelect
+export type Service = typeof services.$inferSelect
+export type Category = typeof categories.$inferSelect
