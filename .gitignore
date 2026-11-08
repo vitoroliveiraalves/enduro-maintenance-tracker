@@ -1,3 +1,13 @@
 .superpowers/
 node_modules/
 .env
+.nuxt
+.nuxt-e2e
+.output
+.output-e2e
+.data
+dist
+test-results/
+playwright-report/
+.DS_Store
+*.log

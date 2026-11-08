@@ -1,0 +1,31 @@
+const THIN_SPACE = String.fromCharCode(0x202f)
+
+function groupThousands(digits: string, sep: string): string {
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, sep)
+}
+
+/** Integer cents EUR -> "1.234,56 €". */
+export function formatMoney(cents: number): string {
+  const abs = Math.abs(Math.round(cents))
+  const euros = groupThousands(String(Math.floor(abs / 100)), '.')
+  const rest = String(abs % 100).padStart(2, '0')
+  return `${cents < 0 ? '-' : ''}${euros},${rest} €`
+}
+
+/** Tenths of an hour -> "142.5 h". */
+export function formatHours(tenths: number): string {
+  return `${(tenths / 10).toFixed(1)} h`
+}
+
+/** Integer km -> "3 812 km" (thin-space thousands). */
+export function formatKm(km: number): string {
+  return `${groupThousands(String(Math.round(km)), THIN_SPACE)} km`
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Date or ISO string -> "6 Oct 2026" (UTC calendar day for ISO date strings). */
+export function formatDate(value: Date | string): string {
+  const d = typeof value === 'string' ? new Date(value) : value
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+}
