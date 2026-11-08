@@ -56,6 +56,8 @@ export default defineNuxtConfig({
       globPatterns: ['**/*.{js,css,html,wasm,woff2,png,svg,ico,webmanifest}'],
       // SPA: every navigation falls back to the app shell.
       navigateFallback: '/index.html',
+      // ZXing's decoder wasm is ~1 MB+; the default 2 MB cap is too tight.
+      maximumFileSizeToCacheInBytes: 4_000_000,
     },
   },
 })

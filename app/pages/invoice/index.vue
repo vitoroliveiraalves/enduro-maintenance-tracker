@@ -1,0 +1,163 @@
+<script setup lang="ts">
+import { downscaleImage } from '~/lib/image-downscale'
+import { parseInvoiceQrResult } from '~/lib/qr-invoice'
+
+const MAX_PAGES = 5
+const online = useOnline()
+const { mutate } = useApi()
+const { scan } = useQrScan()
+
+type Page = { id: number; file: Blob; url: string }
+const pages = ref<Page[]>([])
+const busy = ref(false)
+const error = ref('')
+let seq = 0
+
+async function addPhotos(e: Event) {
+  const input = e.target as HTMLInputElement
+  const picked = Array.from(input.files ?? [])
+  input.value = ''
+  error.value = ''
+  for (const f of picked) {
+    if (pages.value.length >= MAX_PAGES) {
+      error.value = `At most ${MAX_PAGES} pages per invoice.`
+      break
+    }
+    const blob = await downscaleImage(f)
+    pages.value.push({ id: ++seq, file: blob, url: URL.createObjectURL(blob) })
+  }
+}
+
+function remove(id: number) {
+  const p = pages.value.find((x) => x.id === id)
+  if (p) URL.revokeObjectURL(p.url)
+  pages.value = pages.value.filter((x) => x.id !== id)
+}
+
+async function send(files: Blob[]) {
+  busy.value = true
+  error.value = ''
+  try {
+    const qrRaw = await scan(files)
+    if (qrRaw) {
+      const { reason } = parseInvoiceQrResult(qrRaw)
+      if (reason) {
+        error.value = reason
+        return
+      }
+    }
+    const form = new FormData()
+    files.forEach((f, i) => form.append('files', f, f.type === 'application/pdf' ? 'invoice.pdf' : `page-${i + 1}.jpg`))
+    if (qrRaw) form.append('qrRaw', qrRaw)
+    form.append('clientId', crypto.randomUUID())
+    const res = await mutate<{ id: string; duplicate: boolean }>('/api/documents', form)
+    await navigateTo({ path: `/invoice/${res.id}`, query: res.duplicate ? { duplicate: '1' } : {} })
+  } catch (err) {
+    const e = err as { data?: { statusMessage?: string } }
+    error.value = e.data?.statusMessage ?? 'Could not upload the invoice. Try again.'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function chooseFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const picked = Array.from(input.files ?? [])
+  input.value = ''
+  if (!picked.length) return
+  if (picked.length > MAX_PAGES) {
+    error.value = `At most ${MAX_PAGES} pages per invoice.`
+    return
+  }
+  const isPdf = picked.some((f) => f.type === 'application/pdf')
+  if (isPdf && picked.length > 1) {
+    error.value = 'Choose one PDF or up to 5 photos.'
+    return
+  }
+  if (isPdf && picked[0]!.size > 10 * 1024 * 1024) {
+    error.value = 'PDF too large (10 MB max).'
+    return
+  }
+  busy.value = true
+  try {
+    const files = isPdf ? [picked[0]!] : await Promise.all(picked.map((f) => downscaleImage(f)))
+    await send(files)
+  } catch {
+    error.value = 'Could not read that file.'
+    busy.value = false
+  }
+}
+
+onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
+</script>
+
+<template>
+  <main class="mx-auto max-w-md p-4">
+    <h1 class="text-2xl font-bold text-accent">Add invoice</h1>
+    <p class="mt-1 text-sm text-muted">Photograph the invoice or choose a file. The QR code is read on your phone.</p>
+
+    <p v-if="!online" role="status" data-testid="offline-banner" class="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn">
+      You're offline — invoices can be added when you're back online.
+    </p>
+
+    <div class="mt-5 grid gap-3">
+      <label
+        class="block rounded-lg bg-accent px-4 py-3 text-center font-semibold text-black"
+        :class="{ 'pointer-events-none opacity-40': !online || busy || pages.length >= MAX_PAGES }"
+      >
+        Take photos
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="sr-only"
+          data-testid="camera-input"
+          :disabled="!online || busy || pages.length >= MAX_PAGES"
+          @change="addPhotos"
+        >
+      </label>
+      <label
+        class="block rounded-lg border border-white/15 bg-surface px-4 py-3 text-center font-semibold"
+        :class="{ 'pointer-events-none opacity-40': !online || busy }"
+      >
+        Choose file
+        <input
+          type="file"
+          accept="image/jpeg,image/png,application/pdf"
+          multiple
+          class="sr-only"
+          data-testid="file-input"
+          :disabled="!online || busy"
+          @change="chooseFile"
+        >
+      </label>
+    </div>
+
+    <section v-if="pages.length" class="mt-5" data-testid="pages">
+      <ul class="grid grid-cols-3 gap-2">
+        <li v-for="(p, i) in pages" :key="p.id" class="relative">
+          <img :src="p.url" :alt="`Page ${i + 1}`" class="aspect-[3/4] w-full rounded-lg object-cover">
+          <button
+            type="button"
+            class="absolute right-1 top-1 size-7 rounded-full bg-black/70 text-lg leading-none"
+            :aria-label="`Remove page ${i + 1}`"
+            @click="remove(p.id)"
+          >
+            ×
+          </button>
+        </li>
+      </ul>
+      <button
+        type="button"
+        class="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-semibold text-black disabled:opacity-40"
+        :disabled="!online || busy"
+        @click="send(pages.map((p) => p.file))"
+      >
+        {{ busy ? 'Uploading…' : `Upload ${pages.length} ${pages.length === 1 ? 'page' : 'pages'}` }}
+      </button>
+    </section>
+
+    <p v-if="busy && !pages.length" class="mt-4 text-sm text-muted" role="status">Uploading…</p>
+    <p v-if="error" role="alert" class="mt-4 text-sm text-danger">{{ error }}</p>
+  </main>
+</template>
