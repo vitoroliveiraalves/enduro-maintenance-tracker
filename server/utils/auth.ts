@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { db, schema } from '../db/client'
+import { ipAddressOptions } from './auth-ip'
 import { DEFAULT_CATEGORIES } from './categories-seed'
 
 const baseURL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3010'
@@ -23,8 +24,7 @@ export const auth = betterAuth({
   }),
   advanced: {
     database: { generateId: 'uuid' },
-    // Behind a reverse proxy the client IP arrives in these headers (feeds the rate limiter).
-    ipAddress: { ipAddressHeaders: ['x-forwarded-for', 'x-real-ip'] },
+    ipAddress: ipAddressOptions(),
   },
   emailAndPassword: {
     enabled: true,
