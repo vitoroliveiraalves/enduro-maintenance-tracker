@@ -17,3 +17,11 @@ body {
   color: var(--color-text);
   color-scheme: dark;
 }
+
+@theme {
+  /* Lighter text tones for state labels on dark surfaces (bars use the solid tokens above). */
+  --color-danger-text: #ff6b6b;
+  --color-warn-text: #ffc24d;
+  --color-ok-text: #5fdca6;
+  --color-track: #2a3038;
+}

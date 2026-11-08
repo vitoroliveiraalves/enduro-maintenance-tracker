@@ -35,3 +35,17 @@ export function formatHoursLong(tenths: number): string {
   const [whole = '0', frac = '0'] = (Math.abs(tenths) / 10).toFixed(1).split('.')
   return `${tenths < 0 ? '-' : ''}${groupThousands(whole, THIN_SPACE)}.${frac} h`
 }
+
+/** ISO string -> "12 Sep" (UTC calendar day). */
+export function formatDayMonth(value: Date | string): string {
+  const d = typeof value === 'string' ? new Date(value) : value
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/** Timestamp -> "Sun, 2 Nov" in the rider's local time. */
+export function formatWeekdayDay(value: Date | string): string {
+  const d = typeof value === 'string' ? new Date(value) : value
+  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`
+}

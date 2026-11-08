@@ -19,8 +19,10 @@ test('mark done with a comma cost, standalone expense, history, delete', async (
   const gearbox = page.getByTestId('item-row').filter({ hasText: 'Gearbox oil' })
   await expect(gearbox.getByTestId('item-state')).toHaveText(/overdue/)
 
-  // Mark done: sheet is an accessible dialog; Esc closes and focus returns to the button
-  const trigger = gearbox.getByTestId('mark-done')
+  // Mark done lives on the item page: sheet is an accessible dialog; Esc closes and focus returns to the button
+  await gearbox.click()
+  await expect(page).toHaveURL(/\/bikes\/[0-9a-f-]{36}\/items\/[0-9a-f-]{36}$/)
+  const trigger = page.getByTestId('mark-done')
   await trigger.click()
   const dialog = page.getByRole('dialog', { name: 'Mark done: Gearbox oil' })
   await expect(dialog).toBeVisible()
@@ -40,6 +42,10 @@ test('mark done with a comma cost, standalone expense, history, delete', async (
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'tests/e2e/__screenshots__/mark-done.png' })
   await page.getByTestId('md-save').click()
   await expect(dialog).toHaveCount(0)
+  await expect(page.getByTestId('item-state')).not.toHaveText(/overdue/)
+  await expect(page.getByTestId('service-entry')).toHaveCount(2)
+  await expect(page.getByTestId('service-entry').first()).toContainText('24,90 €')
+  await page.getByTestId('back-to-bike').click()
   await expect(gearbox.getByTestId('item-state')).not.toHaveText(/overdue/)
 
   // Standalone expense from History

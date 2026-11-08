@@ -1,0 +1,78 @@
+import { expect, test } from '@playwright/test'
+import { loginAs } from './helpers/login'
+import { bikeBody, seedMockupBike } from './helpers/seed'
+
+test('rows follow urgency, show driver text, bars and open the item history', async ({ page }) => {
+  await loginAs(page)
+  const id = await seedMockupBike(page.request, 'Screen Bike')
+  await page.goto(`/bikes/${id}`)
+  await expect(page.getByTestId('bike-name')).toHaveText('Screen Bike')
+  await expect(page.getByTestId('last-ride')).toHaveText(/^Last ride: \w{3}, \d{1,2} \w{3}$/)
+  await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
+  await expect(page.getByTestId('km-value')).toHaveText('3 812')
+  await expect(page.getByTestId('settings-link')).toHaveAttribute('href', '/settings')
+
+  const rows = page.getByTestId('item-row')
+  await expect(rows).toHaveCount(5)
+  const names = await rows.evaluateAll((els) => els.map((e) => e.querySelector('span')?.textContent))
+  expect(names).toEqual(['Engine/gear oil', 'Chain & sprockets', 'Air filter clean', 'Piston & rings', 'Wheel bearings'])
+  await expect(rows.nth(0).getByTestId('item-state')).toHaveText('overdue 0.5h')
+  await expect(rows.nth(0).getByTestId('item-subline')).toHaveText(/^20\.5h since change \(every 20h\) · \d{1,2} \w{3}$/)
+  await expect(rows.nth(1).getByTestId('item-state')).toHaveText(/^220.km left$/)
+  await expect(rows.nth(2).getByTestId('item-state')).toHaveText('1h left')
+  await expect(rows.nth(4).getByTestId('item-subline')).toHaveText(/\(every 50h or 12 months\) · \d{1,2} \w{3} · garage$/)
+  await expect(rows.nth(0).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+  await expect(rows.nth(0).getByRole('progressbar').locator('i')).toHaveClass(/bg-danger/)
+  await expect(rows.nth(4).getByRole('progressbar').locator('i')).toHaveClass(/bg-ok/)
+  await expect(page.getByTestId('mark-done')).toHaveCount(0)
+
+  await rows.filter({ hasText: 'Wheel bearings' }).click()
+  await expect(page).toHaveURL(new RegExp(`/bikes/${id}/items/[0-9a-f-]{36}$`))
+  await expect(page.getByTestId('item-name')).toHaveText('Wheel bearings')
+  const entries = page.getByTestId('service-entry')
+  await expect(entries).toHaveCount(1)
+  await expect(entries.first()).toContainText('130.5 h')
+  await expect(entries.first()).toContainText('Garage · Moto Garage Braga')
+})
+
+test('item page: interval editor accepts a comma, mark done resets the item', async ({ page }) => {
+  await loginAs(page)
+  const id = await seedMockupBike(page.request, 'Item Bike')
+  await page.goto(`/bikes/${id}`)
+  await page.getByTestId('item-row').filter({ hasText: 'Engine/gear oil' }).click()
+  await expect(page.getByTestId('item-status').getByTestId('item-state')).toHaveText('overdue 0.5h')
+  await expect(page.getByTestId('iv-hours')).toHaveValue('20')
+
+  await page.getByTestId('iv-hours').fill('abc')
+  await page.getByTestId('iv-save').click()
+  await expect(page.getByTestId('iv-error')).toBeVisible()
+  await page.getByTestId('iv-hours').fill('25,5')
+  await page.getByTestId('iv-save').click()
+  await expect(page.getByTestId('iv-saved')).toBeVisible()
+  await expect(page.getByTestId('item-status').getByTestId('item-state')).toHaveText('5h left')
+  await expect(page.getByTestId('iv-hours')).toHaveValue('25.5')
+
+  await page.getByTestId('mark-done').click()
+  await expect(page.getByRole('dialog', { name: 'Mark done: Engine/gear oil' })).toBeVisible()
+  await page.getByTestId('md-save').click()
+  await expect(page.getByTestId('service-entry')).toHaveCount(2)
+  await expect(page.getByTestId('item-status').getByTestId('item-state')).toHaveText('25.5h left')
+})
+
+test('empty bike offers an inline add-item form', async ({ page }) => {
+  await loginAs(page)
+  const res = await page.request.post('/api/bikes', { data: bikeBody('Empty Bike', []) })
+  const { id } = (await res.json()) as { id: string }
+  await page.goto(`/bikes/${id}`)
+  await expect(page.getByTestId('empty-items')).toContainText('No maintenance items — add one')
+  await page.getByTestId('new-item-save').click()
+  await expect(page.getByTestId('new-item-error')).toBeVisible()
+  await page.getByTestId('new-item-name').fill('Fork oil')
+  await page.getByTestId('new-item-hours').fill('30,5')
+  await page.getByTestId('new-item-save').click()
+  const row = page.getByTestId('item-row')
+  await expect(row).toHaveCount(1)
+  await expect(row).toContainText('Fork oil')
+  await expect(row.getByTestId('item-state')).toHaveText('Set last done')
+  await expect(page.getByTestId('empty-items')).toHaveCount(0)
+})

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatHours, formatHoursLong, formatKm, formatMoney } from '~/lib/format'
+import { formatDate, formatDayMonth, formatWeekdayDay, formatHours, formatHoursLong, formatKm, formatMoney } from '~/lib/format'
 
 describe('format', () => {
   it('formats money from cents', () => {
@@ -20,4 +20,8 @@ describe('formatHoursLong', () => {
     expect(formatHoursLong(12_825)).toBe(`1${String.fromCharCode(0x202f)}282.5 h`)
     expect(formatHoursLong(1440)).toBe('144.0 h')
   })
+})
+describe('short dates', () => {
+  it('day + month', () => expect(formatDayMonth('2026-09-12T00:00:00.000Z')).toBe('12 Sep'))
+  it('weekday, day, month', () => expect(formatWeekdayDay('2026-11-02T10:00:00.000Z')).toBe('Mon, 2 Nov'))
 })

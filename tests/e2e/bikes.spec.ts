@@ -26,7 +26,7 @@ test('add a 2T bike with Gearbox oil last done, see overdue and unknown rows', a
   await expect(gearbox).toBeVisible()
   await expect(gearbox.getByTestId('item-state')).toHaveText(/overdue/)
   await expect(page.getByTestId('item-row').first()).toContainText('Gearbox oil')
-  await expect(page.getByText('Unknown — set last done').first()).toBeVisible()
+  await expect(page.getByText('Set last done').first()).toBeVisible()
   await expect(page.getByTestId('item-row').filter({ hasText: 'Coolant' })).toHaveCount(0)
 
   // Garage lists it with an overdue count; Bike tab returns to the last bike

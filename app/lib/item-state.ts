@@ -1,16 +1,50 @@
 import type { ItemRowJson } from '../../server/domain/item-row'
-import { formatHours, formatKm } from './format'
+import { formatDayMonth, formatKm } from './format'
 
-/** Short state label for an item row: "overdue 5.5 h", "12.0 h left", "Unknown — set last done". */
-export function stateText(row: Pick<ItemRowJson, 'status'>): string {
+type RowLike = Pick<ItemRowJson, 'status'>
+
+/** Tenths of an hour as "20.5h" or "20h" (no trailing ".0"). */
+const hoursShort = (tenths: number): string => `${Number((tenths / 10).toFixed(1))}h`
+const plural = (n: number, unit: string): string => `${n} ${unit}${n === 1 ? '' : 's'}`
+const DAYS_PER_MONTH = 30.4375
+
+/** Right-hand row text in the driver's unit: "overdue 0.5h", "220 km left", "3 months left", "Set last done". */
+export function stateText(row: RowLike): string {
   const { state, driver, remaining } = row.status
-  if (state === 'unknown') return 'Unknown — set last done'
-  const days = remaining.days ?? 0
-  const amount = (sign: 1 | -1): string => {
-    if (driver === 'hours') return formatHours(sign * (remaining.hoursTenths ?? 0)).replace(' h', 'h')
-    if (driver === 'km') return formatKm(sign * (remaining.km ?? 0))
-    const months = Math.max(1, Math.round((sign * days) / 30.4375))
-    return Math.abs(sign * days) < 30 ? `${sign * days} d` : `${months} mo`
+  if (state === 'unknown') return 'Set last done'
+  const overdue = state === 'overdue'
+  const amount = (): string => {
+    if (driver === 'hours') return hoursShort(Math.abs(remaining.hoursTenths ?? 0))
+    if (driver === 'km') return formatKm(Math.abs(remaining.km ?? 0))
+    const days = Math.abs(remaining.days ?? 0)
+    return days >= 60 ? plural(Math.round(days / DAYS_PER_MONTH), 'month') : plural(days, 'day')
   }
-  return state === 'overdue' ? `overdue ${amount(-1)}` : `${amount(1)} left`
+  return overdue ? `overdue ${amount()}` : `${amount()} left`
+}
+
+type SubRow = Pick<ItemRowJson, 'status' | 'def' | 'last'>
+
+/** Second line: "20.5h since change (every 20h) · 12 Sep · garage". */
+export function subline(row: SubRow): string {
+  const { def, status, last } = row
+  const every: Record<'hours' | 'km' | 'months', string | null> = {
+    hours: def.everyHoursTenths ? hoursShort(def.everyHoursTenths) : null,
+    km: def.everyKm ? formatKm(def.everyKm) : null,
+    months: def.everyMonths ? `${def.everyMonths} months` : null,
+  }
+  const order = (['hours', 'km', 'months'] as const).filter((u) => every[u])
+  const lead = status.driver ?? order[0]
+  const list = [lead, ...order.filter((u) => u !== lead)].filter((u): u is 'hours' | 'km' | 'months' => !!u)
+  const intervals = list.map((u) => every[u]).join(' or ')
+  if (status.state === 'unknown' || !status.driver) return `Not logged yet (every ${intervals})`
+  const since =
+    status.driver === 'hours'
+      ? hoursShort(status.effectiveHoursTenths ?? 0)
+      : status.driver === 'km'
+        ? formatKm(status.sinceKm ?? 0)
+        : `${Number((status.sinceMonths ?? 0).toFixed(1))} months`
+  let out = `${since} since change (every ${intervals})`
+  if (last) out += ` · ${formatDayMonth(last.at)}`
+  if (last?.by === 'garage') out += ' · garage'
+  return out
 }
