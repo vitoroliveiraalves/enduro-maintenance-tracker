@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { sql } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { notificationsSent, user } from '../../../server/db/schema'
 import { createBike } from '../../../server/utils/bikes'
 import { createReminder, deleteReminder, listReminders, markReminderDone, patchReminder, rollYear } from '../../../server/utils/reminders'
+import { truncateUsers } from '../../support/truncate'
 
 let uid: string, other: string
 let bike: Awaited<ReturnType<typeof createBike>>
@@ -22,7 +22,7 @@ const status = async (p: Promise<unknown>) => {
 }
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const [u, o] = await db.insert(user).values([{ name: 'A', email: 'a@example.com' }, { name: 'B', email: 'b@example.com' }]).returning()
   uid = u!.id
   other = o!.id

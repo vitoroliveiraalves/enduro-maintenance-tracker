@@ -5,6 +5,7 @@ import { notificationsSent, pushSubscriptions, user } from '../../../server/db/s
 import { createBike, itemRows } from '../../../server/utils/bikes'
 import { createService } from '../../../server/utils/services'
 import { parseSubscription, runNotify, type PushSender } from '../../../server/utils/push'
+import { truncateUsers } from '../../support/truncate'
 
 let uid: string
 let bike: Awaited<ReturnType<typeof createBike>>
@@ -25,7 +26,7 @@ const sub = (userId: string, name: string) =>
   db.insert(pushSubscriptions).values({ userId, endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, p256dh: 'p', auth: 'a', timezone: 'Europe/Lisbon' })
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const [u] = await db.insert(user).values({ name: 'A', email: 'a@example.com' }).returning()
   uid = u!.id
   // 120 of 150 tenths since the change → ratio 0.8 → soon
@@ -94,6 +95,25 @@ describe('runNotify', () => {
     expect(r.calls).toHaveLength(0)
     await runNotify({ now: NOW, send: r.send, userId: uid })
     expect(r.calls).toHaveLength(1)
+  })
+})
+
+describe('runNotify isolation (final review #8)', () => {
+  it("one user's failure is logged and skipped; the other users still get their pushes", async () => {
+    const [u2] = await db.insert(user).values({ name: 'B', email: 'b@example.com' }).returning()
+    await createBike(u2!.id, {
+      clientId: crypto.randomUUID(), name: 'Beta', make: 'Beta', model: 'RR', year: 2022, stroke: '2T', hoursTenths: 1420, km: 3800,
+      items: [{ name: 'Gearbox oil', everyHoursTenths: 150, lastDone: { at: day(10), hoursTenths: 1300, km: 3700 } }],
+    })
+    await sub(uid, 'broken')
+    await sub(u2!.id, 'fine')
+    // Corrupt user A's item so working out what is due throws for that user only.
+    await db.execute(sql`update maintenance_items set condition_multipliers = 'null'::jsonb where user_id = ${uid}`)
+    await db.execute(sql`insert into meter_readings (bike_id, user_id, hours_tenths, km, condition) select id, user_id, 1421, 3801, 'mud' from bikes where user_id = ${uid}`)
+    const r = recorder()
+    const res = await runNotify({ now: NOW, send: r.send })
+    expect(r.calls.map((c) => c.endpoint)).toEqual(['https://fcm.googleapis.com/fcm/send/fine'])
+    expect(res).toMatchObject({ users: 2, sent: 1, failedUsers: 1 })
   })
 })
 

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { E2E_USER, loginAs, sql } from './helpers/login'
+import { E2E_USER, loginAs, signUpFresh, sql } from './helpers/login'
 
 const uniq = () => `rider-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`
 
@@ -63,7 +63,10 @@ test('wrong password shows the error', async ({ page }) => {
 })
 
 test('correct login reaches the garage', async ({ page }) => {
-  await loginAs(page)
+  // A rider of its own: parallel specs add bikes to the shared rider@example.com.
+  const fresh = await signUpFresh(page)
+  await page.context().clearCookies()
+  await loginAs(page, fresh)
   await expect(page.getByTestId('empty-garage')).toBeVisible()
 })
 

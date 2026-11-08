@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { asc, eq, sql } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { categories, documentFiles, documents, expenseItems, expenses, meterReadings, serviceItems, services, user } from '../../../server/db/schema'
 import type { Document } from '../../../server/db/schema'
@@ -7,6 +7,7 @@ import { DEFAULT_CATEGORIES } from '../../../server/utils/categories-seed'
 import { createBike, itemRows } from '../../../server/utils/bikes'
 import { confirmInvoice, discardDocument } from '../../../server/utils/invoice-confirm'
 import { createService } from '../../../server/utils/services'
+import { truncateUsers } from '../../support/truncate'
 
 let uid: string, other: string
 let bike: Awaited<ReturnType<typeof createBike>>
@@ -31,7 +32,7 @@ const body = (over: Record<string, unknown> = {}) => ({
 const reload = async (id: string) => (await db.select().from(documents).where(eq(documents.id, id)))[0]
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const [u, o] = await db.insert(user).values([{ name: 'A', email: 'a@example.com' }, { name: 'B', email: 'b@example.com' }]).returning()
   uid = u!.id
   other = o!.id
@@ -160,7 +161,7 @@ describe('discardDocument', () => {
   it('a confirmed document cannot be discarded (409), its expenses stay', async () => {
     const doc = await makeDoc()
     await confirmInvoice(doc, bike, body())
-    await expect(discardDocument((await reload(doc.id))!)).rejects.toMatchObject({ statusCode: 409 })
+    await expect(discardDocument((await reload(doc.id))!)).rejects.toMatchObject({ statusCode: 409, statusMessage: "A confirmed invoice can't be discarded." })
     expect(await reload(doc.id)).toBeDefined()
     expect(await db.select().from(expenses)).toHaveLength(3)
   })

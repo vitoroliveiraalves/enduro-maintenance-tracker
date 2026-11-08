@@ -1,17 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { expenses, services as servicesTable, user } from '../../../server/db/schema'
 import { createBike, itemRows } from '../../../server/utils/bikes'
 import { createService } from '../../../server/utils/services'
 import { itemHistory } from '../../../server/utils/item-history'
 import { createCategory } from '../../../server/utils/categories'
+import { truncateUsers } from '../../support/truncate'
 
 let uid: string, other: string
 const day = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10)
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const [u, o] = await db.insert(user).values([{ name: 'A', email: 'a@example.com' }, { name: 'B', email: 'b@example.com' }]).returning()
   uid = u!.id
   other = o!.id

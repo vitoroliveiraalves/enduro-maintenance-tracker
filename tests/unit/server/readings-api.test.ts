@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { sql } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { meterReadings, user } from '../../../server/db/schema'
 import { createBike } from '../../../server/utils/bikes'
 import { logReading } from '../../../server/utils/readings'
+import { truncateUsers } from '../../support/truncate'
 
 let uid: string
 let bike: Awaited<ReturnType<typeof createBike>>
@@ -17,7 +17,7 @@ const post = (over: Record<string, unknown> = {}) =>
 const count = async () => (await db.select().from(meterReadings)).length
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const [u] = await db.insert(user).values({ name: 'A', email: 'a@example.com' }).returning()
   uid = u!.id
   bike = await createBike(uid, bikeBody())

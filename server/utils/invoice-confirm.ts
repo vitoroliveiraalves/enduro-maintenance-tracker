@@ -92,11 +92,11 @@ export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): P
   })
 }
 
-/** Delete an unconfirmed document and its files. A saved invoice stays until its expenses are deleted. */
+/** Delete an unconfirmed document and its files. A confirmed invoice is never discarded. */
 export async function discardDocument(doc: Document) {
   const [row] = await db
     .delete(documents)
     .where(and(eq(documents.id, doc.id), eq(documents.userId, doc.userId), ne(documents.status, 'confirmed')))
     .returning({ id: documents.id })
-  if (!row) throw createError({ statusCode: 409, statusMessage: 'A saved invoice can’t be discarded — delete its expenses first.' })
+  if (!row) throw createError({ statusCode: 409, statusMessage: "A confirmed invoice can't be discarded." })
 }

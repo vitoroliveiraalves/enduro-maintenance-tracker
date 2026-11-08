@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import * as s from '../../../server/db/schema'
 import { DEFAULT_CATEGORIES } from '../../../server/utils/categories-seed'
@@ -9,6 +9,7 @@ import { createExpense } from '../../../server/utils/expenses'
 import { createService } from '../../../server/utils/services'
 import { createReminder } from '../../../server/utils/reminders'
 import { deleteAccount } from '../../../server/utils/account'
+import { truncateUsers } from '../../support/truncate'
 
 const USER_TABLES = {
   session: s.session, account: s.account, documents: s.documents, documentFiles: s.documentFiles, bikes: s.bikes,
@@ -54,7 +55,7 @@ async function counts(userId: string) {
 }
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
 })
 
 describe('deleteAccount', () => {

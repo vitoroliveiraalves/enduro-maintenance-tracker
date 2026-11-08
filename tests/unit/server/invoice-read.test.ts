@@ -4,6 +4,7 @@ import { db } from '../../../server/db/client'
 import { documentFiles, documents, user } from '../../../server/db/schema'
 import type { Document } from '../../../server/db/schema'
 import { flipIfStuck, requestRead, STUCK_MS } from '../../../server/utils/invoice-read'
+import { truncateUsers } from '../../support/truncate'
 
 const MANUAL_NO_KEY = 'Automatic reading is not set up on this server.'
 const cfg = { apiKey: 'sk-or-test', model: 'google/gemini-3.1-flash-lite', reader: '', dailyCap: 30 }
@@ -35,7 +36,7 @@ const reload = async (id: string) => (await db.select().from(documents).where(eq
 const fileCount = async (id: string) => (await db.select().from(documentFiles).where(eq(documentFiles.documentId, id))).length
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const [u] = await db.insert(user).values({ name: 'A', email: `a${Math.random()}@example.com` }).returning()
   uid = u!.id
 })

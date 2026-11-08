@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { sql } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { bikes, documents, expenses, categories, maintenanceItems, user } from '../../../server/db/schema'
 import { ownedBike, ownedDocument, ownedExpense, ownedItem } from '../../../server/utils/owned'
+import { truncateUsers } from '../../support/truncate'
 
 // requireUser is covered by the e2e suite; here the "session" is event.context.uid.
 vi.mock('../../../server/utils/require-user', () => ({
@@ -17,7 +17,7 @@ const as = (uid?: string) => ({ context: { uid } }) as never
 let a: string, b: string, bikeA: string, itemA: string, docA: string, expA: string
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const users = await db
     .insert(user)
     .values([

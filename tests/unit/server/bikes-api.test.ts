@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { bikes, maintenanceItems, meterReadings, services, user } from '../../../server/db/schema'
 import { TEMPLATES } from '../../../server/domain/templates'
 import { bikeDetail, createBike, createItem, itemRows, listBikes, patchItem } from '../../../server/utils/bikes'
+import { truncateUsers } from '../../support/truncate'
 
 let uid: string, other: string
 
@@ -23,7 +24,7 @@ const body = (over: Record<string, unknown> = {}) => ({
 })
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const rows = await db
     .insert(user)
     .values([

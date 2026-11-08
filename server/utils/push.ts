@@ -17,11 +17,15 @@ export function vapidFrom(c: { vapidPublicKey?: string; vapidPrivateKey?: string
   return { publicKey: c.vapidPublicKey, privateKey: c.vapidPrivateKey, subject: c.vapidSubject || 'mailto:admin@example.com' }
 }
 
+/** A push service slower than this fails that delivery (retried next hour) instead of hanging the run. */
+export const PUSH_TIMEOUT_MS = 10_000
+
 export function webPushSender(v: VapidConfig): PushSender {
   return async (sub, payload) => {
     await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload, {
       vapidDetails: v,
       TTL: 24 * 3600,
+      timeout: PUSH_TIMEOUT_MS,
     })
   }
 }
@@ -100,42 +104,57 @@ export async function runNotify(opts: { now: Date; send: PushSender; userId?: st
   for (const s of subs) byUser.set(s.userId, [...(byUser.get(s.userId) ?? []), s])
 
   let sent = 0
+  let failedUsers = 0
   for (const [userId, userSubs] of byUser) {
-    const input = await inputFor(userId, opts.now)
-
-    // Items back to ok can warn again next time they get close.
-    const okKeys = input.items.filter((i) => i.status.state === 'ok').map((i) => `item:${i.itemId}:soon`)
-    if (okKeys.length) await db.delete(notificationsSent).where(and(eq(notificationsSent.userId, userId), inArray(notificationsSent.key, okKeys)))
-
-    const due = new Map<string, DueNotification>()
-    for (const tz of new Set(userSubs.map((s) => validTimezone(s.timezone) ?? DEFAULT_TIMEZONE))) {
-      for (const n of notificationsDue({ ...input, timezone: tz })) if (!due.has(n.key)) due.set(n.key, n)
-    }
-
-    let live = [...userSubs]
-    for (const n of due.values()) {
-      if (!live.length) break
-      const claimed = await db.insert(notificationsSent).values({ userId, key: n.key }).onConflictDoNothing().returning({ id: notificationsSent.id })
-      if (!claimed.length) continue
-      const payload = JSON.stringify({ title: n.title, body: n.body, url: n.url, tag: n.key })
-      let delivered = false
-      for (const s of live) {
-        try {
-          await opts.send(s, payload)
-          delivered = true
-          sent++
-        } catch (e) {
-          const code = statusOf(e)
-          if (code === 404 || code === 410) {
-            await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, s.id))
-            live = live.filter((x) => x.id !== s.id)
-          } else {
-            console.warn(`[notify] push failed (${code ?? 'network'}) for ${n.key}`)
-          }
-        }
-      }
-      if (!delivered) await db.delete(notificationsSent).where(eq(notificationsSent.id, claimed[0]!.id))
+    // One user's bad data or a DB hiccup must not cost everyone else their reminders.
+    try {
+      sent += await notifyUser(userId, userSubs, opts)
+    } catch (e) {
+      failedUsers++
+      console.error(`[notify] skipped user ${userId}:`, e)
     }
   }
-  return { users: byUser.size, sent }
+  return { users: byUser.size, sent, failedUsers }
+}
+
+type Sub = typeof pushSubscriptions.$inferSelect
+
+async function notifyUser(userId: string, userSubs: Sub[], opts: { now: Date; send: PushSender }): Promise<number> {
+  let sent = 0
+  const input = await inputFor(userId, opts.now)
+
+  // Items back to ok can warn again next time they get close.
+  const okKeys = input.items.filter((i) => i.status.state === 'ok').map((i) => `item:${i.itemId}:soon`)
+  if (okKeys.length) await db.delete(notificationsSent).where(and(eq(notificationsSent.userId, userId), inArray(notificationsSent.key, okKeys)))
+
+  const due = new Map<string, DueNotification>()
+  for (const tz of new Set(userSubs.map((s) => validTimezone(s.timezone) ?? DEFAULT_TIMEZONE))) {
+    for (const n of notificationsDue({ ...input, timezone: tz })) if (!due.has(n.key)) due.set(n.key, n)
+  }
+
+  let live = [...userSubs]
+  for (const n of due.values()) {
+    if (!live.length) break
+    const claimed = await db.insert(notificationsSent).values({ userId, key: n.key }).onConflictDoNothing().returning({ id: notificationsSent.id })
+    if (!claimed.length) continue
+    const payload = JSON.stringify({ title: n.title, body: n.body, url: n.url, tag: n.key })
+    let delivered = false
+    for (const s of live) {
+      try {
+        await opts.send(s, payload)
+        delivered = true
+        sent++
+      } catch (e) {
+        const code = statusOf(e)
+        if (code === 404 || code === 410) {
+          await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, s.id))
+          live = live.filter((x) => x.id !== s.id)
+        } else {
+          console.warn(`[notify] push failed (${code ?? 'network'}) for ${n.key}`)
+        }
+      }
+    }
+    if (!delivered) await db.delete(notificationsSent).where(eq(notificationsSent.id, claimed[0]!.id))
+  }
+  return sent
 }

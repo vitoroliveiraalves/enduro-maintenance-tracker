@@ -74,3 +74,30 @@ test('offline', async ({ page, context }) => {
   await page.screenshot({ path: 'tests/e2e/__screenshots__/offline-pending-sheet.png' })
   await context.setOffline(false)
 })
+
+test('pending sheet with a set-aside write (Retry)', async ({ page, context }) => {
+  await signUpFresh(page)
+  const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
+  await page.route('**/api/readings', (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ statusCode: 400, statusMessage: "Couldn't reach the server after several tries (503)" }) })
+      : route.fallback(),
+  )
+  await page.goto(`/bikes/${id}`)
+  await page.getByTestId('item-row').first().waitFor()
+  await context.setOffline(true)
+  await page.getByTestId('log-ride').click()
+  await page.getByTestId('hours-input').fill('144,0')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await context.setOffline(false)
+  await page.getByText("1 change couldn't be saved").waitFor()
+  await page.getByTestId('pending-badge').click()
+  await page.getByTestId('pending-retry').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/offline-retry.png' })
+})
+
+test('smoke: home', async ({ page }) => {
+  await page.goto('/')
+  await page.getByText('Enduro Tracker').first().waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/task-1-smoke.png' })
+})

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { documentFiles, documents, user } from '../../../server/db/schema'
 import { MAX_UNCONFIRMED, saveDocument, UNCONFIRMED_COPY, UPLOAD_DAILY_COPY, UPLOADS_PER_DAY } from '../../../server/utils/documents'
+import { truncateUsers } from '../../support/truncate'
 
 vi.mock('../../../server/utils/require-user', () => ({
   requireUser: async (event: { context: { uid?: string } }) => {
@@ -18,7 +19,7 @@ const FT_QR = 'A:501964843*B:999999990*C:PT*D:FT*E:N*F:20260314*G:FT 2026A/0042*
 
 let a: string, b: string
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const users = await db.insert(user).values([{ name: 'A', email: 'a@example.com' }, { name: 'B', email: 'b@example.com' }]).returning()
   a = users[0]!.id
   b = users[1]!.id

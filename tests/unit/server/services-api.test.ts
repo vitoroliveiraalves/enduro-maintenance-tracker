@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { categories, documents, expenseItems, expenses, serviceItems, services, user } from '../../../server/db/schema'
 import { DEFAULT_CATEGORIES } from '../../../server/utils/categories-seed'
@@ -7,6 +7,7 @@ import { createBike, itemRows } from '../../../server/utils/bikes'
 import { createCategory, deleteCategory, listCategories, renameCategory } from '../../../server/utils/categories'
 import { createExpense, listExpenses, patchExpense } from '../../../server/utils/expenses'
 import { createService, deleteService, listServices } from '../../../server/utils/services'
+import { truncateUsers } from '../../support/truncate'
 
 let uid: string, other: string
 let bike: Awaited<ReturnType<typeof createBike>>
@@ -31,7 +32,7 @@ const exp = (over: Record<string, unknown> = {}) =>
   createExpense(uid, bike, { clientId: crypto.randomUUID(), at: day(0), amountCents: 2490, categoryId: cat, description: 'x', ...over })
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const [u, o] = await db.insert(user).values([{ name: 'A', email: 'a@example.com' }, { name: 'B', email: 'b@example.com' }]).returning()
   uid = u!.id
   other = o!.id

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { sql } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { categories, expenses, meterReadings, user } from '../../../server/db/schema'
 import { DEFAULT_CATEGORIES } from '../../../server/utils/categories-seed'
@@ -7,6 +6,7 @@ import { createBike, itemRows } from '../../../server/utils/bikes'
 import { createService } from '../../../server/utils/services'
 import { listCategories } from '../../../server/utils/categories'
 import { compareRanges, comparePct, costsCsv, costsOverview, csvCell, periodRange, readingsDelta } from '../../../server/domain/costs-query'
+import { truncateUsers } from '../../support/truncate'
 
 let uid: string, other: string, cat: string
 let bike: Awaited<ReturnType<typeof createBike>>
@@ -18,7 +18,7 @@ const reading = (at: string, hoursTenths: number, km: number, bikeId = bike.id, 
   db.insert(meterReadings).values({ bikeId, userId, at: new Date(`${at}T12:00:00Z`), hoursTenths, km })
 
 beforeEach(async () => {
-  await db.execute(sql`TRUNCATE "user" CASCADE`)
+  await truncateUsers()
   const [u, o] = await db.insert(user).values([{ name: 'A', email: 'a@example.com' }, { name: 'B', email: 'b@example.com' }]).returning()
   uid = u!.id
   other = o!.id
