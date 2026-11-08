@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, gt, inArray, ne, sql } from 'drizzle-orm'
+import { createError } from 'h3'
 import { db } from '../db/client'
 import { documentFiles, documents } from '../db/schema'
 import { parseInvoiceQrResult } from '../../app/lib/qr-invoice'
+import { DAY_MS, rateLimit } from './rate-limit'
 
 export type UploadInput = {
   files: Array<{ type?: string; data: Buffer }>
@@ -10,6 +12,32 @@ export type UploadInput = {
   clientId: string | null
 }
 export type UploadResult = { id: string; duplicate: boolean; status: 'reading' | 'manual' | 'review' | 'confirmed'; qrNotice?: string }
+
+/** Open registration: one account must not be able to fill the disk. */
+export const UPLOADS_PER_DAY = 30
+export const MAX_UNCONFIRMED = 20
+export const UPLOAD_DAILY_COPY = 'Upload limit reached for today — try again tomorrow.'
+export const UNCONFIRMED_COPY = `You have ${MAX_UNCONFIRMED} invoices waiting for review — confirm or discard some first.`
+
+/**
+ * 429 when the user already has MAX_UNCONFIRMED documents waiting, or made
+ * UPLOADS_PER_DAY in the last 24 h. Counted in Postgres (survives restarts);
+ * the in-memory window on top means discarding uploads doesn't give them back.
+ */
+export async function assertUploadAllowed(userId: string, now = Date.now()) {
+  const since = new Date(now - DAY_MS)
+  const [c] = await db
+    .select({
+      today: sql<number>`count(*) filter (where ${gt(documents.createdAt, since)})::int`,
+      waiting: sql<number>`count(*) filter (where ${ne(documents.status, 'confirmed')})::int`,
+    })
+    .from(documents)
+    .where(eq(documents.userId, userId))
+  if ((c?.waiting ?? 0) >= MAX_UNCONFIRMED) throw createError({ statusCode: 429, statusMessage: UNCONFIRMED_COPY })
+  if ((c?.today ?? 0) >= UPLOADS_PER_DAY || rateLimit(`upload-day:${userId}`, UPLOADS_PER_DAY, DAY_MS, now) !== null) {
+    throw createError({ statusCode: 429, statusMessage: UPLOAD_DAILY_COPY })
+  }
+}
 
 const isUniqueViolation = (err: unknown) => {
   const e = err as { code?: string; cause?: { code?: string } }
@@ -53,6 +81,7 @@ export async function saveDocument(userId: string, input: UploadInput, readingAv
 
   const before = await existing(userId, shas, input.clientId)
   if (before) return { id: before.id, duplicate: before.duplicate, status: before.status, ...notice }
+  await assertUploadAllowed(userId)
 
   const status = readingAvailable ? 'reading' : 'manual'
   try {

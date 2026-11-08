@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { documentFiles, documents, user } from '../../../server/db/schema'
-import { saveDocument } from '../../../server/utils/documents'
+import { MAX_UNCONFIRMED, saveDocument, UNCONFIRMED_COPY, UPLOAD_DAILY_COPY, UPLOADS_PER_DAY } from '../../../server/utils/documents'
 
 vi.mock('../../../server/utils/require-user', () => ({
   requireUser: async (event: { context: { uid?: string } }) => {
@@ -83,5 +83,44 @@ describe('document endpoints across users', () => {
     const mine = (await getDoc(ev(a, { id }))) as { id: string; pages: unknown[] }
     expect(mine.id).toBe(id)
     expect(mine.pages).toHaveLength(1)
+  })
+})
+
+describe('upload quota (open registration)', () => {
+  const save = (uid: string, n: number, clientId: string | null = null) => saveDocument(uid, { files: [jpeg(n)], qrRaw: null, clientId }, false)
+  const rejection = async (p: Promise<unknown>) => p.then(() => null, (e: { statusCode?: number; statusMessage?: string }) => [e.statusCode, e.statusMessage])
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000)
+
+  it(`${UPLOADS_PER_DAY} uploads in 24 h → 429, older ones and other users don't count; a replay still answers`, async () => {
+    expect(UPLOADS_PER_DAY).toBe(30)
+    const clientId = crypto.randomUUID()
+    await save(a, 0, clientId)
+    // 29 more today (confirmed, so the waiting cap is not what trips) + 5 from yesterday.
+    await db.insert(documents).values([
+      ...Array.from({ length: 29 }, () => ({ userId: a, status: 'confirmed' as const })),
+      ...Array.from({ length: 5 }, () => ({ userId: a, status: 'confirmed' as const, createdAt: hoursAgo(25) })),
+    ])
+    expect(await rejection(save(a, 1))).toEqual([429, UPLOAD_DAILY_COPY])
+    expect(UPLOAD_DAILY_COPY).toBe('Upload limit reached for today — try again tomorrow.')
+    expect((await save(a, 0, clientId)).duplicate).toBe(true) // same photo again: the existing document
+    expect(await rejection(save(b, 2))).toBeNull()
+  })
+
+  it(`${MAX_UNCONFIRMED} invoices waiting for review → 429 until some are confirmed or discarded`, async () => {
+    expect(MAX_UNCONFIRMED).toBe(20)
+    await db.insert(documents).values(Array.from({ length: 20 }, (_, i) => ({ userId: a, status: (['manual', 'review', 'reading'] as const)[i % 3], createdAt: hoursAgo(30) })))
+    expect(await rejection(save(a, 1))).toEqual([429, UNCONFIRMED_COPY])
+    expect(UNCONFIRMED_COPY).toBe('You have 20 invoices waiting for review — confirm or discard some first.')
+    const [one] = await db.select({ id: documents.id }).from(documents).where(eq(documents.userId, a)).limit(1)
+    await db.update(documents).set({ status: 'confirmed' }).where(eq(documents.id, one!.id))
+    expect(await rejection(save(a, 1))).toBeNull()
+  })
+
+  it('discarding does not give the day back (upload, discard, repeat)', async () => {
+    for (let i = 0; i < UPLOADS_PER_DAY; i++) {
+      const r = await save(a, 100 + i)
+      await db.delete(documents).where(eq(documents.id, r.id))
+    }
+    expect(await rejection(save(a, 999))).toEqual([429, UPLOAD_DAILY_COPY])
   })
 })

@@ -76,7 +76,9 @@ async function run({ send = defaultSend, now = Date.now, force = false, currentU
     if (status === undefined) return 'stop' // still no network: next trigger
     if (status === 401) return 'pause' // session gone: wait for this user to be confirmed again
     changed = true
-    if (retryable(status)) {
+    // An upload refused by the daily/waiting quota won't pass on a retry: set it aside with the reason.
+    const quota = table === 'pendingPhotos' && status === 429
+    if (retryable(status) && !quota) {
       const attempts = row.attempts + 1
       if (attempts >= MAX_ATTEMPTS || now() - row.createdAt >= MAX_AGE_MS) {
         await db[table].update(row.id!, { attempts, error: `Couldn't reach the server after several tries (${status})` })

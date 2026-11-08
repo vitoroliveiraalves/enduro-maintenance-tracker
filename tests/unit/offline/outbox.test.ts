@@ -408,6 +408,15 @@ describe('pending invoice photos (Ruling R12)', () => {
     expect((await listPhotos())[0]!.error).toBe('PDF too large (10 MB max).')
   })
 
+  it('a 429 upload limit sets it aside with the reason instead of retrying forever', async () => {
+    await queuePhotos({ files: [jpeg()], userId: 'u1' })
+    const res = await flush({ send: recorder(() => Promise.reject(httpErr(429, { statusMessage: 'Upload limit reached for today — try again tomorrow.' }))) })
+    expect(res).toMatchObject({ sent: 0, failed: 1 })
+    const [p] = await listPhotos()
+    expect(p!.error).toBe('Upload limit reached for today — try again tomorrow.')
+    expect(p!.nextAt).toBeUndefined()
+  })
+
   it('cleared with everything else on sign-out', async () => {
     await queuePhotos({ files: [jpeg()], userId: 'u1' })
     await clearOfflineData()
