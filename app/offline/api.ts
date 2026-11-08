@@ -17,6 +17,9 @@ export type MutateOpts = {
 export type Queued = { queued: true }
 export const isQueued = (x: unknown): x is Queued => !!x && typeof x === 'object' && (x as { queued?: unknown }).queued === true
 
+/** A cached screen falls back to its last synced copy after this long (weak signal). */
+export const CACHED_GET_TIMEOUT = 4_000
+/** Uncached reads (documents…) have no fallback: give them longer. */
 const GET_TIMEOUT = 12_000
 const WRITE_TIMEOUT = 15_000
 
@@ -64,7 +67,7 @@ export function createApi(deps: { send: Send; online: () => boolean; userId: () 
     }
     let data: T
     try {
-      data = (await send(url, { timeout: GET_TIMEOUT })) as T
+      data = (await send(url, { timeout: cacheable ? CACHED_GET_TIMEOUT : GET_TIMEOUT })) as T
     } catch (err) {
       const status = statusOf(err)
       // No answer or a broken server: the last synced copy beats an error screen.

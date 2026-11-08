@@ -35,9 +35,60 @@ export function readSession(): CachedSession | null {
 /** Explicit sign-out / account deletion: forget who used this device. */
 export function forgetSession() {
   write(null)
+  resetSessionChecks()
 }
 
 type SessionResult = { data: { user: { id: string; email: string } } | null; error: { status?: number } | null }
+
+/** A session call slower than this (weak signal) is treated like no signal: trust the cache. */
+export const SESSION_TIMEOUT_MS = 3_000
+/** Re-ask the server about a cached session at most this often (plus once per app start / after a 401). */
+export const SESSION_RECHECK_MS = 10 * 60_000
+
+class SessionTimeout extends Error {}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new SessionTimeout('session check timed out')), ms)
+  })
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer))
+}
+
+// Per app start (module state): when the server was last asked, and whether a 401 since asks again.
+let lastAsked: number | null = null
+let stale = false
+
+/** An API call answered 401: the next navigation asks the server again. */
+export function markSessionStale() {
+  stale = true
+}
+
+/** Tests only: forget the per-run state, like a fresh app start. */
+export function resetSessionChecks() {
+  lastAsked = null
+  stale = false
+}
+
+/**
+ * The route guard's view of the session. With a cached signed-in user it asks
+ * the server only once per app start, after a 401, or every 10 minutes; any
+ * other navigation answers from the cache straight away. Without a cached
+ * user (signed out, first run) it always asks.
+ */
+export async function sessionForRoute(
+  fetchSession: () => Promise<SessionResult>,
+  online: boolean,
+  now = Date.now(),
+): Promise<{ user: CachedSession | null; changedUser: boolean }> {
+  const cached = readSession()
+  if (cached && !stale && lastAsked !== null && now - lastAsked < SESSION_RECHECK_MS) return { user: cached, changedUser: false }
+  if (online) {
+    lastAsked = now
+    stale = false
+  }
+  return checkSession(fetchSession, online)
+}
 
 /**
  * `changedUser`: a different account than the one cached here signed in, so
@@ -48,7 +99,8 @@ export async function checkSession(fetchSession: () => Promise<SessionResult>, o
   if (!online) return cached()
   let res: SessionResult
   try {
-    res = await fetchSession()
+    // Weak signal: give up after 3 s and trust the cache, same as no signal.
+    res = await withTimeout(fetchSession(), SESSION_TIMEOUT_MS)
   } catch {
     return cached()
   }
@@ -74,7 +126,11 @@ export async function checkSession(fetchSession: () => Promise<SessionResult>, o
 export async function serverUserId(fetchSession: () => Promise<SessionResult>): Promise<string | null> {
   try {
     const res = await fetchSession()
-    return res.data?.user?.id ?? null
+    const id = res.data?.user?.id ?? null
+    // The server sees someone else (or nobody) than this device remembers: the next navigation re-checks.
+    const cached = readSession()?.userId
+    if (cached && !res.error && id !== cached) markSessionStale()
+    return id
   } catch {
     return null
   }

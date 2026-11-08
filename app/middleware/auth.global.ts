@@ -1,15 +1,16 @@
 import { authClient } from '~/lib/auth-client'
 import { clearOfflineData } from '~/offline/db'
-import { checkSession } from '~/offline/session'
+import { sessionForRoute } from '~/offline/session'
 import { requestFlush, warmCacheOnce } from '~/composables/useOffline'
 
 const PUBLIC = ['/login', '/register']
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const isPublic = PUBLIC.includes(to.path)
-  // A failed request (no signal) trusts the last known session; only the
-  // server answering "no session" sends the rider to /login.
-  const { user, changedUser } = await checkSession(() => authClient.getSession(), navigator.onLine !== false)
+  // A failed or slow (> 3 s) request trusts the last known session; only the
+  // server answering "no session" sends the rider to /login. The server is
+  // asked once per app start, after a 401, or every 10 min — not on every route.
+  const { user, changedUser } = await sessionForRoute(() => authClient.getSession(), navigator.onLine !== false)
   if (changedUser) {
     // Another account on this device: never show the previous rider's data.
     await clearOfflineData()

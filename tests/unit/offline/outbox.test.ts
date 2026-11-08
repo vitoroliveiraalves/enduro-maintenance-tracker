@@ -2,7 +2,7 @@
 // response must reuse the same clientId so the server creates nothing new.
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createApi, isQueued, type Send } from '../../../app/offline/api'
+import { CACHED_GET_TIMEOUT, createApi, isQueued, type Send } from '../../../app/offline/api'
 import { clearOfflineData, getDb } from '../../../app/offline/db'
 import { dismissFailed, listOutbox, OfflineError, OFFLINE_MESSAGE } from '../../../app/offline/outbox'
 import { listPhotos, queuePhotos } from '../../../app/offline/photos'
@@ -235,6 +235,18 @@ describe('get', () => {
       }),
     ).get('/api/bikes')
     expect(res).toEqual([{ id: 'b1' }])
+  })
+
+  it('a cached screen waits 4 s at most before its cached copy (weak signal); uncached reads get longer', async () => {
+    expect(CACHED_GET_TIMEOUT).toBe(4_000)
+    const timeouts: Record<string, number | undefined> = {}
+    const send: Send = async (url, opts) => {
+      timeouts[url] = opts?.timeout
+      return {}
+    }
+    await api(send).get('/api/bikes')
+    await api(send).get('/api/documents/d1')
+    expect(timeouts).toEqual({ '/api/bikes': 4_000, '/api/documents/d1': 12_000 })
   })
 
   it('keys the cache by full URL (costs query)', async () => {

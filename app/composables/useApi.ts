@@ -1,5 +1,6 @@
 import { createApi, isQueued, type MutateOpts } from '~/offline/api'
-import { readSession } from '~/offline/session'
+import { statusOf } from '~/offline/outbox'
+import { markSessionStale, readSession } from '~/offline/session'
 import { requestFlush } from './useOffline'
 
 /**
@@ -18,7 +19,12 @@ export { isQueued }
 
 // Nuxt's typed route inference is too deep for generic URLs; callers give the type.
 type LooseFetch = (url: string, opts?: { method?: string; body?: unknown; timeout?: number }) => Promise<unknown>
-const doFetch = (url: string, opts?: { method?: string; body?: unknown; timeout?: number }) => ($fetch as unknown as LooseFetch)(url, opts)
+const doFetch = (url: string, opts?: { method?: string; body?: unknown; timeout?: number }) =>
+  ($fetch as unknown as LooseFetch)(url, opts).catch((err: unknown) => {
+    // Session gone server-side: the next navigation re-checks it instead of trusting the cache.
+    if (statusOf(err) === 401) markSessionStale()
+    throw err
+  })
 const isOnline = () => typeof navigator === 'undefined' || navigator.onLine !== false
 
 let api: ReturnType<typeof createApi> | null = null
