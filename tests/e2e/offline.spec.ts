@@ -154,6 +154,34 @@ test('a queued write the server refuses is dropped and explained, with Dismiss',
   await expect(page.getByTestId('hours-value')).toHaveText('150.0 h')
 })
 
+test('a set-aside write can be retried from the pending sheet and then goes through', async ({ page, context }) => {
+  const bikeId = await primed(page)
+  // The server refuses the first attempt (as if it had been down for a day), then recovers.
+  let refused = 0
+  await page.route('**/api/readings', async (route) => {
+    if (route.request().method() !== 'POST' || refused++) return route.fallback()
+    await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ statusCode: 400, statusMessage: 'Server unavailable, try later' }) })
+  })
+  await context.setOffline(true)
+  await page.getByTestId('log-ride').click()
+  await page.getByTestId('hours-input').fill('146')
+  await page.getByTestId('km-input').fill('3905')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByTestId('pending-badge')).toHaveText('1 change waiting')
+  await context.setOffline(false)
+  await expect(page.getByTestId('pending-badge')).toHaveText("1 change couldn't be saved")
+  await page.getByTestId('pending-badge').click()
+  await expect(page.getByTestId('pending-failed-reason')).toHaveText('Server unavailable, try later')
+  await page.getByTestId('pending-retry').click()
+  await expect(page.getByTestId('pending-badge')).toBeHidden()
+  const db = sql()
+  try {
+    expect((await db`select count(*)::int as n from meter_readings where bike_id = ${bikeId} and hours_tenths = 1460`)[0]!.n).toBe(1)
+  } finally {
+    await db.end()
+  }
+})
+
 test('offline: a ride lower than the last synced one is caught before it is queued', async ({ page, context }) => {
   await primed(page)
   await context.setOffline(true)

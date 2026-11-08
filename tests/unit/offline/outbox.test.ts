@@ -4,8 +4,8 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CACHED_GET_TIMEOUT, createApi, isQueued, type Send } from '../../../app/offline/api'
 import { clearOfflineData, getDb } from '../../../app/offline/db'
-import { dismissFailed, listOutbox, OfflineError, OFFLINE_MESSAGE } from '../../../app/offline/outbox'
-import { listPhotos, queuePhotos } from '../../../app/offline/photos'
+import { dismissFailed, listOutbox, OfflineError, OFFLINE_MESSAGE, retryFailed } from '../../../app/offline/outbox'
+import { listPhotos, queuePhotos, retryPhoto } from '../../../app/offline/photos'
 import { flushOutbox, MAX_ATTEMPTS } from '../../../app/offline/sync'
 
 type Call = { url: string; method: string; body: Record<string, unknown> | undefined }
@@ -358,14 +358,89 @@ describe('retry cap (fix round 1)', () => {
     expect(rows[0]!.error).toBe("Couldn't reach the server after several tries (503)")
   })
 
-  it('a row older than 24 h is set aside on its next retryable failure', async () => {
+  it('a row queued more than 24 h ago (a weekend offline) that fails once is still retried', async () => {
     online = false
     await api(recorder()).mutate('/api/readings', { bikeId: 'b1', hoursTenths: 1450, km: 3900 }, { queue: true })
     online = true
-    const later = Date.now() + 24 * 3_600_000 + 1
+    const later = Date.now() + 48 * 3_600_000
     const res = await flush({ send: recorder(() => Promise.reject(httpErr(500))), now: () => later })
-    expect(res).toMatchObject({ failed: 1 })
+    expect(res).toMatchObject({ failed: 0 })
+    const [row] = await listOutbox()
+    expect(row).toMatchObject({ attempts: 1, firstFailedAt: later })
+    expect(row!.error).toBeUndefined()
+  })
+
+  it('a row that keeps failing for 24 h (counted from its first failure) is set aside', async () => {
+    online = false
+    await api(recorder()).mutate('/api/readings', { bikeId: 'b1', hoursTenths: 1450, km: 3900 }, { queue: true })
+    online = true
+    const t0 = Date.now() + 48 * 3_600_000
+    const fail = recorder(() => Promise.reject(httpErr(500)))
+    await flush({ send: fail, now: () => t0, force: true })
+    expect(await flush({ send: fail, now: () => t0 + 24 * 3_600_000 - 1, force: true })).toMatchObject({ failed: 0 })
+    expect(await flush({ send: fail, now: () => t0 + 24 * 3_600_000, force: true })).toMatchObject({ failed: 1 })
     expect((await listOutbox())[0]!.error).toMatch(/several tries/)
+  })
+
+  it('Retry puts a set-aside row back in the queue with a fresh count', async () => {
+    online = false
+    await api(recorder()).mutate('/api/readings', { bikeId: 'b1', hoursTenths: 1450, km: 3900 }, { queue: true })
+    online = true
+    const fail = recorder(() => Promise.reject(httpErr(503)))
+    for (let i = 0; i < MAX_ATTEMPTS; i++) await flush({ send: fail, force: true })
+    const [row] = await listOutbox()
+    expect(row!.error).toBeTruthy()
+    await retryFailed(row!.id!)
+    const [again] = await listOutbox()
+    expect(again!.error).toBeUndefined()
+    expect(again!.attempts).toBe(0)
+    expect(again!.firstFailedAt).toBeUndefined()
+    expect(again!.nextAt).toBeUndefined()
+    expect(await flush({ send: recorder() })).toMatchObject({ sent: 1 })
+    expect(await listOutbox()).toHaveLength(0)
+  })
+
+  it('Retry works for set-aside invoice photos too', async () => {
+    await queuePhotos({ files: [new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' })], userId: 'u1' })
+    await flush({ send: recorder(() => Promise.reject(httpErr(429, { statusMessage: 'Upload limit reached for today — try again tomorrow.' }))) })
+    const [p] = await listPhotos()
+    expect(p!.error).toBeTruthy()
+    await retryPhoto(p!.id!)
+    expect((await listPhotos())[0]!.error).toBeUndefined()
+  })
+})
+
+describe('flush works on live rows (final review #9)', () => {
+  it('a row discarded while the flush is running is not sent', async () => {
+    online = false
+    await api(recorder()).mutate('/api/readings', { bikeId: 'b1', hoursTenths: 1450, km: 3900 }, { queue: true })
+    await api(recorder()).mutate('/api/expenses', { amountCents: 100, categoryId: 'c1', at: '2026-11-08' }, { queue: true })
+    online = true
+    const [, second] = await listOutbox()
+    const send = recorder(async (c) => {
+      if (c.url === '/api/readings') await dismissFailed(second!.id!) // discarded from the sheet mid-flush
+      return { ok: true }
+    })
+    expect(await flush({ send })).toMatchObject({ sent: 1 })
+    expect(calls.map((c) => c.url)).toEqual(['/api/readings'])
+  })
+
+  it('a sign-out during the flush stops it before the next row', async () => {
+    online = false
+    await api(recorder()).mutate('/api/readings', { bikeId: 'b1', hoursTenths: 1450, km: 3900 }, { queue: true })
+    await api(recorder()).mutate('/api/expenses', { amountCents: 100, categoryId: 'c1', at: '2026-11-08' }, { queue: true })
+    online = true
+    const rowsBefore = await listOutbox()
+    const send = recorder(async (c) => {
+      if (c.url === '/api/readings') {
+        await clearOfflineData()
+        // Same rider queues again right away: still must not go out in this (stale) flush.
+        await getDb().outbox.add({ ...rowsBefore[1]!, id: undefined })
+      }
+      return { ok: true }
+    })
+    await flush({ send })
+    expect(calls.map((c) => c.url)).toEqual(['/api/readings'])
   })
 })
 

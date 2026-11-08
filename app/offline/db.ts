@@ -21,9 +21,11 @@ export type OutboxRow = {
   meta?: { bikeName?: string; itemNames?: string[]; categoryName?: string }
   /** Failed attempts on a retryable error (5xx, 408, 429). A 401 pauses the queue instead. */
   attempts: number
+  /** When the first of those failures happened: the 24 h give-up window counts from here, not from createdAt. */
+  firstFailedAt?: number
   /** Backoff: don't retry before this time (ms). */
   nextAt?: number
-  /** Set when the server refused it for good (other 4xx) or retries ran out: never retried, shown until dismissed. */
+  /** Set when the server refused it for good (other 4xx) or retries ran out: not retried until the rider taps Retry. */
   error?: string
 }
 
@@ -39,6 +41,7 @@ export type PendingPhoto = {
   qrRaw?: string
   createdAt: number
   attempts: number
+  firstFailedAt?: number
   nextAt?: number
   error?: string
 }
@@ -120,8 +123,13 @@ export function notifyOutbox() {
   listeners.forEach((fn) => fn())
 }
 
+// Bumped by every wipe (sign-out, account deletion, another rider): a flush that started before it stops.
+let generation = 0
+export const offlineGeneration = () => generation
+
 /** Sign-out / account deletion: the next person on this device must see nothing. */
 export async function clearOfflineData(): Promise<void> {
+  generation++
   try {
     const db = getDb()
     await db.transaction('rw', db.tables, () => Promise.all(db.tables.map((t) => t.clear())))

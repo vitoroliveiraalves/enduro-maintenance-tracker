@@ -1,12 +1,12 @@
 <script setup lang="ts">
 // "1 change waiting": writes in the offline outbox. Tap for details:
-// - refused writes (the server said no, or retries ran out) with the reason and Dismiss;
+// - refused writes (the server said no, or retries ran out) with the reason, Retry and Dismiss;
 // - waiting writes, each with "Discard this change" (confirmed in the sheet).
 // No Background Sync on iOS, so it also says to keep the app open once back online.
 import type { PendingItem } from '~/composables/useOffline'
 
 const route = useRoute()
-const { online, pending, waiting, failed, flush, remove } = useOffline()
+const { online, pending, waiting, failed, flush, remove, retry } = useOffline()
 
 const HIDDEN = ['/login', '/register']
 const open = ref(false)
@@ -58,9 +58,20 @@ watch(open, () => (confirmKey.value = null))
           <li v-for="r in failed" :key="r.key" class="rounded-xl bg-bg p-3" data-testid="pending-failed-row">
             <p class="text-sm text-white" data-testid="pending-failed-reason">{{ r.error }}</p>
             <p class="mt-0.5 text-xs text-muted">{{ r.label }}</p>
-            <button type="button" class="mt-2 rounded-lg bg-surface px-3 py-1.5 text-[13px] font-semibold text-white" data-testid="pending-dismiss" @click="remove(r)">
-              Dismiss
-            </button>
+            <div class="mt-2 flex gap-2">
+              <button
+                v-if="online"
+                type="button"
+                class="rounded-lg bg-accent px-3 py-1.5 text-[13px] font-semibold text-[#111]"
+                data-testid="pending-retry"
+                @click="retry(r)"
+              >
+                Retry
+              </button>
+              <button type="button" class="rounded-lg bg-surface px-3 py-1.5 text-[13px] font-semibold text-white" data-testid="pending-dismiss" @click="remove(r)">
+                Dismiss
+              </button>
+            </div>
           </li>
         </ul>
       </section>

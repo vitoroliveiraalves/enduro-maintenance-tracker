@@ -1,4 +1,4 @@
-import { getDb, notifyOutbox, type OutboxRow, type PendingPhoto } from './db'
+import { getDb, notifyOutbox, offlineGeneration, type OutboxRow, type PendingPhoto } from './db'
 import { describeError, listOutbox, retryable, statusOf } from './outbox'
 import { listPhotos, photoForm } from './photos'
 import type { Send } from './api'
@@ -18,7 +18,7 @@ const WRITE_TIMEOUT = 15_000
 const UPLOAD_TIMEOUT = 60_000
 /** Retryable failures (5xx, 408, 429) before a write is set aside for the rider to see. */
 export const MAX_ATTEMPTS = 6
-/** …or this long after it was queued. */
+/** …or once it has kept failing this long (from its first failure, not from when it was queued). */
 export const MAX_AGE_MS = 24 * 3_600_000
 /** 5 s, 10 s, 20 s … capped at 5 min. */
 export const backoff = (attempts: number) => Math.min(5_000 * 2 ** (attempts - 1), 300_000)
@@ -59,6 +59,7 @@ type Outcome = 'sent' | 'failed' | 'next-later' | 'stop' | 'pause'
 
 async function run({ send = defaultSend, now = Date.now, force = false, currentUser }: Opts): Promise<FlushResult> {
   const db = getDb()
+  const gen = offlineGeneration()
   const res: FlushResult = { sent: 0, failed: 0, bikeIds: [], documents: [] }
   const rows = (await listOutbox()).filter((r) => !r.error)
   const photos = (await listPhotos()).filter((p) => !p.error)
@@ -71,7 +72,7 @@ async function run({ send = defaultSend, now = Date.now, force = false, currentU
   let changed = false
 
   /** What to do with a failed send. Updates the row (attempts / error) in `table`. */
-  async function onError(table: 'outbox' | 'pendingPhotos', row: { id?: number; attempts: number; createdAt: number }, err: unknown): Promise<Outcome> {
+  async function onError(table: 'outbox' | 'pendingPhotos', row: { id?: number; attempts: number; firstFailedAt?: number }, err: unknown): Promise<Outcome> {
     const status = statusOf(err)
     if (status === undefined) return 'stop' // still no network: next trigger
     if (status === 401) return 'pause' // session gone: wait for this user to be confirmed again
@@ -80,13 +81,14 @@ async function run({ send = defaultSend, now = Date.now, force = false, currentU
     const quota = table === 'pendingPhotos' && status === 429
     if (retryable(status) && !quota) {
       const attempts = row.attempts + 1
-      if (attempts >= MAX_ATTEMPTS || now() - row.createdAt >= MAX_AGE_MS) {
-        await db[table].update(row.id!, { attempts, error: `Couldn't reach the server after several tries (${status})` })
+      const firstFailedAt = row.firstFailedAt ?? now()
+      if (attempts >= MAX_ATTEMPTS || now() - firstFailedAt >= MAX_AGE_MS) {
+        await db[table].update(row.id!, { attempts, firstFailedAt, error: `Couldn't reach the server after several tries (${status})` })
         res.failed++
         return 'failed'
       }
       res.retryAt = now() + backoff(attempts)
-      await db[table].update(row.id!, { attempts, nextAt: res.retryAt })
+      await db[table].update(row.id!, { attempts, firstFailedAt, nextAt: res.retryAt })
       return 'stop'
     }
     await db[table].update(row.id!, { error: describeError(err) })
@@ -96,8 +98,18 @@ async function run({ send = defaultSend, now = Date.now, force = false, currentU
 
   const waiting = (r: { nextAt?: number }) => !force && r.nextAt && r.nextAt > now()
 
+  // Signed out (or the data wiped) since this flush started: stop before sending anything else.
+  const wiped = () => offlineGeneration() !== gen
+
   let halted = false
-  for (const row of rows.filter((r) => r.userId === uid)) {
+  for (const snap of rows.filter((r) => r.userId === uid)) {
+    if (wiped()) {
+      halted = true
+      break
+    }
+    // Re-read the live row: it may have been discarded, set aside or retried since the snapshot.
+    const row = await db.outbox.get(snap.id!)
+    if (!row || row.error || row.userId !== uid) continue
     if (waiting(row)) {
       res.retryAt = row.nextAt
       halted = true
@@ -126,7 +138,10 @@ async function run({ send = defaultSend, now = Date.now, force = false, currentU
   }
 
   if (!halted) {
-    for (const p of photos.filter((x) => x.userId === uid)) {
+    for (const snap of photos.filter((x) => x.userId === uid)) {
+      if (wiped()) break
+      const p = await db.pendingPhotos.get(snap.id!)
+      if (!p || p.error || p.userId !== uid) continue
       if (waiting(p)) {
         res.retryAt = p.nextAt
         break

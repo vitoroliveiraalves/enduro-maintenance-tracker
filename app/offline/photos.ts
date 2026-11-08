@@ -34,6 +34,12 @@ export async function listPhotos(): Promise<PendingPhoto[]> {
   }
 }
 
+/** Retry set-aside invoice photos: back in the queue with a fresh retry count. */
+export async function retryPhoto(id: number): Promise<void> {
+  await getDb().pendingPhotos.update(id, { error: undefined, attempts: 0, firstFailedAt: undefined, nextAt: undefined })
+  notifyOutbox()
+}
+
 export async function removePhoto(id: number): Promise<void> {
   await getDb().pendingPhotos.delete(id)
   notifyOutbox()

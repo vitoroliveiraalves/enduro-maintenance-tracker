@@ -1,8 +1,8 @@
 import { ref } from 'vue'
 import { authClient } from '~/lib/auth-client'
 import { onOutboxChange } from '~/offline/db'
-import { dismissFailed, listOutbox } from '~/offline/outbox'
-import { listPhotos, removePhoto } from '~/offline/photos'
+import { dismissFailed, listOutbox, retryFailed } from '~/offline/outbox'
+import { listPhotos, removePhoto, retryPhoto } from '~/offline/photos'
 import { readSession, serverUserId } from '~/offline/session'
 import { flushOutbox } from '~/offline/sync'
 
@@ -110,6 +110,12 @@ async function remove(item: PendingItem) {
   syncTick.value++ // screens reload without the discarded change on top
 }
 
+/** Retry on a set-aside item: back in the queue with a fresh retry count, then send now. */
+async function retry(item: PendingItem) {
+  await (item.kind === 'photos' ? retryPhoto(item.id) : retryFailed(item.id))
+  await requestFlush(true)
+}
+
 export function useOffline() {
   const online = useOnline()
   return {
@@ -122,6 +128,7 @@ export function useOffline() {
     syncTick,
     flush: requestFlush,
     remove,
+    retry,
     forgetUploaded: (id?: string) => (uploaded.value = id ? uploaded.value.filter((d) => d !== id) : []),
   }
 }

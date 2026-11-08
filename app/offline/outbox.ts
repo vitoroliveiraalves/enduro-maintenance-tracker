@@ -113,3 +113,9 @@ export async function dismissFailed(id: number): Promise<void> {
   await getDb().outbox.delete(id)
   notifyOutbox()
 }
+
+/** Retry a set-aside write: back in the queue (same place, same clientId) with a fresh retry count. */
+export async function retryFailed(id: number): Promise<void> {
+  await getDb().outbox.update(id, { error: undefined, attempts: 0, firstFailedAt: undefined, nextAt: undefined })
+  notifyOutbox()
+}
