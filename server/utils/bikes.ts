@@ -46,14 +46,20 @@ export function int(v: unknown, field: string, min = 0, max = 10_000_000): numbe
 export function optInt(v: unknown, field: string, min = 0): number | null {
   return v === undefined || v === null ? null : int(v, field, min)
 }
-/** A calendar day "YYYY-MM-DD" that really exists and is not in the future (1 day of slack for timezones). */
-export function cleanDate(v: unknown, label: string): string {
+/** A calendar day "YYYY-MM-DD" that really exists (2026-13-45 and 2027-02-29 are 400s). */
+export function realDate(v: unknown, label: string): string {
   if (typeof v !== 'string') throw bad(`Invalid ${label} date`)
   const at = v.slice(0, 10)
   const parsedAt = new Date(`${at}T00:00:00Z`)
   if (!DATE.test(at) || Number.isNaN(parsedAt.getTime()) || parsedAt.toISOString().slice(0, 10) !== at) {
     throw bad(`Invalid ${label} date`)
   }
+  return at
+}
+
+/** A real calendar day that is not in the future (1 day of slack for timezones). */
+export function cleanDate(v: unknown, label: string): string {
+  const at = realDate(v, label)
   if (at > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw bad(`${label === 'lastDone' ? 'Last done' : 'The'} date is in the future`)
   return at
 }
@@ -219,6 +225,7 @@ export async function itemRows(bikeId: string, userId: string, now = new Date())
     const list = svcRows
       .filter((x) => x.itemId === item.id)
       .map(({ s }) => ({
+        id: s.id,
         at: new Date(s.at),
         ...(s.hoursTenths !== null ? { hoursTenths: s.hoursTenths } : {}),
         ...(s.km !== null ? { km: s.km } : {}),
@@ -227,7 +234,7 @@ export async function itemRows(bikeId: string, userId: string, now = new Date())
       }))
     const picked = pickLastDone(list)
     const src = picked && list.find((s) => s.at.getTime() === picked.at.getTime() && s.hoursTenths === picked.hoursTenths && s.km === picked.km)
-    const last = picked && src ? { ...picked, by: src.by, ...(src.garageName ? { garageName: src.garageName } : {}) } : null
+    const last = picked && src ? { ...picked, serviceId: src.id, by: src.by, ...(src.garageName ? { garageName: src.garageName } : {}) } : null
     const def = defOf(item)
     return { id: item.id, name: item.name, def, last, status: computeStatus(def, picked, readings, now) }
   })

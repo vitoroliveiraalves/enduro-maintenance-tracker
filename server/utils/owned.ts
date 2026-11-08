@@ -1,8 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
 import { db } from '../db/client'
-import { bikes, categories, documents, expenses, maintenanceItems, services } from '../db/schema'
-import type { Bike, Category, Document, Expense, MaintenanceItem, Service } from '../db/schema'
+import { bikes, categories, documents, expenses, maintenanceItems, reminders, services } from '../db/schema'
+import type { Bike, Category, Document, Expense, MaintenanceItem, Reminder, Service } from '../db/schema'
 import { requireUser } from './require-user'
 
 const notFound = () => createError({ statusCode: 404, statusMessage: 'Not found' })
@@ -75,6 +75,17 @@ export async function ownedCategory(event: H3Event, categoryId: string): Promise
     .select()
     .from(categories)
     .where(and(eq(categories.id, categoryId), eq(categories.userId, user.id)))
+  if (!row) throw notFound()
+  return row
+}
+
+export async function ownedReminder(event: H3Event, reminderId: string): Promise<Reminder> {
+  const user = await requireUser(event)
+  if (!UUID.test(reminderId)) throw notFound()
+  const [row] = await db
+    .select()
+    .from(reminders)
+    .where(and(eq(reminders.id, reminderId), eq(reminders.userId, user.id)))
   if (!row) throw notFound()
   return row
 }

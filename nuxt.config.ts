@@ -1,5 +1,8 @@
 import tailwindcss from '@tailwindcss/vite'
 
+// Changes every build: revision of the precached SPA shell.
+const BUILD_ID = Date.now().toString(36)
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
@@ -15,6 +18,9 @@ export default defineNuxtConfig({
 
   nitro: {
     ...(process.env.NUXT_OUTPUT_DIR ? { output: { dir: process.env.NUXT_OUTPUT_DIR } } : {}),
+    // Hourly push due-check (server/tasks/notify.ts).
+    experimental: { tasks: true },
+    scheduledTasks: { '0 * * * *': ['notify'] },
   },
 
   runtimeConfig: {
@@ -25,6 +31,10 @@ export default defineNuxtConfig({
     invoiceGlobalDailyCap: 300,
     // '' = OpenRouter; 'mock' / 'mock-fail' = canned reader for e2e (NUXT_INVOICE_READER)
     invoiceReader: '',
+    // Web Push (NUXT_VAPID_*; `pnpm vapid:generate`). No keys → push disabled, Settings says so.
+    vapidPublicKey: '',
+    vapidPrivateKey: '',
+    vapidSubject: '',
   },
 
   app: {
@@ -35,12 +45,21 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'theme-color', content: '#121417' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-title', content: 'Enduro' },
+      ],
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/pwa-192x192.png' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       ],
     },
   },
 
   pwa: {
     registerType: 'autoUpdate',
+    // Own service worker (app/sw.ts): workbox precache + SPA fallback + push handlers.
+    strategies: 'injectManifest',
+    srcDir: '.', // relative to the Nuxt srcDir (app/)
+    filename: 'sw.ts',
     devOptions: { enabled: false },
     manifest: {
       name: 'Enduro Tracker',
@@ -53,12 +72,17 @@ export default defineNuxtConfig({
       orientation: 'portrait',
       start_url: '/',
       scope: '/',
-      icons: [],
+      icons: [
+        { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+        { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+        { src: 'maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
     },
-    workbox: {
+    injectManifest: {
+      // The SPA shell is rendered by Nitro (no index.html on disk): precache it
+      // per build so the worker's navigation fallback has something to serve.
+      additionalManifestEntries: [{ url: 'index.html', revision: BUILD_ID }],
       globPatterns: ['**/*.{js,css,html,wasm,woff2,png,svg,ico,webmanifest}'],
-      // SPA: every navigation falls back to the app shell.
-      navigateFallback: '/index.html',
       // ZXing's decoder wasm is ~1 MB+; the default 2 MB cap is too tight.
       maximumFileSizeToCacheInBytes: 4_000_000,
     },

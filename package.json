@@ -15,7 +15,9 @@
     "e2e:run": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "user:create": "tsx scripts/user-create.ts"
+    "user:create": "tsx scripts/user-create.ts",
+    "vapid:generate": "node scripts/vapid-generate.mjs",
+    "pwa:icons": "node scripts/pwa-icons.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -40,6 +42,10 @@
     "postgres": "^4.1.0",
     "vue": "^3.5.45",
     "vue-router": "^5.4.0",
+    "web-push": "^3.6.7",
+    "workbox-core": "7.4.1",
+    "workbox-precaching": "7.4.1",
+    "workbox-routing": "7.4.1",
     "zxing-wasm": "1.1.3"
   },
   "devDependencies": {
@@ -49,6 +55,7 @@
     "@tailwindcss/vite": "^4.3.5",
     "@types/node": "^25.9.9",
     "@types/qrcode": "^1.5.6",
+    "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.14.0",
     "happy-dom": "^20.14.6",

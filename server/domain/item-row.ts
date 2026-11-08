@@ -5,7 +5,7 @@ export type ItemRow = {
   id: string
   name: string
   def: ItemDef
-  last: (NonNullable<LastDone> & { by: 'diy' | 'garage'; garageName?: string }) | null
+  last: (NonNullable<LastDone> & { serviceId: string; by: 'diy' | 'garage'; garageName?: string }) | null
   status: Status
 }
 

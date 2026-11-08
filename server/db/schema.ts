@@ -351,17 +351,24 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
   endpoint: text('endpoint').notNull().unique(),
   p256dh: text('p256dh').notNull(),
   auth: text('auth').notNull(),
+  /** IANA zone sent by the client at subscribe time; null → Europe/Lisbon. */
+  timezone: text('timezone'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })
 
-export const notificationsSent = pgTable('notifications_sent', {
-  id: id(),
-  userId: userRef(),
-  key: text('key').notNull().unique(),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-})
+// Dedupe ledger: a key is pushed at most once per user (nudge:<isoWeek> is shared by all users).
+export const notificationsSent = pgTable(
+  'notifications_sent',
+  {
+    id: id(),
+    userId: userRef(),
+    key: text('key').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [unique('notifications_sent_user_key_uq').on(t.userId, t.key)],
+)
 
 export type Bike = typeof bikes.$inferSelect
 export type MaintenanceItem = typeof maintenanceItems.$inferSelect
@@ -369,3 +376,4 @@ export type Document = typeof documents.$inferSelect
 export type Expense = typeof expenses.$inferSelect
 export type Service = typeof services.$inferSelect
 export type Category = typeof categories.$inferSelect
+export type Reminder = typeof reminders.$inferSelect

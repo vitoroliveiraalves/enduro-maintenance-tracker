@@ -8,6 +8,13 @@
       "when": 1794148639961,
       "tag": "0000_simple_azazel",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794162761424,
+      "tag": "0001_push_timezone",
+      "breakpoints": true
     }
   ]
 }
