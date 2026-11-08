@@ -22,6 +22,8 @@ export default defineConfig({
       BETTER_AUTH_SECRET: 'e2e-only-secret-e2e-only-secret-0123456789',
       BETTER_AUTH_URL: WEB,
       AUTH_RATE_LIMIT_MAX: '200',
+      // Canned invoice reader: 3 lines, or a failure for files carrying MOCK-FAIL (see server/utils/invoice-read.ts).
+      NUXT_INVOICE_READER: 'mock',
     },
     reuseExistingServer: false,
     timeout: 60_000,

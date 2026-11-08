@@ -1,11 +1,11 @@
-/** Downscale a photo to `maxSide` px on its longest side and re-encode as JPEG. Small JPEGs pass through. */
-export async function downscaleImage(file: File, maxSide = 2400, quality = 0.85): Promise<Blob> {
+/**
+ * Downscale a photo to `maxSide` px on its longest side and re-encode as JPEG.
+ * Always re-encoded, never passed through: that strips EXIF (GPS, device) and
+ * keeps five pages under the upload cap.
+ */
+export async function downscaleImage(file: Blob, maxSide = 2400, quality = 0.85): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
-  if (scale === 1 && file.type === 'image/jpeg' && file.size < 2_500_000) {
-    bitmap.close()
-    return file
-  }
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(bitmap.width * scale)
   canvas.height = Math.round(bitmap.height * scale)

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { downscaleImage } from '~/lib/image-downscale'
-import { parseInvoiceQrResult } from '~/lib/qr-invoice'
 
 const MAX_PAGES = 5
+const PHOTO_ERROR = "Couldn't read that photo — try another or choose a file."
 const online = useOnline()
 const { mutate } = useApi()
 const { scan } = useQrScan()
@@ -23,8 +23,13 @@ async function addPhotos(e: Event) {
       error.value = `At most ${MAX_PAGES} pages per invoice.`
       break
     }
-    const blob = await downscaleImage(f)
-    pages.value.push({ id: ++seq, file: blob, url: URL.createObjectURL(blob) })
+    try {
+      const blob = await downscaleImage(f)
+      pages.value.push({ id: ++seq, file: blob, url: URL.createObjectURL(blob) })
+    } catch {
+      // e.g. HEIC outside Safari: the browser can't decode it
+      error.value = PHOTO_ERROR
+    }
   }
 }
 
@@ -38,20 +43,21 @@ async function send(files: Blob[]) {
   busy.value = true
   error.value = ''
   try {
+    // Best-effort; a QR of another document type never blocks the upload (the server explains it).
     const qrRaw = await scan(files)
-    if (qrRaw) {
-      const { reason } = parseInvoiceQrResult(qrRaw)
-      if (reason) {
-        error.value = reason
-        return
-      }
-    }
     const form = new FormData()
     files.forEach((f, i) => form.append('files', f, f.type === 'application/pdf' ? 'invoice.pdf' : `page-${i + 1}.jpg`))
     if (qrRaw) form.append('qrRaw', qrRaw)
     form.append('clientId', crypto.randomUUID())
-    const res = await mutate<{ id: string; duplicate: boolean }>('/api/documents', form)
-    await navigateTo({ path: `/invoice/${res.id}`, query: res.duplicate ? { duplicate: '1' } : {} })
+    const res = await mutate<{ id: string; duplicate: boolean; status: string; qrNotice?: string }>('/api/documents', form)
+    if (!res.duplicate && res.status === 'reading') {
+      // Starts the read on the server; the review page polls. A refusal (429) already left the document in manual.
+      await mutate(`/api/documents/${res.id}/read`, {}).catch(() => {})
+    }
+    const query: Record<string, string> = {}
+    if (res.duplicate) query.duplicate = '1'
+    if (res.qrNotice) query.qrNotice = res.qrNotice
+    await navigateTo({ path: `/invoice/${res.id}`, query })
   } catch (err) {
     const e = err as { data?: { statusMessage?: string } }
     error.value = e.data?.statusMessage ?? 'Could not upload the invoice. Try again.'
@@ -79,13 +85,15 @@ async function chooseFile(e: Event) {
     return
   }
   busy.value = true
+  let files: Blob[]
   try {
-    const files = isPdf ? [picked[0]!] : await Promise.all(picked.map((f) => downscaleImage(f)))
-    await send(files)
+    files = isPdf ? [picked[0]!] : await Promise.all(picked.map((f) => downscaleImage(f)))
   } catch {
-    error.value = 'Could not read that file.'
+    error.value = PHOTO_ERROR
     busy.value = false
+    return
   }
+  await send(files)
 }
 
 onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))

@@ -4,6 +4,7 @@ import { bikes, expenseItems, expenses, maintenanceItems, serviceItems, services
 import type { Bike, Service } from '../db/schema'
 import { assertNotAboveMeters, bad, bikeDetail, cleanDate, isObj, latestReading, optInt, str, uuid } from './bikes'
 import { amountCents, checkCategory, checkDocument, checkItemIds, description } from './expenses'
+import type { Tx } from './expenses'
 
 const MAX_EXPENSES = 20
 
@@ -12,12 +13,21 @@ const MAX_EXPENSES = 20
  * `bike` must already be ownership-checked. A replayed clientId creates nothing.
  */
 export async function createService(bike: Bike, raw: unknown) {
+  await db.transaction((tx) => insertService(bike, raw, tx))
+  return bikeDetail(bike)
+}
+
+/**
+ * Validate and write one service inside `tx` (also used by invoice confirm).
+ * Returns the new service id, or null when the clientId was already used.
+ */
+export async function insertService(bike: Bike, raw: unknown, tx: Tx): Promise<string | null> {
   if (!isObj(raw)) throw bad('Invalid body')
   const clientId = uuid(raw.clientId)
   const userId = bike.userId
 
-  const [existing] = await db.select({ id: services.id }).from(services).where(and(eq(services.userId, userId), eq(services.clientId, clientId)))
-  if (existing) return bikeDetail(bike)
+  const [existing] = await tx.select({ id: services.id }).from(services).where(and(eq(services.userId, userId), eq(services.clientId, clientId)))
+  if (existing) return null
 
   const at = cleanDate(raw.at, 'service')
   const hoursTenths = optInt(raw.hoursTenths, 'hoursTenths')
@@ -30,30 +40,28 @@ export async function createService(bike: Bike, raw: unknown) {
   const rawExpenses = raw.expenses ?? []
   if (!Array.isArray(rawExpenses) || rawExpenses.length > MAX_EXPENSES) throw bad('Invalid expenses')
 
-  await db.transaction(async (tx) => {
-    const itemIds = await checkItemIds(bike, raw.itemIds, { min: 1 }, tx)
-    const documentId = await checkDocument(userId, raw.documentId, tx)
-    const costs = []
-    for (const e of rawExpenses) {
-      if (!isObj(e)) throw bad('Invalid expenses')
-      costs.push({ amountCents: amountCents(e.amountCents), categoryId: await checkCategory(userId, e.categoryId, tx), description: description(e.description) })
-    }
-    const [svc] = await tx
-      .insert(services)
-      .values({ bikeId: bike.id, userId, clientId, at, hoursTenths, km, by: raw.by as 'diy' | 'garage', garageName, notes, documentId })
-      .onConflictDoNothing({ target: [services.userId, services.clientId] })
-      .returning({ id: services.id })
-    if (!svc) return // lost a race with a replay of the same clientId
-    await tx.insert(serviceItems).values(itemIds.map((itemId) => ({ serviceId: svc.id, itemId })))
-    for (const c of costs) {
-      const [exp] = await tx
-        .insert(expenses)
-        .values({ userId, bikeId: bike.id, at, serviceId: svc.id, documentId, ...c })
-        .returning({ id: expenses.id })
-      await tx.insert(expenseItems).values(itemIds.map((itemId) => ({ expenseId: exp!.id, itemId })))
-    }
-  })
-  return bikeDetail(bike)
+  const itemIds = await checkItemIds(bike, raw.itemIds, { min: 1 }, tx)
+  const documentId = await checkDocument(userId, raw.documentId, tx)
+  const costs = []
+  for (const e of rawExpenses) {
+    if (!isObj(e)) throw bad('Invalid expenses')
+    costs.push({ amountCents: amountCents(e.amountCents), categoryId: await checkCategory(userId, e.categoryId, tx), description: description(e.description) })
+  }
+  const [svc] = await tx
+    .insert(services)
+    .values({ bikeId: bike.id, userId, clientId, at, hoursTenths, km, by: raw.by as 'diy' | 'garage', garageName, notes, documentId })
+    .onConflictDoNothing({ target: [services.userId, services.clientId] })
+    .returning({ id: services.id })
+  if (!svc) return null // lost a race with a replay of the same clientId
+  await tx.insert(serviceItems).values(itemIds.map((itemId) => ({ serviceId: svc.id, itemId })))
+  for (const c of costs) {
+    const [exp] = await tx
+      .insert(expenses)
+      .values({ userId, bikeId: bike.id, at, serviceId: svc.id, documentId, ...c })
+      .returning({ id: expenses.id })
+    await tx.insert(expenseItems).values(itemIds.map((itemId) => ({ expenseId: exp!.id, itemId })))
+  }
+  return svc.id
 }
 
 /**

@@ -16,3 +16,15 @@ export async function loginAs(page: Page, user = E2E_USER) {
 export function sql() {
   return postgres(E2E_DB_URL, { max: 1 })
 }
+
+/**
+ * A brand-new user signed in on this page's context (default categories seeded
+ * by the sign-up hook). Tests that upload invoices use one each, so dedupe,
+ * document counts and bikes never leak between parallel tests.
+ */
+export async function signUpFresh(page: Page) {
+  const user = { email: `rider-${crypto.randomUUID()}@example.com`, password: 'enduro-pass-1' }
+  const res = await page.request.post('/api/auth/sign-up/email', { data: { ...user, name: 'rider' } })
+  if (!res.ok()) throw new Error(`sign-up failed: ${res.status()} ${await res.text()}`)
+  return user
+}

@@ -4,7 +4,7 @@ import { categories, documents, expenseItems, expenses, maintenanceItems } from 
 import type { Bike } from '../db/schema'
 import { bad, cleanDate, int, isObj, uuid } from './bikes'
 
-type Tx = Pick<typeof db, 'select' | 'insert' | 'delete' | 'update'>
+export type Tx = Pick<typeof db, 'select' | 'insert' | 'delete' | 'update'>
 
 export const MAX_AMOUNT_CENTS = 10_000_000
 

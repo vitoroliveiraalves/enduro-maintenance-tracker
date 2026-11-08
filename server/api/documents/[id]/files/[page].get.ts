@@ -19,5 +19,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'X-Content-Type-Options', 'nosniff')
   setHeader(event, 'Content-Disposition', `inline; filename="invoice-${page}.${ext}"`)
   setHeader(event, 'Cache-Control', 'private, no-store')
+  // A PDF can carry scripts and links: render it with no access to the app's origin.
+  if (file.mime === 'application/pdf') setHeader(event, 'Content-Security-Policy', 'sandbox')
   return file.bytes
 })
