@@ -3,8 +3,7 @@ import { requireUser } from '../../utils/require-user'
 import { saveDocument } from '../../utils/documents'
 import { readerConfig, readingAvailable } from '../../utils/invoice-read'
 import { assertContentLength, MAX_PARTS, validateUploadFiles } from '../../utils/upload-guard'
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from '../../utils/validate'
 
 /** Upload an invoice (<= 5 photos or one PDF). The client then starts reading with POST /:id/read. */
 export default defineEventHandler(async (event) => {
@@ -19,7 +18,7 @@ export default defineEventHandler(async (event) => {
   const clientIdRaw = field('clientId')
   return saveDocument(
     user.id,
-    { files, qrRaw: field('qrRaw').slice(0, 2000) || null, clientId: UUID.test(clientIdRaw) ? clientIdRaw : null },
+    { files, qrRaw: field('qrRaw').slice(0, 2000) || null, clientId: isUuid(clientIdRaw) ? clientIdRaw : null },
     readingAvailable(readerConfig(event)),
   )
 })

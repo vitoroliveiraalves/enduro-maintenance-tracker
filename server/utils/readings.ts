@@ -1,40 +1,31 @@
 import { and, asc, desc, eq, gt, lte } from 'drizzle-orm'
-import { createError } from 'h3'
 import { db } from '../db/client'
 import { meterReadings } from '../db/schema'
 import type { Bike } from '../db/schema'
 import { validateBeforeLater, validateReading } from '../domain/reading-validation'
 import { bikeDetail } from './bikes'
+import { bad, int, timestamp, uuid } from './validate'
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CONDITIONS = ['normal', 'mud', 'sand', 'dust', 'race'] as const
-const bad = (msg: string) => createError({ statusCode: 400, statusMessage: msg })
 
 const meters = (r: { hoursTenths: number; km: number }) => ({ hoursTenths: r.hoursTenths, km: r.km })
-
-function int(v: unknown, field: string): number {
-  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 10_000_000) throw bad(`Invalid ${field}`)
-  return v
-}
 
 export function parseReadingInput(raw: unknown) {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw bad('Invalid body')
   const o = raw as Record<string, unknown>
-  if (typeof o.clientId !== 'string' || !UUID.test(o.clientId)) throw bad('Invalid clientId')
+  const clientId = uuid(o.clientId)
   const condition = o.condition === undefined ? 'normal' : o.condition
   if (!CONDITIONS.includes(condition as (typeof CONDITIONS)[number])) throw bad('Invalid condition')
   let at = new Date()
   if (o.at !== undefined && o.at !== null) {
-    if (typeof o.at !== 'string') throw bad('Invalid date')
-    at = new Date(o.at)
-    if (Number.isNaN(at.getTime())) throw bad('Invalid date')
+    at = timestamp(o.at)
     // one day of slack for server/client timezone differences
     if (at.getTime() > Date.now() + 86_400_000) throw bad('Date is in the future')
     // Within that slack, a client clock running ahead never stores a future reading.
     if (at.getTime() > Date.now()) at = new Date()
   }
   return {
-    clientId: o.clientId,
+    clientId,
     at,
     hoursTenths: int(o.hoursTenths, 'hoursTenths'),
     km: int(o.km, 'km'),

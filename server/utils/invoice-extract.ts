@@ -8,6 +8,7 @@
  * Pure apart from the injected `fetch` — the unit tests mock it. Never throws:
  * every failure is `{ ok: false }` and the rider types the lines (Review Focus 4).
  */
+import { isDay } from './validate'
 
 export type ExtractDoc = { mime: string; bytes: Buffer }
 
@@ -99,10 +100,7 @@ const toCents = (eur: number | null) => {
 
 /** The model's date only if it's a real calendar date (YYYY-MM-DD). */
 function realDate(v: string | null): string | undefined {
-  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return undefined
-  const [y, m, d] = v.split('-').map(Number)
-  const date = new Date(Date.UTC(y!, m! - 1, d!))
-  return y! >= 2000 && y! <= 2100 && date.getUTCMonth() === m! - 1 && date.getUTCDate() === d! ? v : undefined
+  return isDay(v) && v >= '2000-01-01' ? v : undefined
 }
 
 export function buildRequest(docs: ExtractDoc[], model: string) {

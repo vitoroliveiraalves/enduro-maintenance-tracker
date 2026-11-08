@@ -2,7 +2,8 @@ import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, notificationsSent, reminders } from '../db/schema'
 import type { Bike, Reminder } from '../db/schema'
-import { bad, isObj, realDate, str, uuid } from './bikes'
+import { isObj, realDate, str } from './bikes'
+import { bad, uuid } from './validate'
 
 export const REMINDER_PRESETS = ['Insurance', 'IUC', 'Inspection', 'Licence'] as const
 
@@ -81,6 +82,7 @@ async function rowOf(userId: string, id: string): Promise<ReminderRow> {
 /** `bike` (when given) must already be ownership-checked. A replayed clientId creates nothing. */
 export async function createReminder(userId: string, bike: Bike | null, raw: unknown): Promise<ReminderRow> {
   if (!isObj(raw)) throw bad('Invalid body')
+  if (raw.bikeId != null && typeof raw.bikeId !== 'string') throw bad('Invalid bikeId')
   const clientId = uuid(raw.clientId)
   const values = { userId, clientId, bikeId: bike?.id ?? null, title: str(raw.title, 'title'), dueOn: dueOn(raw.dueOn), repeatYearly: repeat(raw.repeatYearly) }
   const [row] = await db.insert(reminders).values(values).onConflictDoNothing({ target: [reminders.userId, reminders.clientId] }).returning()
@@ -97,7 +99,10 @@ export async function patchReminder(userId: string, r: Reminder, bike: Bike | nu
   if (raw.dueOn !== undefined) set.dueOn = dueOn(raw.dueOn)
   if (raw.repeatYearly !== undefined) set.repeatYearly = repeat(raw.repeatYearly)
   if (raw.bikeId === null) set.bikeId = null
-  else if (raw.bikeId !== undefined) set.bikeId = bike!.id
+  else if (raw.bikeId !== undefined) {
+    if (typeof raw.bikeId !== 'string' || !bike) throw bad('Invalid bikeId')
+    set.bikeId = bike.id
+  }
   if (Object.keys(set).length) {
     await db.update(reminders).set(set).where(and(eq(reminders.id, r.id), eq(reminders.userId, userId)))
     if (set.dueOn && set.dueOn !== r.dueOn) await rearm(userId, r.id)

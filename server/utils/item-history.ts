@@ -3,12 +3,11 @@ import { createError } from 'h3'
 import { db } from '../db/client'
 import { expenses, maintenanceItems, serviceItems, services } from '../db/schema'
 import { itemRows } from './bikes'
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from './validate'
 
 /** One item's status plus every service that reset it, highest hours first. `userId` scopes everything. */
 export async function itemHistory(itemId: string, userId: string) {
-  if (!UUID.test(itemId)) throw createError({ statusCode: 404, statusMessage: 'Not found' })
+  if (!isUuid(itemId)) throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const [found] = await db
     .select({ bikeId: maintenanceItems.bikeId })
     .from(maintenanceItems)

@@ -3,7 +3,8 @@ import { and, asc, eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { categories, categoryKinds, expenses } from '../db/schema'
 import type { Category } from '../db/schema'
-import { bad, isObj, str, uuid } from './bikes'
+import { isObj, str } from './bikes'
+import { bad, uuid } from './validate'
 
 export const listCategories = (userId: string) =>
   db.select().from(categories).where(eq(categories.userId, userId)).orderBy(asc(categories.createdAt), asc(categories.name))

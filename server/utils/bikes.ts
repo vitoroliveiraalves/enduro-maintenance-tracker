@@ -1,15 +1,11 @@
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
-import { createError } from 'h3'
 import { db } from '../db/client'
 import { bikes, maintenanceItems, meterReadings, serviceItems, services } from '../db/schema'
 import type { Bike, ConditionMultipliers, MaintenanceItem } from '../db/schema'
 import { computeStatus, pickLastDone, sortByUrgency } from '../domain/maintenance-status'
 import type { ItemDef, Reading } from '../domain/maintenance-status'
 import type { BikeSummary, ItemRow } from '../domain/item-row'
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const DATE = /^\d{4}-\d{2}-\d{2}$/
-export const bad = (msg: string) => createError({ statusCode: 400, statusMessage: msg })
+import { bad, day, int, MAX_YEAR, uuid } from './validate'
 
 export type ItemInput = {
   name: string
@@ -39,28 +35,21 @@ export function str(v: unknown, field: string, max = 80): string {
   if (typeof v !== 'string' || !v.trim() || v.trim().length > max) throw bad(`Invalid ${field}`)
   return v.trim()
 }
-export function int(v: unknown, field: string, min = 0, max = 10_000_000): number {
-  if (typeof v !== 'number' || !Number.isInteger(v) || v < min || v > max) throw bad(`Invalid ${field}`)
-  return v
-}
 export function optInt(v: unknown, field: string, min = 0): number | null {
   return v === undefined || v === null ? null : int(v, field, min)
 }
-/** A calendar day "YYYY-MM-DD" that really exists (2026-13-45 and 2027-02-29 are 400s). */
+/** A calendar day "YYYY-MM-DD" (a longer ISO string is cut to its day) — see `day()` in validate.ts. */
 export function realDate(v: unknown, label: string): string {
-  if (typeof v !== 'string') throw bad(`Invalid ${label} date`)
-  const at = v.slice(0, 10)
-  const parsedAt = new Date(`${at}T00:00:00Z`)
-  if (!DATE.test(at) || Number.isNaN(parsedAt.getTime()) || parsedAt.toISOString().slice(0, 10) !== at) {
-    throw bad(`Invalid ${label} date`)
-  }
-  return at
+  return day(typeof v === 'string' ? v.slice(0, 10) : v, `${label} date`)
 }
 
 /** A real calendar day that is not in the future (1 day of slack for timezones). */
 export function cleanDate(v: unknown, label: string): string {
+  const future = () => bad(`${label === 'lastDone' ? 'Last done' : 'The'} date is in the future`)
+  // Past MAX_YEAR is still "in the future" to the rider, not "invalid".
+  if (typeof v === 'string' && /^\d{4}-/.test(v) && Number(v.slice(0, 4)) > MAX_YEAR) throw future()
   const at = realDate(v, label)
-  if (at > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw bad(`${label === 'lastDone' ? 'Last done' : 'The'} date is in the future`)
+  if (at > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw future()
   return at
 }
 
@@ -76,11 +65,6 @@ export function assertNotAboveMeters(
   if (done.km != null && done.km > current.km) {
     throw bad(`${what}: ${done.km} km is more than the bike's current ${current.km} km`)
   }
-}
-
-export function uuid(v: unknown, field = 'clientId'): string {
-  if (typeof v !== 'string' || !UUID.test(v)) throw bad(`Invalid ${field}`)
-  return v
 }
 
 const MULTIPLIER_KEYS = ['mud', 'sand', 'dust', 'race'] as const

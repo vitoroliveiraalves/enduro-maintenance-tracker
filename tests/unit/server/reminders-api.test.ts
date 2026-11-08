@@ -101,6 +101,13 @@ describe('patch / delete', () => {
     expect(await status(patchReminder(uid, r, null, { dueOn: '2026-02-30' }))).toBe(400)
   })
 
+  it('a non-string bikeId or a year-0 dueOn is a 400, not a crash', async () => {
+    const r = await rem({}, uid, bike)
+    for (const bikeId of [123, true, {}, []]) expect(await status(patchReminder(uid, r, null, { bikeId }))).toBe(400)
+    expect(await status(patchReminder(uid, r, null, { dueOn: '0000-01-01' }))).toBe(400)
+    expect(await status(rem({ bikeId: 123 }))).toBe(400)
+  })
+
   it('delete removes the row', async () => {
     const r = await rem()
     await deleteReminder(uid, r.id)

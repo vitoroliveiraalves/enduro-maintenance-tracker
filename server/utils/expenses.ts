@@ -2,7 +2,8 @@ import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import { db } from '../db/client'
 import { categories, documents, expenseItems, expenses, maintenanceItems } from '../db/schema'
 import type { Bike } from '../db/schema'
-import { bad, cleanDate, int, isObj, uuid } from './bikes'
+import { cleanDate, isObj } from './bikes'
+import { bad, int, uuid } from './validate'
 
 export type Tx = Pick<typeof db, 'select' | 'insert' | 'delete' | 'update'>
 
@@ -68,6 +69,7 @@ export type ExpenseRow = ReturnType<typeof expenseRow>
 /** Standalone expense (no service). `bike` is the ownership-checked bike, or null. Idempotent on clientId. */
 export async function createExpense(userId: string, bike: Bike | null, raw: unknown): Promise<ExpenseRow> {
   if (!isObj(raw)) throw bad('Invalid body')
+  if (raw.bikeId != null && typeof raw.bikeId !== 'string') throw bad('Invalid bikeId')
   const clientId = uuid(raw.clientId)
   const at = cleanDate(raw.at, 'expense')
   const cents = amountCents(raw.amountCents)

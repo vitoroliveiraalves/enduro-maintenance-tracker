@@ -4,16 +4,16 @@ import { db } from '../db/client'
 import { bikes, categories, documents, expenses, maintenanceItems, reminders, services } from '../db/schema'
 import type { Bike, Category, Document, Expense, MaintenanceItem, Reminder, Service } from '../db/schema'
 import { requireUser } from './require-user'
+import { isUuid } from './validate'
 
 const notFound = () => createError({ statusCode: 404, statusMessage: 'Not found' })
 
 // A malformed id can never match a row; answer 404 without hitting Postgres.
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Bike `bikeId` if it belongs to the signed-in user, else 404. */
 export async function ownedBike(event: H3Event, bikeId: string): Promise<Bike> {
   const user = await requireUser(event)
-  if (!UUID.test(bikeId)) throw notFound()
+  if (!isUuid(bikeId)) throw notFound()
   const [row] = await db
     .select()
     .from(bikes)
@@ -25,7 +25,7 @@ export async function ownedBike(event: H3Event, bikeId: string): Promise<Bike> {
 /** Maintenance item of one of the user's bikes (joined through the bike), else 404. */
 export async function ownedItem(event: H3Event, itemId: string): Promise<MaintenanceItem> {
   const user = await requireUser(event)
-  if (!UUID.test(itemId)) throw notFound()
+  if (!isUuid(itemId)) throw notFound()
   const [row] = await db
     .select({ item: maintenanceItems })
     .from(maintenanceItems)
@@ -37,7 +37,7 @@ export async function ownedItem(event: H3Event, itemId: string): Promise<Mainten
 
 export async function ownedDocument(event: H3Event, documentId: string): Promise<Document> {
   const user = await requireUser(event)
-  if (!UUID.test(documentId)) throw notFound()
+  if (!isUuid(documentId)) throw notFound()
   const [row] = await db
     .select()
     .from(documents)
@@ -48,7 +48,7 @@ export async function ownedDocument(event: H3Event, documentId: string): Promise
 
 export async function ownedExpense(event: H3Event, expenseId: string): Promise<Expense> {
   const user = await requireUser(event)
-  if (!UUID.test(expenseId)) throw notFound()
+  if (!isUuid(expenseId)) throw notFound()
   const [row] = await db
     .select()
     .from(expenses)
@@ -59,7 +59,7 @@ export async function ownedExpense(event: H3Event, expenseId: string): Promise<E
 
 export async function ownedService(event: H3Event, serviceId: string): Promise<Service> {
   const user = await requireUser(event)
-  if (!UUID.test(serviceId)) throw notFound()
+  if (!isUuid(serviceId)) throw notFound()
   const [row] = await db
     .select()
     .from(services)
@@ -70,7 +70,7 @@ export async function ownedService(event: H3Event, serviceId: string): Promise<S
 
 export async function ownedCategory(event: H3Event, categoryId: string): Promise<Category> {
   const user = await requireUser(event)
-  if (!UUID.test(categoryId)) throw notFound()
+  if (!isUuid(categoryId)) throw notFound()
   const [row] = await db
     .select()
     .from(categories)
@@ -81,7 +81,7 @@ export async function ownedCategory(event: H3Event, categoryId: string): Promise
 
 export async function ownedReminder(event: H3Event, reminderId: string): Promise<Reminder> {
   const user = await requireUser(event)
-  if (!UUID.test(reminderId)) throw notFound()
+  if (!isUuid(reminderId)) throw notFound()
   const [row] = await db
     .select()
     .from(reminders)

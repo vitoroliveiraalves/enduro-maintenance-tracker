@@ -3,12 +3,15 @@ import { createError, defineEventHandler, getRouterParam, setHeader } from 'h3'
 import { db } from '../../../../db/client'
 import { documentFiles } from '../../../../db/schema'
 import { ownedDocument } from '../../../../utils/owned'
+import { MAX_PHOTOS } from '../../../../utils/upload-guard'
+import { isInt } from '../../../../utils/validate'
 
 // The original page, inline, never cached. Ownership is checked through the document.
 export default defineEventHandler(async (event) => {
   const doc = await ownedDocument(event, getRouterParam(event, 'id') ?? '')
   const page = Number(getRouterParam(event, 'page'))
-  if (!Number.isInteger(page) || page < 1) throw createError({ statusCode: 404, statusMessage: 'Not found' })
+  // Pages are 1..MAX_PHOTOS; anything else (99999999999 overflows int4) is simply not there.
+  if (!isInt(page, 1, MAX_PHOTOS)) throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const [file] = await db
     .select({ mime: documentFiles.mime, bytes: documentFiles.bytes })
     .from(documentFiles)

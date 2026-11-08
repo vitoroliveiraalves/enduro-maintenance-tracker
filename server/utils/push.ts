@@ -3,7 +3,8 @@ import webpush from 'web-push'
 import { db } from '../db/client'
 import { bikes, meterReadings, notificationsSent, pushSubscriptions, reminders } from '../db/schema'
 import { DEFAULT_TIMEZONE, notificationsDue, validTimezone, type DueNotification, type NotifyInput } from '../domain/notify-rules'
-import { bad, isObj, itemRows } from './bikes'
+import { isObj, itemRows } from './bikes'
+import { bad } from './validate'
 
 export type VapidConfig = { publicKey: string; privateKey: string; subject: string }
 export type PushTarget = { endpoint: string; p256dh: string; auth: string }

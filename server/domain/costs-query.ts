@@ -3,15 +3,14 @@ import { createError } from 'h3'
 import { db } from '../db/client'
 import { bikes, categories, documents, expenseItems, expenses, meterReadings, serviceItems, services } from '../db/schema'
 import { itemRows } from '../utils/bikes'
+import { bad, isDay, isUuid } from '../utils/validate'
 
 export type Period = 'month' | 'year' | 'all'
 export type CostsParams = { period: Period; date: string; bikeId?: string | null }
 export type Range = { from: string | null; to: string | null }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/
-const bad = (msg: string) => createError({ statusCode: 400, statusMessage: msg })
-
-export const isRealDate = (s: string) => DATE.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s
+/** Kept for callers/tests: a real "YYYY-MM-DD" in 1900–2100 (validate.ts `isDay`). */
+export const isRealDate = (s: string) => isDay(s)
 export const todayStr = (now = new Date()) => now.toISOString().slice(0, 10)
 
 const lastDayOf = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate()
@@ -22,7 +21,7 @@ export function parseCostsQuery(q: Record<string, unknown>, now = new Date()): C
   const period = q.period ?? 'month'
   if (period !== 'month' && period !== 'year' && period !== 'all') throw bad('Invalid period')
   const date = q.date === undefined || q.date === '' ? todayStr(now) : q.date
-  if (typeof date !== 'string' || !isRealDate(date)) throw bad('Invalid date')
+  if (!isDay(date)) throw bad('Invalid date')
   const bikeId = typeof q.bikeId === 'string' && q.bikeId ? q.bikeId : null
   return { period, date, bikeId }
 }
@@ -74,7 +73,7 @@ export function readingsDelta(rs: Rd[], range: Range): { hoursTenths: number; km
 async function checkedBike(userId: string, bikeId: string | null | undefined) {
   if (!bikeId) return null
   const notFound = createError({ statusCode: 404, statusMessage: 'Not found' })
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bikeId)) throw notFound
+  if (!isUuid(bikeId)) throw notFound
   const [b] = await db.select().from(bikes).where(and(eq(bikes.id, bikeId), eq(bikes.userId, userId)))
   if (!b) throw notFound
   return b
