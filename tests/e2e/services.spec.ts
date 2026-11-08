@@ -36,6 +36,7 @@ test('mark done with a comma cost, standalone expense, history, delete', async (
   await page.getByTestId('md-save').click()
   await expect(page.getByTestId('md-error')).toContainText('Enter the cost')
   await page.getByTestId('md-cost').fill('24,90')
+  await expect(page.getByTestId('md-error')).toHaveCount(0)
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'tests/e2e/__screenshots__/mark-done.png' })
   await page.getByTestId('md-save').click()
   await expect(dialog).toHaveCount(0)

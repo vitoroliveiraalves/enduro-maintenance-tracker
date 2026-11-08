@@ -177,7 +177,7 @@ describe('expenses', () => {
   it('400s: amount range, foreign category, item without bike, foreign item', async () => {
     const it = await items()
     const [otherCat] = await db.insert(categories).values({ userId: other, name: 'Z', kind: 'other' }).returning()
-    for (const c of [{ amountCents: 0 }, { amountCents: 10_000_001 }, { amountCents: 2.5 }, { amountCents: '24,90' }, { categoryId: otherCat!.id }, { at: day(-3) }, { description: 'x'.repeat(201) }]) {
+    for (const c of [{ amountCents: 0 }, { amountCents: 10_000_001 }, { amountCents: 2.5 }, { amountCents: '24,90' }, { categoryId: otherCat!.id }, { at: day(-3) }, { description: 'x'.repeat(201) }, { categoryId: '-'.repeat(36) }, { categoryId: 5 }]) {
       await expect(exp(c), JSON.stringify(c)).rejects.toMatchObject({ statusCode: 400 })
     }
     await expect(createExpense(uid, null, { clientId: crypto.randomUUID(), at: day(0), amountCents: 1, categoryId: cat, itemIds: [it['Air filter']!.id] })).rejects.toMatchObject({ statusCode: 400 })

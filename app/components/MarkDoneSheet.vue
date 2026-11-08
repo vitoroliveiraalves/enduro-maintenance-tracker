@@ -95,7 +95,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 
 <template>
   <Sheet v-model:open="open" :title="`Mark done: ${itemName}`" testid="mark-done-sheet">
-    <form @submit.prevent="save">
+    <form @submit.prevent="save" @input="error = ''" @change="error = ''">
       <label class="block text-[11px] uppercase tracking-wider text-muted">
         Date
         <input v-model="at" type="date" :max="todayLocal()" required data-testid="md-date" :class="field">

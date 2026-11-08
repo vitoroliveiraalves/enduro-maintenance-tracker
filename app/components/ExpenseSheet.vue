@@ -70,7 +70,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 
 <template>
   <Sheet v-model:open="open" title="Add expense" testid="expense-sheet">
-    <form @submit.prevent="save">
+    <form @submit.prevent="save" @input="error = ''" @change="error = ''">
       <div class="flex gap-2.5">
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Amount (€)

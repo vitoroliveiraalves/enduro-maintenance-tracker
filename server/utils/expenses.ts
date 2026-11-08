@@ -20,8 +20,7 @@ export function description(v: unknown): string {
 
 /** categoryId must be one of the user's categories. */
 export async function checkCategory(userId: string, categoryId: unknown, t: Tx = db): Promise<string> {
-  const id = typeof categoryId === 'string' ? categoryId : ''
-  if (!/^[0-9a-f-]{36}$/i.test(id)) throw bad('Invalid categoryId')
+  const id = uuid(categoryId, 'categoryId')
   const [row] = await t.select({ id: categories.id }).from(categories).where(and(eq(categories.id, id), eq(categories.userId, userId)))
   if (!row) throw bad('Invalid categoryId')
   return id
