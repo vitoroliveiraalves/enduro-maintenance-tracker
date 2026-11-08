@@ -32,7 +32,7 @@ const id = route.params.docId as string
 const duplicate = route.query.duplicate === '1'
 const qrNotice = typeof route.query.qrNotice === 'string' ? route.query.qrNotice : ''
 const { get, mutate } = useApi()
-const { money, date, hours: fmtHours } = useFormatters()
+const { money, date } = useFormatters()
 const store = useBikesStore()
 
 const doc = ref<Doc | null>(null)
@@ -131,13 +131,17 @@ async function loadBike() {
   defaultMeters()
 }
 
-/** Hours/km default to the reading nearest the invoice date, until the rider types their own. */
+/**
+ * Hours/km default to the latest reading on or before the invoice date (never a
+ * later one: the service would look fresher than it was). None → left blank.
+ */
 function defaultMeters() {
   if (metersTouched.value) return
-  const target = new Date(`${at.value}T12:00:00`).getTime()
+  const endOfDay = new Date(`${at.value}T23:59:59.999`).getTime()
   let best: Reading | null = null
   for (const r of readings.value) {
-    if (!best || Math.abs(new Date(r.at).getTime() - target) < Math.abs(new Date(best.at).getTime() - target)) best = r
+    const t = new Date(r.at).getTime()
+    if (t <= endOfDay && (!best || t > new Date(best.at).getTime())) best = r
   }
   hoursText.value = best ? (best.hoursTenths / 10).toFixed(1) : ''
   kmText.value = best ? String(best.km) : ''
@@ -380,7 +384,7 @@ async function discard() {
                 <input v-model="kmText" inputmode="numeric" autocomplete="off" placeholder="3812" data-testid="inv-km" :class="field" @input="metersTouched = true">
               </label>
             </div>
-            <p v-if="hoursText && !metersTouched" class="mt-1.5 text-xs text-muted">From the reading nearest the invoice date ({{ fmtHours(Math.round((parseDecimal(hoursText) ?? 0) * 10)) }}).</p>
+            <p v-if="hoursText && !metersTouched" class="mt-1.5 text-xs text-muted" data-testid="meters-hint">From your last reading before {{ date(at) }}</p>
           </template>
         </section>
 

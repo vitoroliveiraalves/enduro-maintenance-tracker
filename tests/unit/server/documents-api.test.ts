@@ -10,7 +10,7 @@ vi.mock('../../../server/utils/require-user', () => ({
     return { id: event.context.uid, email: 'x@example.com' }
   },
 }))
-vi.stubGlobal('useRuntimeConfig', () => ({ openrouterApiKey: '', openrouterModel: 'm', invoiceReader: '', invoiceDailyCap: 30 }))
+vi.stubGlobal('useRuntimeConfig', () => ({ openrouterApiKey: '', openrouterModel: 'm', invoiceReader: '', invoiceDailyCap: 30, invoiceGlobalDailyCap: 300 }))
 
 const jpeg = (n: number) => ({ type: 'image/jpeg', data: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.from(`page-${n}`)]) })
 const RC_QR = 'A:501964843*B:999999990*C:PT*D:RC*E:N*F:20260314*G:RC 2026A/7*H:ABCD1234-7*I1:PT*N:0.00*O:50.00*Q:AbCd*R:1234'

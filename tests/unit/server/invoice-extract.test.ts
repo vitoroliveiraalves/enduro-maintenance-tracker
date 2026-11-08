@@ -99,6 +99,13 @@ describe('parseExtraction', () => {
     expect(y.lines[0]).not.toHaveProperty('qty')
   })
 
+  it('keeps at most 50 lines (as confirm does) and never derives a total above the cap', () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({ ...modelJson.lines[1]!, description: `Line ${i + 1}` }))
+    expect(parseExtraction({ ...modelJson, lines: many }).lines).toHaveLength(50)
+    const huge = parseExtraction({ ...modelJson, lines: [{ ...modelJson.lines[0]!, qty: 200, unitPrice: 99_999, lineTotal: null }] }).lines[0]!
+    expect(huge).toMatchObject({ unitCents: 9_999_900, totalCents: null })
+  })
+
   it('throws when there is no lines array', () => {
     expect(() => parseExtraction({ ...modelJson, lines: 'nope' })).toThrow()
     expect(() => parseExtraction('prose')).toThrow()
@@ -128,6 +135,7 @@ describe('extractInvoice', () => {
     ['prose instead of JSON', async () => okResponse('Sure! Here is the invoice: a tyre and some labour.'), 'invalid_json'],
     ['HTTP 500', async () => new Response('boom', { status: 500 }), 'http_500'],
     ['a body that is not JSON', async () => new Response('<html>', { status: 200 }), 'invalid_response'],
+    ['a JSON null body', async () => new Response('null', { status: 200 }), 'refused'],
     ['a refusal', async () => new Response(JSON.stringify({ choices: [{ message: { content: null, refusal: 'no' } }] }), { status: 200 }), 'refused'],
     ['an unreadable photo', async () => okResponse({ ...modelJson, readable: false }), 'unreadable'],
     ['a network failure', async () => Promise.reject(Object.assign(new Error('down'), { name: 'TypeError' })), 'network'],

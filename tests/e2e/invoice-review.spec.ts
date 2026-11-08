@@ -26,7 +26,13 @@ async function freshRiderWithBike(page: Page) {
     ]),
   })
   expect(res.ok()).toBeTruthy()
-  return { ...user, bikeId: ((await res.json()) as { id: string }).id }
+  const bikeId = ((await res.json()) as { id: string }).id
+  // Readings around the garage invoice (2 Nov): one before it, one after it, then today's 142.5 h.
+  for (const [at, hoursTenths, km] of [['2026-10-06T10:00:00Z', 1305, 3500], ['2026-11-05T10:00:00Z', 1400, 3700]] as const) {
+    const r = await page.request.post('/api/readings', { data: { clientId: crypto.randomUUID(), bikeId, at, hoursTenths, km } })
+    expect(r.ok()).toBeTruthy()
+  }
+  return { ...user, bikeId }
 }
 
 async function upload(page: Page, file: string) {
@@ -58,10 +64,11 @@ test('read → review 3 lines with suggestions → confirm → bike shows Wheel 
   await expect(page.getByTestId('supplier-nif')).toBeDisabled()
   await expect(page.getByTestId('inv-date')).toHaveValue('2026-11-02')
   await expect(page.getByTestId('invoice-total')).toHaveText('215,40 €')
-  // Bike picked, meters from the nearest reading
+  // Bike picked; meters from the last reading on or before the invoice date (6 Oct), not the later 5 Nov one
   await expect(page.getByTestId('inv-bike').locator('option:checked')).toHaveText('Invoice Bike')
-  await expect(page.getByTestId('inv-hours')).toHaveValue('142.5')
-  await expect(page.getByTestId('inv-km')).toHaveValue('3812')
+  await expect(page.getByTestId('inv-hours')).toHaveValue('130.5')
+  await expect(page.getByTestId('inv-km')).toHaveValue('3500')
+  await expect(page.getByTestId('meters-hint')).toHaveText('From your last reading before 2 Nov 2026')
 
   // Totals check follows the lines
   await expect(page.getByTestId('totals-check')).toHaveText('Lines match the invoice total ✓')

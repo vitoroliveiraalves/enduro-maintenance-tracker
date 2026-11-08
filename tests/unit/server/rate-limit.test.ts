@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assertReadAllowed, DAILY_LIMIT_COPY, rateLimit } from '../../../server/utils/rate-limit'
+import { assertReadAllowed, DAILY_LIMIT_COPY, GLOBAL_DAILY_CAP, rateLimit } from '../../../server/utils/rate-limit'
 
 describe('rateLimit', () => {
   it('allows up to max hits per window, then returns the wait until the oldest expires', () => {
@@ -52,5 +52,22 @@ describe('assertReadAllowed', () => {
     for (let i = 0; i < 5; i++) expect(() => assertReadAllowed(user, 1000, t0 + 100 + i)).toThrow()
     // window passed: allowed again
     expect(() => assertReadAllowed(user, 1000, t0 + 10 * 60_000 + 100)).not.toThrow()
+  })
+})
+
+describe('global daily ceiling', () => {
+  it('defaults to 300 a day across all users; past it every user gets the busy copy, before their own caps', () => {
+    expect(GLOBAL_DAILY_CAP).toBe(300)
+    const t0 = Date.UTC(2031, 0, 1)
+    for (let i = 0; i < 3; i++) assertReadAllowed(`g-${i}-${Math.random()}`, 30, t0 + i, 3)
+    let err: { statusCode?: number; statusMessage?: string } = {}
+    try {
+      assertReadAllowed(`fresh-${Math.random()}`, 30, t0 + 10, 3)
+    } catch (e) {
+      err = e as typeof err
+    }
+    expect(err).toMatchObject({ statusCode: 429, statusMessage: 'Invoice reading is busy today — you can still add the lines yourself.' })
+    // a day later reading is open again
+    expect(() => assertReadAllowed(`fresh-${Math.random()}`, 30, t0 + 86_400_000 + 10, 3)).not.toThrow()
   })
 })

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
-import { categories, documentFiles, documents, expenseItems, expenses, serviceItems, services, user } from '../../../server/db/schema'
+import { categories, documentFiles, documents, expenseItems, expenses, meterReadings, serviceItems, services, user } from '../../../server/db/schema'
 import type { Document } from '../../../server/db/schema'
 import { DEFAULT_CATEGORIES } from '../../../server/utils/categories-seed'
 import { createBike, itemRows } from '../../../server/utils/bikes'
 import { confirmInvoice, discardDocument } from '../../../server/utils/invoice-confirm'
+import { createService } from '../../../server/utils/services'
 
 let uid: string, other: string
 let bike: Awaited<ReturnType<typeof createBike>>
@@ -162,5 +163,45 @@ describe('discardDocument', () => {
     await expect(discardDocument((await reload(doc.id))!)).rejects.toMatchObject({ statusCode: 409 })
     expect(await reload(doc.id)).toBeDefined()
     expect(await db.select().from(expenses)).toHaveLength(3)
+  })
+})
+
+describe('meters on the service date (Review Focus 2)', () => {
+  // readings: day(10) 130.5 h / 3600 km, day(2) 140.0 h / 3750 km, today (bike created) 142.0 h / 3800 km
+  const fmt = (d: number) => {
+    const x = new Date(`${day(d)}T00:00:00Z`)
+    return `${x.getUTCDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][x.getUTCMonth()]}`
+  }
+  beforeEach(async () => {
+    await db.insert(meterReadings).values([
+      { bikeId: bike.id, userId: uid, at: new Date(`${day(10)}T09:00:00Z`), hoursTenths: 1305, km: 3600 },
+      { bikeId: bike.id, userId: uid, at: new Date(`${day(2)}T09:00:00Z`), hoursTenths: 1400, km: 3750 },
+    ])
+  })
+
+  it('a later reading does not allow more hours than the bike had on the day: 400 with the reading', async () => {
+    const doc = await makeDoc()
+    await expect(confirmInvoice(doc, bike, body({ at: day(5), hoursTenths: 1350, km: 3600 }))).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: `On ${fmt(10)} the bike had 130.5 h — the service can't be at 135.0 h`,
+    })
+    await expect(confirmInvoice(doc, bike, body({ at: day(5), hoursTenths: 1300, km: 3700 }))).rejects.toMatchObject({
+      statusMessage: `On ${fmt(10)} the bike had 3600 km — the service can't be at 3700 km`,
+    })
+    expect(await db.select().from(expenses)).toHaveLength(0)
+  })
+
+  it('equal to, or below, the reading before the date is fine', async () => {
+    expect((await confirmInvoice(await makeDoc(), bike, body({ at: day(5), hoursTenths: 1305, km: 3600 }))).status).toBe(200)
+    expect((await confirmInvoice(await makeDoc(), bike, body({ at: day(5), hoursTenths: 1250, km: 3500 }))).status).toBe(200)
+    // on the day of a reading, that reading counts
+    expect((await confirmInvoice(await makeDoc(), bike, body({ at: day(2), hoursTenths: 1400, km: 3750 }))).status).toBe(200)
+  })
+
+  it('no reading by that date → nothing to check against; the Task 7 service path checks too', async () => {
+    expect((await confirmInvoice(await makeDoc(), bike, body({ at: day(30), hoursTenths: 1410, km: 3790 }))).status).toBe(200)
+    await expect(
+      createService(bike, { clientId: crypto.randomUUID(), at: day(5), hoursTenths: 1350, by: 'diy', itemIds: [gearbox] }),
+    ).rejects.toMatchObject({ statusCode: 400 })
   })
 })

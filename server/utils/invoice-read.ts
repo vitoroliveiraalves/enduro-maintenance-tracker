@@ -17,6 +17,8 @@ export type ReaderCfg = {
   /** '' = OpenRouter; 'mock' / 'mock-fail' = canned reader for e2e (NUXT_INVOICE_READER). */
   reader: string
   dailyCap: number
+  /** All users together, per 24 h (NUXT_INVOICE_GLOBAL_DAILY_CAP). */
+  globalDailyCap?: number
 }
 
 export const isMock = (cfg: Pick<ReaderCfg, 'reader'>) => cfg.reader === 'mock' || cfg.reader === 'mock-fail'
@@ -29,6 +31,7 @@ export function readerConfig(event: H3Event): ReaderCfg {
     model: String(c.openrouterModel || 'google/gemini-3.1-flash-lite'),
     reader: String(c.invoiceReader ?? ''),
     dailyCap: Number(c.invoiceDailyCap) || 30,
+    globalDailyCap: Number(c.invoiceGlobalDailyCap) || 300,
   }
 }
 
@@ -111,7 +114,7 @@ export async function requestRead(
     return { status: 'manual', error, done: Promise.resolve() }
   }
   try {
-    assertReadAllowed(doc.userId, cfg.dailyCap)
+    assertReadAllowed(doc.userId, cfg.dailyCap, Date.now(), cfg.globalDailyCap)
   } catch (err) {
     await db.update(documents).set({ status: 'manual', error: (err as { statusMessage?: string }).statusMessage ?? 'Too many reads.' }).where(notConfirmed)
     throw err

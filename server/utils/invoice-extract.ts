@@ -90,6 +90,7 @@ Rules:
 - If a value is missing or unreadable use null. Never invent rows or prices. If the image is not a readable invoice, readable = false.`
 
 const MAX_CENTS = 10_000_000 // matches the expense cap (100 000 €)
+const MAX_LINES = 50 // matches confirm
 const toCents = (eur: number | null) => {
   if (eur == null || !Number.isFinite(eur)) return null
   const c = Math.round(eur * 100)
@@ -136,6 +137,7 @@ export function parseExtraction(raw: unknown): InvoiceData & { readable: boolean
   const addVat = o.pricesIncludeVat === false
   const lines: InvoiceLine[] = []
   for (const l of o.lines as Array<Record<string, unknown> | null>) {
+    if (lines.length >= MAX_LINES) break
     if (!l || typeof l !== 'object') continue
     const description = str(l.description)
     if (!description) continue
@@ -145,7 +147,7 @@ export function parseExtraction(raw: unknown): InvoiceData & { readable: boolean
     const gross = (eur: number | null) => (eur != null && addVat && rate != null && rate >= 0 && rate <= 30 ? eur * (1 + rate / 100) : eur)
     const unitCents = toCents(gross(num(l.unitPrice)))
     let totalCents = toCents(gross(num(l.lineTotal)))
-    if (totalCents == null && unitCents != null) totalCents = Math.round(unitCents * (qty ?? 1))
+    if (totalCents == null && unitCents != null) totalCents = toCents((unitCents * (qty ?? 1)) / 100)
     const kind = (LINE_KINDS as readonly string[]).includes(l.kind as string) ? (l.kind as LineKind) : 'other'
     lines.push({ description: description.slice(0, 200), kind, ...(qty != null ? { qty } : {}), unitCents, totalCents })
   }
@@ -185,14 +187,14 @@ export async function extractInvoice(
   }
   if (!res.ok) return { ok: false, error: `http_${res.status}`, meta }
 
-  let body: { choices?: Array<{ message?: { content?: string | null; refusal?: string | null } }>; usage?: unknown }
+  let body: { choices?: Array<{ message?: { content?: string | null; refusal?: string | null } }>; usage?: unknown } | null
   try {
     body = await res.json()
   } catch {
     return { ok: false, error: 'invalid_response', meta }
   }
-  const withUsage = { ...meta, usage: body.usage }
-  const message = body.choices?.[0]?.message
+  const withUsage = { ...meta, usage: body?.usage }
+  const message = body?.choices?.[0]?.message
   if (!message?.content || message.refusal) return { ok: false, error: 'refused', meta: withUsage }
   try {
     const { readable, ...data } = parseExtraction(JSON.parse(message.content))

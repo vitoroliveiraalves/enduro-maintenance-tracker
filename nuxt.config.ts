@@ -22,6 +22,7 @@ export default defineNuxtConfig({
     openrouterApiKey: '',
     openrouterModel: 'google/gemini-3.1-flash-lite',
     invoiceDailyCap: 30,
+    invoiceGlobalDailyCap: 300,
     // '' = OpenRouter; 'mock' / 'mock-fail' = canned reader for e2e (NUXT_INVOICE_READER)
     invoiceReader: '',
   },

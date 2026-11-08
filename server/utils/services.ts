@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { bikes, expenseItems, expenses, maintenanceItems, serviceItems, services } from '../db/schema'
+import { bikes, expenseItems, expenses, maintenanceItems, meterReadings, serviceItems, services } from '../db/schema'
 import type { Bike, Service } from '../db/schema'
 import { assertNotAboveMeters, bad, bikeDetail, cleanDate, isObj, latestReading, optInt, str, uuid } from './bikes'
 import { amountCents, checkCategory, checkDocument, checkItemIds, description } from './expenses'
@@ -15,6 +15,30 @@ const MAX_EXPENSES = 20
 export async function createService(bike: Bike, raw: unknown) {
   await db.transaction((tx) => insertService(bike, raw, tx))
   return bikeDetail(bike)
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * A service can't have more hours/km than the bike had on its day: the latest
+ * reading on or before `at` caps it (a later reading must not make a backdated
+ * service look fresher — Review Focus 2). No reading by then → nothing to check.
+ */
+export async function assertNotAboveMetersOn(bike: Bike, at: string, done: { hoursTenths: number | null; km: number | null }, t: Tx = db) {
+  if (done.hoursTenths == null && done.km == null) return
+  const endOfDay = new Date(new Date(`${at}T00:00:00Z`).getTime() + 86_400_000)
+  const [r] = await t
+    .select()
+    .from(meterReadings)
+    .where(and(eq(meterReadings.bikeId, bike.id), eq(meterReadings.userId, bike.userId), lt(meterReadings.at, endOfDay)))
+    .orderBy(desc(meterReadings.at), desc(meterReadings.hoursTenths))
+    .limit(1)
+  if (!r) return
+  const on = `On ${r.at.getUTCDate()} ${MONTHS[r.at.getUTCMonth()]}`
+  if (done.hoursTenths != null && done.hoursTenths > r.hoursTenths) {
+    throw bad(`${on} the bike had ${(r.hoursTenths / 10).toFixed(1)} h — the service can't be at ${(done.hoursTenths / 10).toFixed(1)} h`)
+  }
+  if (done.km != null && done.km > r.km) throw bad(`${on} the bike had ${r.km} km — the service can't be at ${done.km} km`)
 }
 
 /**
@@ -34,6 +58,7 @@ export async function insertService(bike: Bike, raw: unknown, tx: Tx): Promise<s
   const km = optInt(raw.km, 'km')
   const current = await latestReading(bike.id, userId)
   if (current) assertNotAboveMeters('Service', { hoursTenths, km }, current)
+  await assertNotAboveMetersOn(bike, at, { hoursTenths, km }, tx)
   if (raw.by !== 'diy' && raw.by !== 'garage') throw bad('Invalid by')
   const garageName = raw.by === 'garage' && raw.garageName != null && raw.garageName !== '' ? str(raw.garageName, 'garageName') : null
   const notes = raw.notes == null || raw.notes === '' ? null : str(raw.notes, 'notes', 500)

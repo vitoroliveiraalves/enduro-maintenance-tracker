@@ -8,7 +8,7 @@ const buckets = new Map<string, number[]>()
 
 function hitsIn(key: string, windowMs: number, now: number) {
   const cutoff = now - windowMs
-  return (buckets.get(key) ?? []).filter((t) => t > cutoff)
+  return (buckets.get(key) ?? []).filter((t) => t > cutoff && t <= now)
 }
 
 function gc(now: number) {
@@ -32,14 +32,20 @@ export const READS_MAX = 60
 export const READS_WINDOW_MS = 10 * 60_000
 export const DAY_MS = 24 * 3_600_000
 export const DAILY_LIMIT_COPY = 'Daily invoice reading limit reached — you can still add the lines yourself.'
+export const GLOBAL_LIMIT_COPY = 'Invoice reading is busy today — you can still add the lines yourself.'
+export const GLOBAL_DAILY_CAP = 300
 
 /**
- * 60 reads / user / 10 min and `dailyCap` / user / 24 h. Both windows are checked
- * before either records, so a refused read never uses up the allowance.
+ * A global `globalCap` / 24 h (open registration must not multiply the per-user
+ * caps), then 60 reads / user / 10 min and `dailyCap` / user / 24 h. Every window
+ * is checked before any records, so a refused read never uses up an allowance.
  */
-export function assertReadAllowed(userId: string, dailyCap: number, now = Date.now()) {
+export function assertReadAllowed(userId: string, dailyCap: number, now = Date.now(), globalCap = GLOBAL_DAILY_CAP) {
+  const globalKey = 'invoice-read-global'
   const shortKey = `invoice-read:${userId}`
   const dayKey = `invoice-read-day:${userId}`
+  const all = hitsIn(globalKey, DAY_MS, now)
+  if (all.length >= globalCap) throw createError({ statusCode: 429, statusMessage: GLOBAL_LIMIT_COPY })
   const short = hitsIn(shortKey, READS_WINDOW_MS, now)
   const day = hitsIn(dayKey, DAY_MS, now)
   if (day.length >= dailyCap) throw createError({ statusCode: 429, statusMessage: DAILY_LIMIT_COPY })
@@ -49,5 +55,6 @@ export function assertReadAllowed(userId: string, dailyCap: number, now = Date.n
   }
   buckets.set(shortKey, [...short, now])
   buckets.set(dayKey, [...day, now])
+  buckets.set(globalKey, [...all, now])
   gc(now)
 }
