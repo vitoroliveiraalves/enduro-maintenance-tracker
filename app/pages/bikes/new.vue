@@ -34,10 +34,13 @@ const busy = ref(false)
 let seq = 0
 
 const tenthsToText = (t?: number) => (t ? String(t / 10) : '')
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => {
+  const d = new Date() // local calendar date, not UTC
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 function blank(over: Partial<Draft> = {}): Draft {
-  return { key: ++seq, name: '', hours: '', km: '', months: '', multipliers: {}, lastOpen: false, lastAt: today(), lastHours: '', lastKm: '', ...over }
+  return { key: ++seq, name: '', hours: '', km: '', months: '', multipliers: {}, lastOpen: false, lastAt: '', lastHours: '', lastKm: '', ...over }
 }
 
 async function next() {
@@ -89,11 +92,11 @@ async function save() {
     if (!d.name.trim()) return void (error.value = 'Every item needs a name.')
     if (!everyHoursTenths && !everyKm && !everyMonths) return void (error.value = `${d.name}: set at least one interval.`)
     let lastDone: { at: string; hoursTenths?: number; km?: number } | undefined
-    if (d.lastOpen && (d.lastHours.trim() || d.lastKm.trim() || d.lastAt)) {
+    if (d.lastOpen && (d.lastHours.trim() || d.lastKm.trim() || d.lastAt.trim())) {
       const lh = optional(d.lastHours, `last done hours for ${label}`, 10)
       const lk = optional(d.lastKm, `last done km for ${label}`)
       if (lh === undefined || lk === undefined) return
-      if (lh !== null || lk !== null || d.lastAt) {
+      {
         lastDone = { at: d.lastAt || today(), ...(lh !== null ? { hoursTenths: lh } : {}), ...(lk !== null ? { km: lk } : {}) }
       }
     }

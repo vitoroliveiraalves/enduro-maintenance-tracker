@@ -96,4 +96,21 @@ describe('bikes api logic', () => {
     await patchItem(a, uid, { archived: true })
     expect(await itemRows(bike.id, uid)).toEqual([])
   })
+
+  describe('lastDone validation', () => {
+    const withLast = (lastDone: Record<string, unknown>) =>
+      body({ items: [{ name: 'Oil', everyHoursTenths: 150, conditionMultipliers: {}, lastDone }] })
+    const reject = async (lastDone: Record<string, unknown>, msg: RegExp) => {
+      await expect(createBike(uid, withLast(lastDone))).rejects.toMatchObject({ statusCode: 400, statusMessage: expect.stringMatching(msg) })
+      expect(await db.select().from(bikes)).toHaveLength(0)
+    }
+    it('rejects hours above current', () => reject({ at: '2026-09-01', hoursTenths: 2000 }, /200\.0 h is more than the bike's current 142\.5 h/))
+    it('rejects km above current', () => reject({ at: '2026-09-01', km: 9999 }, /more than the bike's current 3812 km/))
+    it('rejects a future date', () => reject({ at: '2999-01-01', hoursTenths: 1200 }, /future/))
+    it('rejects an impossible calendar date with 400', () => reject({ at: '2026-02-31' }, /Invalid lastDone date/))
+    it('accepts values equal to current and today', async () => {
+      const today = new Date().toISOString().slice(0, 10)
+      await expect(createBike(uid, withLast({ at: today, hoursTenths: 1425, km: 3812 }))).resolves.toBeTruthy()
+    })
+  })
 })

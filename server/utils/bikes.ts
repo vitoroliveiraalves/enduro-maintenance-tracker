@@ -87,7 +87,9 @@ function cleanItem(raw: unknown): CleanItem {
     const l = raw.lastDone
     if (!isObj(l) || typeof l.at !== 'string') throw bad('Invalid lastDone')
     const at = l.at.slice(0, 10)
-    if (!DATE.test(at) || Number.isNaN(Date.parse(at))) throw bad('Invalid lastDone date')
+    if (!DATE.test(at) || new Date(`${at}T00:00:00Z`).toISOString().slice(0, 10) !== at) throw bad('Invalid lastDone date')
+    // one day of slack for server/client timezone differences
+    if (at > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw bad('Last done date is in the future')
     lastDone = { at, hoursTenths: optInt(l.hoursTenths, 'lastDone hours'), km: optInt(l.km, 'lastDone km') }
   }
   return { name: str(raw.name, 'item name'), conditionMultipliers: multipliers(raw.conditionMultipliers), ...intervals(raw), lastDone }
@@ -97,7 +99,7 @@ export function parseBikeInput(raw: unknown) {
   if (!isObj(raw)) throw bad('Invalid body')
   if (raw.stroke !== '2T' && raw.stroke !== '4T') throw bad('Invalid stroke')
   if (!Array.isArray(raw.items) || raw.items.length > 80) throw bad('Invalid items')
-  return {
+  const parsed = {
     clientId: uuid(raw.clientId),
     name: str(raw.name, 'name'),
     make: str(raw.make, 'make'),
@@ -108,6 +110,16 @@ export function parseBikeInput(raw: unknown) {
     km: int(raw.km, 'km'),
     items: raw.items.map(cleanItem),
   }
+  for (const it of parsed.items) {
+    const l = it.lastDone
+    if (l?.hoursTenths != null && l.hoursTenths > parsed.hoursTenths) {
+      throw bad(`${it.name}: last done at ${(l.hoursTenths / 10).toFixed(1)} h is more than the bike's current ${(parsed.hoursTenths / 10).toFixed(1)} h`)
+    }
+    if (l?.km != null && l.km > parsed.km) {
+      throw bad(`${it.name}: last done at ${l.km} km is more than the bike's current ${parsed.km} km`)
+    }
+  }
+  return parsed
 }
 
 /**
