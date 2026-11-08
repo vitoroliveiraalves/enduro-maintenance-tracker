@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { OfflineError } from '~/offline/outbox'
+
 type Period = 'month' | 'year' | 'all'
 type Costs = {
   totalCents: number
@@ -19,6 +21,7 @@ const router = useRouter()
 const { get } = useApi()
 const { money, hours, km, dayMonth } = useFormatters()
 const store = useBikesStore()
+const { syncTick } = useOffline()
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const today = new Date().toISOString().slice(0, 10)
@@ -70,11 +73,17 @@ async function load() {
     if (mine !== seq) return
     data.value = r
     error.value = ''
-  } catch {
-    if (mine === seq) error.value = 'Could not load costs.'
+  } catch (e) {
+    if (mine !== seq) return
+    if (e instanceof OfflineError) {
+      // Offline and this period was never opened here: don't leave the previous period on screen.
+      data.value = null
+      error.value = "You're offline — this period isn't saved on this phone yet."
+    } else error.value = 'Could not load costs.'
   }
 }
 watch(() => [period.value, date.value, bikeId.value], load)
+watch(syncTick, load)
 onMounted(async () => {
   if (!store.loaded) await store.fetchBikes().catch(() => {})
   await load()

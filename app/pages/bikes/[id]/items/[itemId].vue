@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { stateText, subline } from '~/lib/item-state'
 import { parseDecimal } from '~/lib/parse-number'
+import { errorMessage, OfflineError } from '~/offline/outbox'
 import type { ItemRowJson } from '../../../../../server/domain/item-row'
 
 type Service = {
@@ -12,12 +13,13 @@ type Service = {
   garageName: string | null
   costCents: number
   documentId: string | null
+  pending?: boolean
 }
-type History = { item: ItemRowJson & { bikeId: string }; status: ItemRowJson['status']; services: Service[] }
+type History = { item: ItemRowJson & { bikeId: string }; status: ItemRowJson['status']; services: Service[]; pendingSync?: boolean; notCached?: boolean }
 type Detail = {
   bike: { id: string; name: string }
   latestReading: { at: string; hoursTenths: number; km: number } | null
-  items: ItemRowJson[]
+  items: Array<ItemRowJson & { pendingSync?: boolean }>
 }
 
 const route = useRoute()
@@ -36,7 +38,9 @@ const kmText = ref('')
 const moText = ref('')
 const editError = ref('')
 const saved = ref(false)
+const savedQueued = ref(false)
 const saving = ref(false)
+const { syncTick } = useOffline()
 
 function fillEditor(item: ItemRowJson) {
   hText.value = item.def.everyHoursTenths ? String(item.def.everyHoursTenths / 10) : ''
@@ -45,18 +49,28 @@ function fillEditor(item: ItemRowJson) {
 }
 
 async function load() {
-  const [h, d] = await Promise.all([get<History>(`/api/items/${itemId}/history`), get<Detail>(`/api/bikes/${bikeId}`)])
-  hist.value = h
+  const [h, d] = await Promise.all([get<History>(`/api/items/${itemId}/history`).catch((e) => e as unknown), get<Detail>(`/api/bikes/${bikeId}`)])
   detail.value = d
+  if (!(h instanceof Error)) return void (hist.value = h as History)
+  // Offline and this item was never opened here: the bike screen's copy of the
+  // item still gives its status and lets the rider mark it done.
+  const row = d.items.find((i) => i.id === itemId)
+  if (!(h instanceof OfflineError) || !row) throw h
+  hist.value = { item: { ...row, bikeId }, status: row.status, services: [], pendingSync: row.pendingSync, notCached: true }
 }
 
 onMounted(async () => {
   try {
     await load()
     fillEditor(hist.value!.item)
-  } catch {
-    error.value = 'Item not found.'
+  } catch (e) {
+    error.value = errorMessage(e, 'Item not found.', true)
   }
+})
+watch(syncTick, async () => {
+  await load().catch(() => {})
+  if (hist.value && !saving.value) fillEditor(hist.value.item)
+  savedQueued.value = false
 })
 
 async function onDone() {
@@ -78,17 +92,19 @@ async function saveIntervals() {
   if (h === null && k === null && m === null) return void (editError.value = 'Keep at least one interval.')
   saving.value = true
   try {
-    await mutate(
+    const res = await mutate(
       `/api/items/${itemId}`,
       { everyHoursTenths: h === null ? null : Math.round(h * 10), everyKm: k === null ? null : Math.round(k), everyMonths: m === null ? null : Math.round(m) },
-      { method: 'PATCH' },
+      { method: 'PATCH', queue: true },
     )
-    await load()
-    fillEditor(hist.value!.item)
+    savedQueued.value = isQueued(res)
+    if (!savedQueued.value) {
+      await load()
+      fillEditor(hist.value!.item)
+    }
     saved.value = true
   } catch (e) {
-    const { statusMessage, data } = e as { statusMessage?: string; data?: { statusMessage?: string } }
-    editError.value = data?.statusMessage ?? statusMessage ?? 'Could not save. Try again.'
+    editError.value = errorMessage(e, 'Could not save. Try again.')
   } finally {
     saving.value = false
   }
@@ -112,7 +128,9 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 
       <section class="rounded-xl bg-surface px-3 py-3" data-testid="item-status">
         <div class="text-2xl font-bold" :class="tone" data-testid="item-state">{{ stateText(hist.item) }}</div>
-        <div class="mt-0.5 text-xs text-muted">{{ subline(hist.item) }}</div>
+        <div class="mt-0.5 text-xs text-muted">
+          {{ subline(hist.item) }}<span v-if="hist.pendingSync" class="text-warn-text"> · done, pending sync</span>
+        </div>
         <ProgressBar :state="hist.status.state" :ratio="hist.status.ratio" :label="`${hist.item.name} wear`" />
       </section>
 
@@ -150,16 +168,17 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           </label>
         </div>
         <p v-if="editError" role="alert" class="mt-2 text-sm text-danger" data-testid="iv-error">{{ editError }}</p>
-        <p v-else-if="saved" role="status" class="mt-2 text-sm text-ok-text" data-testid="iv-saved">Saved</p>
+        <p v-else-if="saved" role="status" class="mt-2 text-sm text-ok-text" data-testid="iv-saved">{{ savedQueued ? 'Saved on this phone — syncs when you’re back online' : 'Saved' }}</p>
         <button type="submit" :disabled="saving" class="mt-3 w-full rounded-xl bg-bg py-3 text-sm font-semibold text-accent disabled:opacity-60" data-testid="iv-save">Save intervals</button>
       </form>
 
       <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted">Service history</h2>
-      <p v-if="!hist.services.length" class="text-sm text-muted" data-testid="no-services">Not logged yet.</p>
+      <p v-if="hist.notCached" class="text-sm text-muted" data-testid="history-not-cached">The service history isn't saved on this phone yet — it shows once you're back online.</p>
+      <p v-else-if="!hist.services.length" class="text-sm text-muted" data-testid="no-services">Not logged yet.</p>
       <ul v-else class="space-y-[7px]">
         <li v-for="s in hist.services" :key="s.id" class="rounded-xl bg-surface px-3 py-2.5" data-testid="service-entry">
           <div class="flex justify-between gap-2 text-sm font-semibold text-white">
-            <span>{{ date(s.at) }}</span>
+            <span>{{ date(s.at) }}<span v-if="s.pending" class="ml-1.5 text-xs font-normal text-warn-text" data-testid="service-pending">pending sync</span></span>
             <span class="flex shrink-0 items-center gap-2">
               <span v-if="s.costCents" data-testid="service-cost">{{ money(s.costCents) }}</span>
               <NuxtLink v-if="s.documentId" :to="`/invoice/${s.documentId}`" class="-m-2 p-2" aria-label="Open invoice" data-testid="service-invoice">🧾</NuxtLink>

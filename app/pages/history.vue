@@ -1,18 +1,23 @@
 <script setup lang="ts">
+import { errorMessage } from '~/offline/outbox'
+
 type Bike = { id: string; name: string }
 type Svc = {
   id: string; bikeId: string; bikeName: string; at: string; notes: string | null; hoursTenths: number | null; km: number | null
   by: 'diy' | 'garage'; garageName: string | null; documentId: string | null; itemNames: string[]; totalCents: number
+  pending?: boolean
 }
 type Exp = {
   id: string; bikeId: string | null; at: string; amountCents: number; categoryName: string
   description: string; documentId: string | null; serviceId: string | null
+  pending?: boolean
 }
 type Entry = { kind: 'service'; key: string; at: string; s: Svc } | { kind: 'expense'; key: string; at: string; e: Exp }
 
 const { get, mutate } = useApi()
 const { money, hours, date } = useFormatters()
 const store = useBikesStore()
+const { syncTick } = useOffline()
 
 const bikeFilter = ref('')
 const services = ref<Svc[]>([])
@@ -30,8 +35,8 @@ async function load() {
   try {
     ;[services.value, expenses.value] = await Promise.all([get<Svc[]>(`/api/services${q}`), get<Exp[]>(`/api/expenses${q}`)])
     loaded.value = true
-  } catch {
-    error.value = 'Could not load history.'
+  } catch (e) {
+    error.value = errorMessage(e, 'Could not load history.', true)
   }
 }
 
@@ -40,6 +45,7 @@ onMounted(async () => {
   await load()
 })
 watch(bikeFilter, load)
+watch(syncTick, load)
 
 const timeline = computed<Entry[]>(() => {
   const list: Entry[] = [
@@ -55,8 +61,8 @@ async function removeService(id: string) {
     await mutate(`/api/services/${id}`, {}, { method: 'DELETE' })
     confirmId.value = null
     await load()
-  } catch {
-    error.value = 'Could not delete the service.'
+  } catch (e) {
+    error.value = errorMessage(e, 'Could not delete the service.', true)
   }
 }
 async function removeExpense(id: string) {
@@ -64,8 +70,8 @@ async function removeExpense(id: string) {
     await mutate(`/api/expenses/${id}`, {}, { method: 'DELETE' })
     confirmId.value = null
     await load()
-  } catch {
-    error.value = 'Could not delete the expense.'
+  } catch (e) {
+    error.value = errorMessage(e, 'Could not delete the expense.', true)
   }
 }
 </script>
@@ -99,7 +105,8 @@ async function removeExpense(id: string) {
             <span v-if="en.s.notes === 'Initial'"> · set up</span>
             <span v-if="en.s.documentId" title="Invoice attached" data-testid="history-invoice"> · 🧾</span>
           </p>
-          <div class="mt-1.5 text-xs">
+          <p v-if="en.s.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">Pending sync</p>
+          <div v-else class="mt-1.5 text-xs">
             <template v-if="confirmId === en.key">
               <span class="text-warn">Delete this service?</span>
               <button type="button" class="ml-2 font-bold text-danger" data-testid="confirm-delete" @click="removeService(en.s.id)">Yes, delete</button>
@@ -116,7 +123,8 @@ async function removeExpense(id: string) {
           <p class="mt-0.5 text-xs text-muted">
             {{ date(en.e.at) }}<span v-if="en.e.documentId" title="Invoice attached"> · 🧾</span>
           </p>
-          <div class="mt-1.5 text-xs">
+          <p v-if="en.e.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">Pending sync</p>
+          <div v-else class="mt-1.5 text-xs">
             <template v-if="confirmId === en.key">
               <span class="text-warn">Delete this expense?</span>
               <button type="button" class="ml-2 font-bold text-danger" data-testid="confirm-delete" @click="removeExpense(en.e.id)">Yes, delete</button>

@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { authClient } from '~/lib/auth-client'
 import { formatDate } from '~/lib/format'
+import { errorMessage } from '~/offline/outbox'
+import { readSession } from '~/offline/session'
 import { daysUntil, dueText } from '~/lib/reminders'
 
-type Reminder = { id: string; bikeId: string | null; bikeName: string | null; title: string; dueOn: string; repeatYearly: boolean }
+type Reminder = { id: string; bikeId: string | null; bikeName: string | null; title: string; dueOn: string; repeatYearly: boolean; pending?: boolean }
 
 const { get, mutate } = useApi()
 const store = useBikesStore()
 const push = usePush()
+const { pending, syncTick } = useOffline()
 
 const email = ref('')
 const reminders = ref<Reminder[]>([])
@@ -26,9 +28,10 @@ onMounted(async () => {
   push.init()
   loadReminders()
   store.fetchBikes().catch(() => {})
-  const { data } = await authClient.getSession()
-  email.value = data?.user.email ?? ''
+  // The auth middleware just checked (or, offline, trusted) this session.
+  email.value = readSession()?.email ?? ''
 })
+watch(syncTick, loadReminders)
 
 function when(r: Reminder) {
   const d = daysUntil(r.dueOn)
@@ -38,11 +41,11 @@ function when(r: Reminder) {
 async function act(r: Reminder, kind: 'done' | 'remove') {
   remError.value = ''
   try {
-    if (kind === 'done') await mutate(`/api/reminders/${r.id}/done`, { dueOn: r.dueOn })
-    else await mutate(`/api/reminders/${r.id}`, {}, { method: 'DELETE' })
+    if (kind === 'done') await mutate(`/api/reminders/${r.id}/done`, { dueOn: r.dueOn }, { queue: true })
+    else await mutate(`/api/reminders/${r.id}`, {}, { method: 'DELETE', queue: true })
     await loadReminders()
-  } catch {
-    remError.value = "Couldn't update the reminder. Try again."
+  } catch (e) {
+    remError.value = errorMessage(e, "Couldn't update the reminder. Try again.", true)
   }
 }
 
@@ -51,9 +54,14 @@ function toggle() {
   else push.enable()
 }
 
+const signOutError = ref('')
 async function signOut() {
-  await authClient.signOut()
-  await navigateTo('/login')
+  signOutError.value = ''
+  try {
+    await signOutEverywhere()
+  } catch (e) {
+    signOutError.value = errorMessage(e, "Couldn't sign out. Try again.")
+  }
 }
 
 const confirmText = ref('')
@@ -65,11 +73,11 @@ async function deleteAccount() {
   deleteError.value = ''
   try {
     if (push.state.value === 'on') await push.disable()
-    await mutate('/api/account', { confirm: 'DELETE' }, { method: 'DELETE' })
-    store.setLast(null)
+    await mutate('/api/account', { confirm: 'DELETE' }, { method: 'DELETE' }) // online-only, never queued
+    await forgetThisDevice()
     await navigateTo('/login?deleted=1')
-  } catch {
-    deleteError.value = "Couldn't delete your account. Nothing was removed — try again."
+  } catch (e) {
+    deleteError.value = errorMessage(e, "Couldn't delete your account. Nothing was removed — try again.", true)
   } finally {
     deleting.value = false
   }
@@ -127,10 +135,10 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
       <div v-for="r in reminders" :key="r.id" class="mb-2 rounded-xl bg-surface p-3" data-testid="reminder-row">
         <div class="flex items-baseline justify-between gap-2">
           <span class="text-sm font-semibold text-white" data-testid="reminder-title">{{ r.title }}</span>
-          <span class="text-xs text-muted">{{ r.bikeName ?? 'All bikes' }}{{ r.repeatYearly ? ' · yearly' : '' }}</span>
+          <span class="text-xs text-muted">{{ r.bikeName ?? 'All bikes' }}{{ r.repeatYearly ? ' · yearly' : '' }}<span v-if="r.pending" class="text-warn-text"> · pending sync</span></span>
         </div>
         <div class="mt-0.5 text-xs" :class="when(r).tone" data-testid="reminder-when">{{ when(r).text }}</div>
-        <div class="mt-2 flex gap-2">
+        <div v-if="!r.pending" class="mt-2 flex gap-2">
           <button type="button" class="rounded-lg bg-bg px-3 py-1.5 text-[13px] font-semibold text-ok-text" data-testid="reminder-done" @click="act(r, 'done')">✓ Done</button>
           <button type="button" class="rounded-lg px-3 py-1.5 text-[13px] text-muted" data-testid="reminder-remove" @click="act(r, 'remove')">Remove</button>
         </div>
@@ -143,7 +151,11 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
     <h2 :class="h2">Account</h2>
     <section class="rounded-xl bg-surface p-3">
       <p class="text-sm text-muted">Signed in as <span class="text-white" data-testid="account-email">{{ email }}</span></p>
+      <p v-if="pending" class="mt-2 text-xs text-warn-text" data-testid="sign-out-pending">
+        {{ pending === 1 ? '1 change hasn’t' : `${pending} changes haven’t` }} synced yet — signing out now would lose {{ pending === 1 ? 'it' : 'them' }}.
+      </p>
       <button type="button" class="mt-2 w-full rounded-xl bg-bg py-3 text-sm font-semibold text-white" data-testid="sign-out" @click="signOut">Sign out</button>
+      <p v-if="signOutError" role="alert" class="mt-2 text-sm text-danger" data-testid="sign-out-error">{{ signOutError }}</p>
     </section>
 
     <section class="mt-3 rounded-xl border border-danger/40 bg-surface p-3" data-testid="delete-account">

@@ -3,6 +3,7 @@ import { defaultCategory, matchLineToItems } from '../../../server/domain/invoic
 import type { LineKind } from '../../../server/domain/invoice-match'
 import type { BikeSummary } from '../../../server/domain/item-row'
 import { parseCents, parseDecimal, todayLocal } from '~/lib/parse-number'
+import { errorMessage } from '~/offline/outbox'
 
 type Doc = {
   id: string
@@ -242,7 +243,7 @@ async function confirm(force = false) {
   } catch (e) {
     const { data } = e as { data?: { error?: string; diffCents?: number; statusMessage?: string } }
     if (data?.error === 'totals-mismatch') mismatch.value = data.diffCents ?? 0
-    else error.value = data?.statusMessage ?? 'Could not save. Try again.'
+    else error.value = errorMessage(e, 'Could not save. Try again.')
   } finally {
     busy.value = false
   }
@@ -254,8 +255,7 @@ async function discard() {
     await mutate(`/api/documents/${id}/discard`, {}, { method: 'DELETE' })
     await navigateTo('/invoice')
   } catch (e) {
-    const { data } = e as { data?: { statusMessage?: string } }
-    error.value = data?.statusMessage ?? 'Could not discard. Try again.'
+    error.value = errorMessage(e, 'Could not discard. Try again.')
     askDiscard.value = false
   } finally {
     busy.value = false

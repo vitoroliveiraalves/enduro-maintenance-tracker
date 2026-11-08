@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatHoursLong } from '~/lib/format'
 import { parseDecimal } from '~/lib/parse-number'
+import { OFFLINE_MESSAGE, OfflineError } from '~/offline/outbox'
 
 type Detail = Record<string, unknown>
 type Meters = { hoursTenths: number; km: number }
@@ -12,6 +13,7 @@ const emit = defineEmits<{ saved: [detail: Detail] }>()
 
 const { mutate } = useApi()
 const { hours, km } = useFormatters()
+const online = useOnline()
 
 const CONDITIONS = [
   { key: 'normal', label: 'Normal' },
@@ -56,9 +58,22 @@ async function save(confirmBigJump = false) {
     return void (error.value = 'Enter hours and km as numbers.')
   }
   const next = { hoursTenths: Math.round(h * 10), km: Math.round(k) }
+  // Offline the server can't check it now: run the same checks against the last
+  // synced reading, so the rider fixes a typo here rather than after it syncs.
+  const last = props.current
+  if (!online.value && last) {
+    if (next.hoursTenths < last.hoursTenths) return void ((jump.value = ''), (error.value = `Hours can't go down (last: ${hours(last.hoursTenths)})`))
+    if (next.km < last.km) return void ((jump.value = ''), (error.value = `Km can't go down (last: ${km(last.km)})`))
+    if (!confirmBigJump && (next.hoursTenths - last.hoursTenths > 500 || next.km - last.km > 1500)) return void (jump.value = jumpText(last, next))
+  }
   busy.value = true
   try {
-    const detail = await mutate<Detail>('/api/readings', { clientId, bikeId: props.bikeId, ...next, condition: condition.value, confirmBigJump })
+    // `at` is when the rider logged it, not when an offline queue gets it to the server.
+    const detail = await mutate<Detail>(
+      '/api/readings',
+      { clientId, bikeId: props.bikeId, at: new Date().toISOString(), ...next, condition: condition.value, confirmBigJump },
+      { queue: true },
+    )
     clientId = crypto.randomUUID()
     jump.value = ''
     open.value = false
@@ -81,7 +96,7 @@ async function save(confirmBigJump = false) {
       jump.value = ''
       error.value = `Km can't be above a later reading (${km(last.km)})`
     } else {
-      error.value = 'Could not save the reading. Try again.'
+      error.value = e instanceof OfflineError ? OFFLINE_MESSAGE : 'Could not save the reading. Try again.'
     }
   } finally {
     busy.value = false

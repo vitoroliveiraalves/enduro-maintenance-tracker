@@ -1,22 +1,28 @@
+import { createApi, isQueued, type MutateOpts } from '~/offline/api'
+import { requestFlush } from './useOffline'
+
 /**
- * The only way UI code talks to the API. Online-only for now (Task 12 adds
- * the offline outbox inside `mutate`). Throws on non-2xx, like $fetch.
+ * The only way UI code talks to the API (Ruling R2).
+ * - `get(url)`: network first; cached URLs (bikes, bike detail, item history,
+ *   services, expenses, costs, categories, reminders) fall back to the last
+ *   synced copy, with queued writes shown on top.
+ * - `mutate(url, body, opts)`: adds a `clientId` to JSON bodies, passes
+ *   FormData through. Online-only by default (throws OfflineError without a
+ *   connection); `{ queue: true }` puts it in the offline outbox instead and
+ *   resolves to `{ queued: true }` (check with `isQueued`).
+ * Throws on other non-2xx, like $fetch.
  */
-type MutateOpts = { method?: 'POST' | 'PUT' | 'PATCH' | 'DELETE' }
+export type { MutateOpts }
+export { isQueued }
 
 // Nuxt's typed route inference is too deep for generic URLs; callers give the type.
-type LooseFetch = (url: string, opts?: { method?: string; body?: unknown }) => Promise<unknown>
-const doFetch = (url: string, opts?: { method?: string; body?: unknown }) => ($fetch as unknown as LooseFetch)(url, opts)
+type LooseFetch = (url: string, opts?: { method?: string; body?: unknown; timeout?: number }) => Promise<unknown>
+const doFetch = (url: string, opts?: { method?: string; body?: unknown; timeout?: number }) => ($fetch as unknown as LooseFetch)(url, opts)
+const isOnline = () => typeof navigator === 'undefined' || navigator.onLine !== false
+
+let api: ReturnType<typeof createApi> | null = null
 
 export function useApi() {
-  function get<T>(url: string): Promise<T> {
-    return doFetch(url) as Promise<T>
-  }
-
-  function mutate<T>(url: string, body: Record<string, unknown> | FormData, opts: MutateOpts = {}): Promise<T> {
-    const payload = body instanceof FormData || 'clientId' in body ? body : { ...body, clientId: crypto.randomUUID() }
-    return doFetch(url, { method: opts.method ?? 'POST', body: payload }) as Promise<T>
-  }
-
-  return { get, mutate }
+  if (!api) api = createApi({ send: doFetch, online: isOnline, afterQueue: () => void requestFlush() })
+  return api
 }

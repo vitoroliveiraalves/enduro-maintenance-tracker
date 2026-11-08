@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { downscaleImage } from '~/lib/image-downscale'
+import { errorMessage } from '~/offline/outbox'
 
 const MAX_PAGES = 5
 const PHOTO_ERROR = "Couldn't read that photo — try another or choose a file."
@@ -59,8 +60,7 @@ async function send(files: Blob[]) {
     if (res.qrNotice) query.qrNotice = res.qrNotice
     await navigateTo({ path: `/invoice/${res.id}`, query })
   } catch (err) {
-    const e = err as { data?: { statusMessage?: string } }
-    error.value = e.data?.statusMessage ?? 'Could not upload the invoice. Try again.'
+    error.value = errorMessage(err, 'Could not upload the invoice. Try again.')
   } finally {
     busy.value = false
   }

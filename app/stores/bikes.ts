@@ -14,11 +14,15 @@ function readLast(): string | null {
 export const useBikesStore = defineStore('bikes', () => {
   const { get } = useApi()
   const bikes = ref<BikeSummary[]>([])
+  /** Bikes added offline, waiting for the outbox (no server id yet: shown, not openable). */
+  const pendingBikes = ref<Array<{ id: string; name: string }>>([])
   const loaded = ref(false)
   const lastBikeId = ref<string | null>(readLast())
 
   async function fetchBikes() {
-    bikes.value = await get<BikeSummary[]>('/api/bikes')
+    const all = await get<Array<BikeSummary & { pending?: boolean }>>('/api/bikes')
+    bikes.value = all.filter((b) => !b.pending)
+    pendingBikes.value = all.filter((b) => b.pending)
     loaded.value = true
     // Forget a last bike that no longer exists.
     if (lastBikeId.value && !bikes.value.some((b) => b.id === lastBikeId.value)) setLast(null)
@@ -34,5 +38,5 @@ export const useBikesStore = defineStore('bikes', () => {
     }
   }
 
-  return { bikes, loaded, lastBikeId, fetchBikes, setLast }
+  return { bikes, pendingBikes, loaded, lastBikeId, fetchBikes, setLast }
 })

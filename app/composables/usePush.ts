@@ -1,3 +1,4 @@
+import { errorMessage, OfflineError } from '~/offline/outbox'
 import { isStandalone, onIos, urlBase64ToUint8Array } from '~/lib/platform'
 
 export type PushState =
@@ -25,7 +26,27 @@ const timezone = () => {
   }
 }
 
-/** Web Push on/off for this device. */
+/**
+ * Sign-out / account deletion: stop this device getting the rider's pushes.
+ * Best effort and never blocks signing out: the browser subscription goes even
+ * if the server call fails (the server drops dead endpoints on the next send).
+ */
+export async function unsubscribeThisDevice(): Promise<void> {
+  try {
+    if (!('serviceWorker' in navigator)) return
+    const reg = await swReady(2000)
+    const sub = reg ? await reg.pushManager.getSubscription() : null
+    if (!sub) return
+    await useApi()
+      .mutate('/api/push/unsubscribe', { endpoint: sub.endpoint })
+      .catch(() => {})
+    await sub.unsubscribe().catch(() => false)
+  } catch {
+    // nothing to undo
+  }
+}
+
+/** Web Push on/off for this device. Online-only: no connection → the offline message. */
 export function usePush() {
   const { get, mutate } = useApi()
   const state = ref<PushState>('loading')
@@ -57,6 +78,7 @@ export function usePush() {
     busy.value = true
     error.value = ''
     try {
+      if (navigator.onLine === false) throw new OfflineError()
       const perm = await Notification.requestPermission()
       if (perm !== 'granted') {
         state.value = perm === 'denied' ? 'denied' : 'off'
@@ -69,8 +91,8 @@ export function usePush() {
         (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) }))
       await save(sub)
       state.value = 'on'
-    } catch {
-      error.value = "Couldn't turn notifications on. Try again in a moment."
+    } catch (e) {
+      error.value = errorMessage(e, "Couldn't turn notifications on. Try again in a moment.", true)
     } finally {
       busy.value = false
     }
@@ -81,6 +103,7 @@ export function usePush() {
     busy.value = true
     error.value = ''
     try {
+      if (navigator.onLine === false) throw new OfflineError()
       const reg = await swReady()
       const sub = reg ? await reg.pushManager.getSubscription() : null
       if (sub) {
@@ -88,8 +111,8 @@ export function usePush() {
         await sub.unsubscribe()
       }
       state.value = 'off'
-    } catch {
-      error.value = "Couldn't turn notifications off. Try again in a moment."
+    } catch (e) {
+      error.value = errorMessage(e, "Couldn't turn notifications off. Try again in a moment.", true)
     } finally {
       busy.value = false
     }

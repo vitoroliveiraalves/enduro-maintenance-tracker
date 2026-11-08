@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseDecimal } from '~/lib/parse-number'
+import { errorMessage } from '~/offline/outbox'
 
 type Draft = {
   key: number
@@ -62,8 +63,8 @@ async function next() {
       }),
     )
     step.value = 2
-  } catch {
-    error.value = 'Could not load the item list. Try again.'
+  } catch (e) {
+    error.value = errorMessage(e, 'Could not load the item list. Try again.', true)
   } finally {
     busy.value = false
   }
@@ -118,12 +119,12 @@ async function save() {
       hoursTenths,
       km: Math.round(parseDecimal(form.km)!),
       items,
-    })
+    }, { queue: true })
+    if (isQueued(bike)) return void (await navigateTo('/')) // shown in the garage as waiting to sync
     store.setLast(bike.id)
     await navigateTo(`/bikes/${bike.id}`)
   } catch (err) {
-    const e = err as { data?: { statusMessage?: string } }
-    error.value = e.data?.statusMessage ?? 'Could not save the bike. Try again.'
+    error.value = errorMessage(err, 'Could not save the bike. Try again.')
   } finally {
     busy.value = false
   }

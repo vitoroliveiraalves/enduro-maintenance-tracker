@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
+import { OFFLINE_MESSAGE } from '~/offline/outbox'
 
 const email = ref('')
 const password = ref('')
@@ -9,8 +10,16 @@ const deleted = useRoute().query.deleted === '1'
 
 async function submit() {
   error.value = ''
+  // Auth is online-only: say so instead of "wrong password".
+  if (navigator.onLine === false) return void (error.value = OFFLINE_MESSAGE)
   busy.value = true
-  const { error: err } = await authClient.signIn.email({ email: email.value.trim(), password: password.value })
+  let err: { status?: number } | null
+  try {
+    ;({ error: err } = await authClient.signIn.email({ email: email.value.trim(), password: password.value }))
+  } catch {
+    busy.value = false
+    return void (error.value = OFFLINE_MESSAGE)
+  }
   busy.value = false
   if (err) {
     error.value = err.status === 429 ? 'Too many attempts — wait a minute and try again' : 'Wrong email or password'

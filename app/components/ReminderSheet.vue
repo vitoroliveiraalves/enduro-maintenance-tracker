@@ -31,7 +31,11 @@ async function save() {
   if (!dueOn.value) return void (error.value = 'Pick the due date.')
   busy.value = true
   try {
-    await mutate('/api/reminders', { title: title.value.trim(), dueOn: dueOn.value, repeatYearly: repeatYearly.value, ...(bikeId.value ? { bikeId: bikeId.value } : {}) })
+    await mutate(
+      '/api/reminders',
+      { title: title.value.trim(), dueOn: dueOn.value, repeatYearly: repeatYearly.value, ...(bikeId.value ? { bikeId: bikeId.value } : {}) },
+      { queue: true },
+    )
     open.value = false
     emit('saved')
   } catch (e) {

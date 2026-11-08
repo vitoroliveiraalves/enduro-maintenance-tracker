@@ -2,7 +2,8 @@
 import { stateText, subline } from '~/lib/item-state'
 import type { ItemRowJson } from '../../server/domain/item-row'
 
-const props = defineProps<{ item: ItemRowJson; to: string }>()
+// pendingSync: a service for this item is queued offline; its status updates once it syncs.
+const props = defineProps<{ item: ItemRowJson & { pendingSync?: boolean }; to: string }>()
 const tone = computed(
   () => ({ overdue: 'text-danger-text', soon: 'text-warn-text', ok: 'text-ok-text', unknown: 'text-muted' })[props.item.status.state],
 )
@@ -14,7 +15,9 @@ const tone = computed(
       <span class="min-w-0">{{ item.name }}</span>
       <span class="shrink-0" :class="tone" data-testid="item-state">{{ stateText(item) }}</span>
     </div>
-    <div class="mt-0.5 text-xs text-muted" data-testid="item-subline">{{ subline(item) }}</div>
+    <div class="mt-0.5 text-xs text-muted" data-testid="item-subline">
+      {{ subline(item) }}<span v-if="item.pendingSync" class="text-warn-text" data-testid="item-pending"> · done, pending sync</span>
+    </div>
     <ProgressBar :state="item.status.state" :ratio="item.status.ratio" :label="`${item.name} wear`" />
   </NuxtLink>
 </template>

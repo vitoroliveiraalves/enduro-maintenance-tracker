@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseCents, todayLocal } from '~/lib/parse-number'
+import { errorMessage } from '~/offline/outbox'
 
 type Category = { id: string; name: string; kind: string }
 
@@ -53,13 +54,12 @@ async function save() {
       categoryId: categoryId.value,
       description: description.value.trim(),
       ...(bikeId.value ? { bikeId: bikeId.value } : {}),
-    })
+    }, { queue: true })
     clientId = crypto.randomUUID()
     open.value = false
     emit('saved')
   } catch (e) {
-    const { statusMessage, data } = e as { statusMessage?: string; data?: { statusMessage?: string } }
-    error.value = data?.statusMessage ?? statusMessage ?? 'Could not save. Try again.'
+    error.value = errorMessage(e, 'Could not save. Try again.')
   } finally {
     busy.value = false
   }

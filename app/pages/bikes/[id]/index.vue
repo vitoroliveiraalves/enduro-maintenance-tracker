@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { parseDecimal } from '~/lib/parse-number'
 import { dueChips, type DueChip } from '~/lib/reminders'
+import { errorMessage } from '~/offline/outbox'
 import type { ItemRowJson } from '../../../../server/domain/item-row'
 
 type Detail = {
   bike: { id: string; name: string; year: number }
-  latestReading: { at: string; hoursTenths: number; km: number } | null
-  items: ItemRowJson[]
+  latestReading: { at: string; hoursTenths: number; km: number; pending?: boolean } | null
+  items: Array<ItemRowJson & { pendingSync?: boolean }>
 }
 
 const route = useRoute()
@@ -18,25 +19,39 @@ const data = ref<Detail | null>(null)
 const error = ref('')
 const sheetOpen = ref(false)
 const chips = ref<DueChip[]>([])
+const { syncTick } = useOffline()
+
+async function load() {
+  try {
+    data.value = await get<Detail>(`/api/bikes/${id}`)
+    error.value = ''
+    store.setLast(id)
+  } catch (e) {
+    // Offline and never opened on this device: say so, not "not found".
+    if (!data.value) error.value = errorMessage(e, 'Bike not found.', true)
+  }
+}
 
 onMounted(async () => {
   // Reminders for this bike (or all bikes) due in 30 days or less; never blocks the screen.
   get<Array<{ id: string; title: string; dueOn: string }>>(`/api/reminders?bikeId=${id}`)
     .then((list) => (chips.value = dueChips(list)))
     .catch(() => {})
-  try {
-    data.value = await get<Detail>(`/api/bikes/${id}`)
-    store.setLast(id)
-  } catch {
-    error.value = 'Bike not found.'
-  }
+  await load()
 })
+// A flush sent queued writes: show the server's view (status recomputed there).
+watch(syncTick, load)
 
-function onSaved(detail: Record<string, unknown>) {
-  data.value = detail as unknown as Detail
+async function onSaved(detail: Record<string, unknown>) {
+  if (isQueued(detail)) await load() // cached detail + the queued reading on top
+  else data.value = detail as unknown as Detail
 }
 
-const lastRide = computed(() => (data.value?.latestReading ? `Last ride: ${weekdayDay(data.value.latestReading.at)}` : 'No rides yet'))
+const lastRide = computed(() => {
+  const r = data.value?.latestReading
+  if (!r) return 'No rides yet'
+  return `Last ride: ${weekdayDay(r.at)}${r.pending ? ' · waiting to sync' : ''}`
+})
 
 // Empty bike: a small inline form to add the first item.
 const newName = ref('')
@@ -44,6 +59,7 @@ const newHours = ref('')
 const newKm = ref('')
 const newMonths = ref('')
 const addError = ref('')
+const addNote = ref('')
 const adding = ref(false)
 
 async function addItem() {
@@ -55,19 +71,20 @@ async function addItem() {
   if ([h, k, m].some((v) => v === null || (v !== undefined && v <= 0))) return void (addError.value = 'Enter intervals as numbers above zero.')
   if (h === undefined && k === undefined && m === undefined) return void (addError.value = 'Set at least one interval (hours, km or months).')
   adding.value = true
+  addNote.value = ''
   try {
-    await mutate('/api/items', {
+    const res = await mutate('/api/items', {
       bikeId: id,
       name: newName.value.trim(),
       ...(h != null ? { everyHoursTenths: Math.round(h * 10) } : {}),
       ...(k != null ? { everyKm: Math.round(k) } : {}),
       ...(m != null ? { everyMonths: Math.round(m) } : {}),
-    })
-    data.value = await get<Detail>(`/api/bikes/${id}`)
+    }, { queue: true })
+    if (isQueued(res)) addNote.value = 'Saved on this phone — the item appears once it syncs.'
+    else data.value = await get<Detail>(`/api/bikes/${id}`)
     newName.value = newHours.value = newKm.value = newMonths.value = ''
   } catch (e) {
-    const { statusMessage, data: d } = e as { statusMessage?: string; data?: { statusMessage?: string } }
-    addError.value = d?.statusMessage ?? statusMessage ?? 'Could not add the item. Try again.'
+    addError.value = errorMessage(e, 'Could not add the item. Try again.')
   } finally {
     adding.value = false
   }
@@ -141,6 +158,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
             </label>
           </div>
           <p v-if="addError" role="alert" class="mt-2 text-sm text-danger" data-testid="new-item-error">{{ addError }}</p>
+          <p v-else-if="addNote" role="status" class="mt-2 text-sm text-warn-text" data-testid="new-item-queued">{{ addNote }}</p>
           <button type="submit" :disabled="adding" class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111] disabled:opacity-60" data-testid="new-item-save">Add item</button>
         </form>
       </section>

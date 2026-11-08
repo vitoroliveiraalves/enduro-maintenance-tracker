@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
+import { OFFLINE_MESSAGE } from '~/offline/outbox'
 
 const email = ref('')
 const password = ref('')
@@ -17,9 +18,18 @@ async function submit() {
     error.value = 'Passwords do not match'
     return
   }
+  // Auth is online-only: say so instead of "wrong password".
+  if (navigator.onLine === false) return void (error.value = OFFLINE_MESSAGE)
   busy.value = true
   const addr = email.value.trim()
-  const { error: err } = await authClient.signUp.email({ email: addr, password: password.value, name: addr.split('@')[0]! })
+  let res: Awaited<ReturnType<typeof authClient.signUp.email>>
+  try {
+    res = await authClient.signUp.email({ email: addr, password: password.value, name: addr.split('@')[0]! })
+  } catch {
+    busy.value = false
+    return void (error.value = OFFLINE_MESSAGE)
+  }
+  const err = res.error
   busy.value = false
   if (err) {
     if (err.status === 429) error.value = 'Too many attempts — wait a minute and try again'

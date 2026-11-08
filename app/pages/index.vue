@@ -1,21 +1,30 @@
 <script setup lang="ts">
-import { authClient } from '~/lib/auth-client'
+import { errorMessage } from '~/offline/outbox'
 
 const store = useBikesStore()
 const { hours, km } = useFormatters()
+const { syncTick } = useOffline()
 const error = ref('')
+const signOutError = ref('')
 
-onMounted(async () => {
+async function load() {
   try {
     await store.fetchBikes()
+    error.value = ''
   } catch {
     error.value = 'Could not load your bikes.'
   }
-})
+}
+onMounted(load)
+watch(syncTick, load)
 
 async function signOut() {
-  await authClient.signOut()
-  await navigateTo('/login')
+  signOutError.value = ''
+  try {
+    await signOutEverywhere()
+  } catch (e) {
+    signOutError.value = errorMessage(e, "Couldn't sign out. Try again.")
+  }
 }
 </script>
 
@@ -48,7 +57,13 @@ async function signOut() {
         </NuxtLink>
       </li>
     </ul>
-    <p v-else-if="store.loaded" class="mt-3 text-muted" data-testid="empty-garage">No bikes yet.</p>
+    <p v-else-if="store.loaded && !store.pendingBikes.length" class="mt-3 text-muted" data-testid="empty-garage">No bikes yet.</p>
+    <ul v-if="store.pendingBikes.length" class="mt-3 space-y-3">
+      <li v-for="b in store.pendingBikes" :key="b.id" class="rounded-xl bg-surface p-4 opacity-70" data-testid="bike-card-pending">
+        <div class="truncate text-lg font-bold text-white">{{ b.name }}</div>
+        <div class="text-xs text-warn-text">Waiting to sync — opens once you're back online</div>
+      </li>
+    </ul>
 
     <NuxtLink
       to="/bikes/new"
@@ -58,5 +73,6 @@ async function signOut() {
       + Add bike
     </NuxtLink>
     <button class="mt-8 text-sm text-muted underline" @click="signOut">Sign out</button>
+    <p v-if="signOutError" role="alert" class="mt-2 text-sm text-danger">{{ signOutError }}</p>
   </main>
 </template>

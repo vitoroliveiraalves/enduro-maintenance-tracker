@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseCents, parseDecimal, todayLocal } from '~/lib/parse-number'
+import { errorMessage } from '~/offline/outbox'
 import type { ItemRowJson } from '../../server/domain/item-row'
 
 type Detail = Record<string, unknown>
@@ -78,13 +79,12 @@ async function save() {
       ...(by.value === 'garage' && garageName.value.trim() ? { garageName: garageName.value.trim() } : {}),
       itemIds: [props.itemId, ...picked.value],
       ...(cents !== null ? { expenses: [{ amountCents: cents, categoryId: categoryId.value, description: itemName.value }] } : {}),
-    })
+    }, { queue: true })
     clientId = crypto.randomUUID()
     open.value = false
     emit('saved', detail)
   } catch (e) {
-    const { statusMessage, data } = e as { statusMessage?: string; data?: { statusMessage?: string } }
-    error.value = data?.statusMessage ?? statusMessage ?? 'Could not save. Try again.'
+    error.value = errorMessage(e, 'Could not save. Try again.')
   } finally {
     busy.value = false
   }
