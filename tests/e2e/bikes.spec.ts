@@ -31,7 +31,7 @@ test('add a 2T bike with Gearbox oil last done, see overdue and unknown rows', a
 
   // Garage lists it with an overdue count; Bike tab returns to the last bike
   await page.getByTestId('tab-costs').click()
-  await expect(page.getByTestId('coming-soon')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Running costs' })).toBeVisible()
   await page.getByTestId('tab-bike').click()
   await expect(page).toHaveURL(/\/bikes\/[0-9a-f-]{36}$/)
   await page.goto('/')
