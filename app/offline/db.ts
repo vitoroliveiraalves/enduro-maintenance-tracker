@@ -9,6 +9,8 @@ export type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export type OutboxRow = {
   id?: number
   clientId: string
+  /** Who queued it (server-confirmed session at the time). Only ever sent under that same user's session. */
+  userId: string
   url: string
   method: Method
   body: Record<string, unknown>
@@ -17,15 +19,30 @@ export type OutboxRow = {
   label: string
   /** Local-only names resolved at queue time, for showing the write before it syncs. */
   meta?: { bikeName?: string; itemNames?: string[]; categoryName?: string }
-  /** Failed attempts on a retryable error (5xx, 401, 408, 429). */
+  /** Failed attempts on a retryable error (5xx, 408, 429). A 401 pauses the queue instead. */
   attempts: number
   /** Backoff: don't retry before this time (ms). */
   nextAt?: number
-  /** Set when the server refused it for good (other 4xx): never retried, shown until dismissed. */
+  /** Set when the server refused it for good (other 4xx) or retries ran out: never retried, shown until dismissed. */
   error?: string
 }
 
-// No `pendingPhotos`: invoice upload is online-only (Task 12 ruling f).
+/**
+ * Invoice photos captured offline (Ruling R12), already downscaled. Bytes are
+ * stored as ArrayBuffers (Blobs in IndexedDB are unreliable on older iOS).
+ */
+export type PendingPhoto = {
+  id?: number
+  clientId: string
+  userId: string
+  files: Array<{ data: ArrayBuffer; type: string; name: string }>
+  qrRaw?: string
+  createdAt: number
+  attempts: number
+  nextAt?: number
+  error?: string
+}
+
 class OfflineDB extends Dexie {
   bikes!: Table<CacheRow, string>
   bikeDetail!: Table<CacheRow, string>
@@ -33,6 +50,7 @@ class OfflineDB extends Dexie {
   costs!: Table<CacheRow, string>
   lists!: Table<CacheRow, string> // services, expenses, categories, reminders
   outbox!: Table<OutboxRow, number>
+  pendingPhotos!: Table<PendingPhoto, number>
 
   constructor() {
     super('enduro-offline')
@@ -44,6 +62,7 @@ class OfflineDB extends Dexie {
       lists: 'url',
       outbox: '++id, clientId',
     })
+    this.version(2).stores({ pendingPhotos: '++id, clientId' })
   }
 }
 

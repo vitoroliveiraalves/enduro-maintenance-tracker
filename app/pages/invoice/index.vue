@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { downscaleImage } from '~/lib/image-downscale'
-import { errorMessage } from '~/offline/outbox'
+import { errorMessage, OFFLINE_MESSAGE, OfflineError } from '~/offline/outbox'
+import { queuePhotos } from '~/offline/photos'
+import { readSession } from '~/offline/session'
 
 const MAX_PAGES = 5
 const PHOTO_ERROR = "Couldn't read that photo — try another or choose a file."
@@ -12,6 +14,7 @@ type Page = { id: number; file: Blob; url: string }
 const pages = ref<Page[]>([])
 const busy = ref(false)
 const error = ref('')
+const savedOffline = ref(false)
 let seq = 0
 
 async function addPhotos(e: Event) {
@@ -40,12 +43,25 @@ function remove(id: number) {
   pages.value = pages.value.filter((x) => x.id !== id)
 }
 
+/** Offline (Ruling R12): keep the downscaled photos + QR on this phone; the next flush uploads and reads them. */
+async function keepForLater(files: Blob[], qrRaw: string | null) {
+  const userId = readSession()?.userId
+  if (!userId) return void (error.value = OFFLINE_MESSAGE)
+  await queuePhotos({ files, qrRaw, userId })
+  pages.value.forEach((p) => URL.revokeObjectURL(p.url))
+  pages.value = []
+  savedOffline.value = true
+}
+
 async function send(files: Blob[]) {
   busy.value = true
   error.value = ''
+  savedOffline.value = false
+  let qrRaw: string | null = null
   try {
     // Best-effort; a QR of another document type never blocks the upload (the server explains it).
-    const qrRaw = await scan(files)
+    qrRaw = await scan(files)
+    if (!online.value) return void (await keepForLater(files, qrRaw))
     const form = new FormData()
     files.forEach((f, i) => form.append('files', f, f.type === 'application/pdf' ? 'invoice.pdf' : `page-${i + 1}.jpg`))
     if (qrRaw) form.append('qrRaw', qrRaw)
@@ -60,7 +76,8 @@ async function send(files: Blob[]) {
     if (res.qrNotice) query.qrNotice = res.qrNotice
     await navigateTo({ path: `/invoice/${res.id}`, query })
   } catch (err) {
-    error.value = errorMessage(err, 'Could not upload the invoice. Try again.')
+    if (err instanceof OfflineError) await keepForLater(files, qrRaw).catch(() => (error.value = 'Could not save the photos on this phone. Try again.'))
+    else error.value = errorMessage(err, 'Could not upload the invoice. Try again.')
   } finally {
     busy.value = false
   }
@@ -105,13 +122,13 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
     <p class="mt-1 text-sm text-muted">Photograph the invoice or choose a file. The QR code is read on your phone.</p>
 
     <p v-if="!online" role="status" data-testid="offline-banner" class="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn">
-      You're offline — invoices can be added when you're back online.
+      You're offline — photos are saved on this phone and uploaded when you're back online.
     </p>
 
     <div class="mt-5 grid gap-3">
       <label
         class="block rounded-lg bg-accent px-4 py-3 text-center font-semibold text-black"
-        :class="{ 'pointer-events-none opacity-40': !online || busy || pages.length >= MAX_PAGES }"
+        :class="{ 'pointer-events-none opacity-40': busy || pages.length >= MAX_PAGES }"
       >
         Take photos
         <input
@@ -120,13 +137,13 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
           capture="environment"
           class="sr-only"
           data-testid="camera-input"
-          :disabled="!online || busy || pages.length >= MAX_PAGES"
+          :disabled="busy || pages.length >= MAX_PAGES"
           @change="addPhotos"
         >
       </label>
       <label
         class="block rounded-lg border border-white/15 bg-surface px-4 py-3 text-center font-semibold"
-        :class="{ 'pointer-events-none opacity-40': !online || busy }"
+        :class="{ 'pointer-events-none opacity-40': busy }"
       >
         Choose file
         <input
@@ -135,7 +152,7 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
           multiple
           class="sr-only"
           data-testid="file-input"
-          :disabled="!online || busy"
+          :disabled="busy"
           @change="chooseFile"
         >
       </label>
@@ -158,14 +175,17 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
       <button
         type="button"
         class="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-semibold text-black disabled:opacity-40"
-        :disabled="!online || busy"
+        :disabled="busy"
         @click="send(pages.map((p) => p.file))"
       >
-        {{ busy ? 'Uploading…' : `Upload ${pages.length} ${pages.length === 1 ? 'page' : 'pages'}` }}
+        {{ busy ? (online ? 'Uploading…' : 'Saving…') : `${online ? 'Upload' : 'Save'} ${pages.length} ${pages.length === 1 ? 'page' : 'pages'}` }}
       </button>
     </section>
 
     <p v-if="busy && !pages.length" class="mt-4 text-sm text-muted" role="status">Uploading…</p>
+    <p v-if="savedOffline" role="status" class="mt-4 rounded-lg bg-surface p-3 text-sm text-text" data-testid="invoice-saved-offline">
+      Saved on this phone. It uploads and gets read when you're back online — then review it here.
+    </p>
     <p v-if="error" role="alert" class="mt-4 text-sm text-danger">{{ error }}</p>
   </main>
 </template>

@@ -30,6 +30,8 @@ export function parseReadingInput(raw: unknown) {
     if (Number.isNaN(at.getTime())) throw bad('Invalid date')
     // one day of slack for server/client timezone differences
     if (at.getTime() > Date.now() + 86_400_000) throw bad('Date is in the future')
+    // Within that slack, a client clock running ahead never stores a future reading.
+    if (at.getTime() > Date.now()) at = new Date()
   }
   return {
     clientId: o.clientId,

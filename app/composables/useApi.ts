@@ -1,4 +1,5 @@
 import { createApi, isQueued, type MutateOpts } from '~/offline/api'
+import { readSession } from '~/offline/session'
 import { requestFlush } from './useOffline'
 
 /**
@@ -23,6 +24,6 @@ const isOnline = () => typeof navigator === 'undefined' || navigator.onLine !== 
 let api: ReturnType<typeof createApi> | null = null
 
 export function useApi() {
-  if (!api) api = createApi({ send: doFetch, online: isOnline, afterQueue: () => void requestFlush() })
+  if (!api) api = createApi({ send: doFetch, online: isOnline, userId: () => readSession()?.userId ?? null, afterQueue: () => void requestFlush() })
   return api
 }

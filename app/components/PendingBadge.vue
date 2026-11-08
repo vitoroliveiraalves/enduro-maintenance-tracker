@@ -1,14 +1,17 @@
 <script setup lang="ts">
-// "1 change waiting": writes in the offline outbox. Tap for details; refused
-// writes (the server said no once it got them) are listed with the reason and
-// a Dismiss button. No Background Sync on iOS, so this also says to keep the
-// app open once back online.
+// "1 change waiting": writes in the offline outbox. Tap for details:
+// - refused writes (the server said no, or retries ran out) with the reason and Dismiss;
+// - waiting writes, each with "Discard this change" (confirmed in the sheet).
+// No Background Sync on iOS, so it also says to keep the app open once back online.
+import type { PendingItem } from '~/composables/useOffline'
+
 const route = useRoute()
-const { online, pending, failed, flush, dismiss } = useOffline()
+const { online, pending, waiting, failed, flush, remove } = useOffline()
 
 const HIDDEN = ['/login', '/register']
 const open = ref(false)
 const syncing = ref(false)
+const confirmKey = ref<string | null>(null)
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`)
 
 const visible = computed(() => !HIDDEN.includes(route.path) && (pending.value > 0 || failed.value.length > 0))
@@ -25,9 +28,15 @@ async function syncNow() {
   }
 }
 
+async function discard(item: PendingItem) {
+  confirmKey.value = null
+  await remove(item)
+}
+
 watch(visible, (v) => {
   if (!v) open.value = false
 })
+watch(open, () => (confirmKey.value = null))
 </script>
 
 <template>
@@ -46,10 +55,10 @@ watch(visible, (v) => {
       <section v-if="failed.length" data-testid="pending-failed">
         <p class="text-sm font-semibold text-danger-text">{{ plural(failed.length, 'change', 'changes') }} couldn't be saved:</p>
         <ul class="mt-2 space-y-2">
-          <li v-for="r in failed" :key="r.id" class="rounded-xl bg-bg p-3" data-testid="pending-failed-row">
+          <li v-for="r in failed" :key="r.key" class="rounded-xl bg-bg p-3" data-testid="pending-failed-row">
             <p class="text-sm text-white" data-testid="pending-failed-reason">{{ r.error }}</p>
             <p class="mt-0.5 text-xs text-muted">{{ r.label }}</p>
-            <button type="button" class="mt-2 rounded-lg bg-surface px-3 py-1.5 text-[13px] font-semibold text-white" data-testid="pending-dismiss" @click="dismiss(r.id!)">
+            <button type="button" class="mt-2 rounded-lg bg-surface px-3 py-1.5 text-[13px] font-semibold text-white" data-testid="pending-dismiss" @click="remove(r)">
               Dismiss
             </button>
           </li>
@@ -61,6 +70,18 @@ watch(visible, (v) => {
           Saved on this phone. {{ online ? 'Sending now — keep the app open for a moment.' : "They're sent when you're back online with the app open." }}
           Don't sign out or clear the browser's data until they're through.
         </p>
+        <ul class="mt-2 space-y-2">
+          <li v-for="w in waiting" :key="w.key" class="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2" data-testid="pending-row">
+            <span class="min-w-0 text-sm text-white">{{ w.label }}</span>
+            <span v-if="confirmKey === w.key" class="flex shrink-0 gap-3 text-[13px]">
+              <button type="button" class="font-bold text-danger" data-testid="pending-discard-confirm" @click="discard(w)">Yes, discard</button>
+              <button type="button" class="text-muted" @click="confirmKey = null">Keep</button>
+            </span>
+            <button v-else type="button" class="shrink-0 text-[13px] text-muted" data-testid="pending-discard" @click="confirmKey = w.key">
+              Discard this change
+            </button>
+          </li>
+        </ul>
         <button
           v-if="online"
           type="button"

@@ -21,9 +21,9 @@ export function statusOf(err: unknown): number | undefined {
 
 export const isNetworkError = (err: unknown) => !(err instanceof OfflineError) && statusOf(err) === undefined
 
-/** Worth retrying later: server errors, session expired (sign in again), timeout, rate limit. */
+/** Worth retrying later: server errors, timeout, rate limit. (401 pauses the whole queue instead.) */
 export function retryable(status: number): boolean {
-  return status >= 500 || [401, 408, 429].includes(status)
+  return status >= 500 || [408, 429].includes(status)
 }
 
 /**
@@ -108,7 +108,7 @@ export async function hasPending(): Promise<boolean> {
   return (await pendingRows()).length > 0
 }
 
-/** The rider read the refusal: forget the write. */
+/** The rider read the refusal, or chose to discard a waiting change: forget the write. */
 export async function dismissFailed(id: number): Promise<void> {
   await getDb().outbox.delete(id)
   notifyOutbox()

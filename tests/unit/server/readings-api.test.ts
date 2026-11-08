@@ -60,6 +60,12 @@ describe('logReading', () => {
     expect(await post({ at: day(2), hoursTenths: 1550, km: 4100 })).toMatchObject({ status: 422, body: { error: 'km-exceed-later' } })
     expect(await post({ at: day(2), hoursTenths: 1500, km: 3950 })).toMatchObject({ status: 422, body: { error: 'hours-decreased' } })
   })
+  it('a slightly-future `at` (client clock ahead) is stored as now, never in the future', async () => {
+    const r = await post({ at: new Date(Date.now() + 3_600_000).toISOString() })
+    expect(r.status).toBe(200)
+    const rows = await db.select().from(meterReadings)
+    expect(Math.max(...rows.map((x) => x.at.getTime()))).toBeLessThanOrEqual(Date.now())
+  })
   it('400 for bad input and future dates', async () => {
     for (const over of [{ hoursTenths: -1 }, { hoursTenths: 1.5 }, { km: 'x' }, { condition: 'ice' }, { clientId: 'nope' }, { at: 'garbage' }, { at: new Date(Date.now() + 3 * 86_400_000).toISOString() }]) {
       await expect(post(over)).rejects.toMatchObject({ statusCode: 400 })

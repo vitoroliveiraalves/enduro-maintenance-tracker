@@ -47,7 +47,7 @@ async function metaFor(url: string, body: Json): Promise<OutboxRow['meta']> {
  * The data layer behind useApi(): network-first reads with a Dexie fallback,
  * and writes that are either online-only or (opt-in) queued in the outbox.
  */
-export function createApi(deps: { send: Send; online: () => boolean; afterQueue?: () => void }) {
+export function createApi(deps: { send: Send; online: () => boolean; userId: () => string | null; afterQueue?: () => void }) {
   const { send, online } = deps
 
   async function fromCache<T>(url: string): Promise<T> {
@@ -111,7 +111,10 @@ export function createApi(deps: { send: Send; online: () => boolean; afterQueue?
         if (status !== undefined && status < 500 && status !== 408) throw err
       }
     }
-    await enqueue({ clientId: String(payload.clientId), url, method, body: payload, meta: await metaFor(url, payload) })
+    // Each row belongs to the rider who queued it and is only ever sent under their session.
+    const userId = deps.userId()
+    if (!userId) throw new OfflineError()
+    await enqueue({ clientId: String(payload.clientId), userId, url, method, body: payload, meta: await metaFor(url, payload) })
     deps.afterQueue?.()
     return { queued: true } as T
   }

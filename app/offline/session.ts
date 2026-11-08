@@ -66,3 +66,16 @@ export async function checkSession(fetchSession: () => Promise<SessionResult>, o
   write(user)
   return { user, changedUser: prev?.userId !== u.id }
 }
+
+/**
+ * Who the server says is signed in right now, or null (nobody, or no answer).
+ * The outbox flush asks this before sending anything: never the cache.
+ */
+export async function serverUserId(fetchSession: () => Promise<SessionResult>): Promise<string | null> {
+  try {
+    const res = await fetchSession()
+    return res.data?.user?.id ?? null
+  } catch {
+    return null
+  }
+}

@@ -10,8 +10,9 @@ import { unsubscribeThisDevice } from './usePush'
  * deletion both end here, so the next person on a shared phone sees nothing.
  */
 export async function forgetThisDevice() {
-  await clearOfflineData()
+  await clearOfflineData() // cache, outbox and pending invoice photos
   forgetSession()
+  useOffline().forgetUploaded()
   useBikesStore().setLast(null)
 }
 

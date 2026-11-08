@@ -38,7 +38,10 @@ function when(r: Reminder) {
   return { text: `${formatDate(r.dueOn)} · ${dueText(d)}`, tone: d < 0 ? 'text-danger-text' : d <= 30 ? 'text-warn-text' : 'text-muted' }
 }
 
+const acting = ref(false)
 async function act(r: Reminder, kind: 'done' | 'remove') {
+  if (acting.value) return // a double tap must not mark a yearly reminder done twice
+  acting.value = true
   remError.value = ''
   try {
     if (kind === 'done') await mutate(`/api/reminders/${r.id}/done`, { dueOn: r.dueOn }, { queue: true })
@@ -46,6 +49,8 @@ async function act(r: Reminder, kind: 'done' | 'remove') {
     await loadReminders()
   } catch (e) {
     remError.value = errorMessage(e, "Couldn't update the reminder. Try again.", true)
+  } finally {
+    acting.value = false
   }
 }
 
@@ -139,8 +144,8 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
         </div>
         <div class="mt-0.5 text-xs" :class="when(r).tone" data-testid="reminder-when">{{ when(r).text }}</div>
         <div v-if="!r.pending" class="mt-2 flex gap-2">
-          <button type="button" class="rounded-lg bg-bg px-3 py-1.5 text-[13px] font-semibold text-ok-text" data-testid="reminder-done" @click="act(r, 'done')">✓ Done</button>
-          <button type="button" class="rounded-lg px-3 py-1.5 text-[13px] text-muted" data-testid="reminder-remove" @click="act(r, 'remove')">Remove</button>
+          <button type="button" class="rounded-lg bg-bg px-3 py-1.5 text-[13px] font-semibold text-ok-text" data-testid="reminder-done" :disabled="acting" @click="act(r, 'done')">✓ Done</button>
+          <button type="button" class="rounded-lg px-3 py-1.5 text-[13px] text-muted" data-testid="reminder-remove" :disabled="acting" @click="act(r, 'remove')">Remove</button>
         </div>
       </div>
       <p v-if="remError" role="alert" class="mt-2 text-sm text-danger">{{ remError }}</p>

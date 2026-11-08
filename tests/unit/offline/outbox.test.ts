@@ -5,13 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApi, isQueued, type Send } from '../../../app/offline/api'
 import { clearOfflineData, getDb } from '../../../app/offline/db'
 import { dismissFailed, listOutbox, OfflineError, OFFLINE_MESSAGE } from '../../../app/offline/outbox'
-import { flushOutbox } from '../../../app/offline/sync'
+import { listPhotos, queuePhotos } from '../../../app/offline/photos'
+import { flushOutbox, MAX_ATTEMPTS } from '../../../app/offline/sync'
 
 type Call = { url: string; method: string; body: Record<string, unknown> | undefined }
 const netErr = () => Object.assign(new Error('fetch failed'), { name: 'FetchError' })
 const httpErr = (statusCode: number, data: unknown = {}) => Object.assign(new Error(`HTTP ${statusCode}`), { statusCode, data })
 
 let online = true
+let me: string | null = 'u1'
 let calls: Call[] = []
 const recorder = (impl?: (c: Call) => unknown): Send =>
   vi.fn(async (url: string, opts?: { method?: string; body?: unknown }) => {
@@ -19,7 +21,10 @@ const recorder = (impl?: (c: Call) => unknown): Send =>
     calls.push(c)
     return impl ? impl(c) : { ok: true }
   })
-const api = (send: Send) => createApi({ send, online: () => online })
+const api = (send: Send) => createApi({ send, online: () => online, userId: () => me })
+// The server-confirmed session the flush checks before sending anything.
+const flush = (o: Omit<Parameters<typeof flushOutbox>[0] & object, 'currentUser'> & { as?: string | null } = {}) =>
+  flushOutbox({ currentUser: async () => (o.as === undefined ? 'u1' : o.as), ...o })
 
 const detail = (hoursTenths: number) => ({
   bike: { id: 'b1', name: 'KTM', year: 2023 },
@@ -29,6 +34,7 @@ const detail = (hoursTenths: number) => ({
 
 beforeEach(async () => {
   online = true
+  me = 'u1'
   calls = []
   await clearOfflineData()
 })
@@ -111,7 +117,7 @@ describe('flushOutbox', () => {
   it('sends queued writes in FIFO order and empties the outbox', async () => {
     await queueThree()
     const send = recorder()
-    const res = await flushOutbox({ send })
+    const res = await flush({ send })
     expect(res).toMatchObject({ sent: 3, failed: 0 })
     expect(calls.map((c) => c.url)).toEqual(['/api/readings', '/api/services', '/api/expenses'])
     expect(await listOutbox()).toHaveLength(0)
@@ -122,7 +128,7 @@ describe('flushOutbox', () => {
     const send = recorder(() => {
       throw netErr()
     })
-    const res = await flushOutbox({ send })
+    const res = await flush({ send })
     expect(res).toMatchObject({ sent: 0, failed: 0 })
     expect(calls).toHaveLength(1)
     expect(await listOutbox()).toHaveLength(3)
@@ -144,9 +150,9 @@ describe('flushOutbox', () => {
       }
       return detail(1450)
     })
-    expect(await flushOutbox({ send })).toMatchObject({ sent: 0 })
+    expect(await flush({ send })).toMatchObject({ sent: 0 })
     expect(await listOutbox()).toHaveLength(1)
-    expect(await flushOutbox({ send })).toMatchObject({ sent: 1 })
+    expect(await flush({ send })).toMatchObject({ sent: 1 })
     expect(calls).toHaveLength(2)
     expect(calls[0]!.body!.clientId).toBe(calls[1]!.body!.clientId)
     expect(created.size).toBe(1)
@@ -159,14 +165,14 @@ describe('flushOutbox', () => {
       if (c.url === '/api/readings') throw httpErr(422, { error: 'hours-decreased', last: { hoursTenths: 1440, km: 3800 } })
       return { ok: true }
     })
-    const res = await flushOutbox({ send })
+    const res = await flush({ send })
     expect(res).toMatchObject({ sent: 2, failed: 1 })
     const rows = await listOutbox()
     expect(rows).toHaveLength(1)
     expect(rows[0]!.error).toBe("Hours can't go down (last: 144.0 h)")
     // A failed row is never retried.
     calls = []
-    expect(await flushOutbox({ send })).toMatchObject({ sent: 0, failed: 0 })
+    expect(await flush({ send })).toMatchObject({ sent: 0, failed: 0 })
     expect(calls).toHaveLength(0)
     await dismissFailed(rows[0]!.id!)
     expect(await listOutbox()).toHaveLength(0)
@@ -178,35 +184,35 @@ describe('flushOutbox', () => {
     const fail = recorder(() => {
       throw httpErr(503)
     })
-    expect(await flushOutbox({ send: fail, now: () => now })).toMatchObject({ sent: 0, failed: 0 })
+    expect(await flush({ send: fail, now: () => now })).toMatchObject({ sent: 0, failed: 0 })
     const [row] = await listOutbox()
     expect(row!.attempts).toBe(1)
     expect(row!.nextAt).toBeGreaterThan(now)
     expect(row!.error).toBeUndefined()
     const ok = recorder()
     calls = []
-    await flushOutbox({ send: ok, now: () => now })
+    await flush({ send: ok, now: () => now })
     expect(calls).toHaveLength(0) // still backing off
     now = row!.nextAt!
-    expect(await flushOutbox({ send: ok, now: () => now })).toMatchObject({ sent: 3 })
+    expect(await flush({ send: ok, now: () => now })).toMatchObject({ sent: 3 })
   })
 
   it('a 200 replay counts as success', async () => {
     await queueThree()
-    expect(await flushOutbox({ send: recorder(() => ({ id: 'existing' })) })).toMatchObject({ sent: 3, failed: 0 })
+    expect(await flush({ send: recorder(() => ({ id: 'existing' })) })).toMatchObject({ sent: 3, failed: 0 })
   })
 
   it('only one flush runs at a time', async () => {
     await queueThree()
     const send = recorder(async () => new Promise((r) => setTimeout(() => r({ ok: true }), 5)))
-    const [a, b] = await Promise.all([flushOutbox({ send }), flushOutbox({ send })])
+    const [a, b] = await Promise.all([flush({ send }), flush({ send })])
     expect(calls).toHaveLength(3)
     expect(a).toEqual(b)
   })
 
   it('reports the bikes it touched so the screen can refetch them', async () => {
     await queueThree()
-    const res = await flushOutbox({ send: recorder() })
+    const res = await flush({ send: recorder() })
     expect(res.bikeIds).toEqual(['b1'])
   })
 })
@@ -276,5 +282,135 @@ describe('clearOfflineData', () => {
     await clearOfflineData()
     const db = getDb()
     for (const t of db.tables) expect(await t.count()).toBe(0)
+  })
+})
+
+describe('outbox ownership (fix round 1)', () => {
+  it('stamps the signed-in user on every queued row; no known user → not queued', async () => {
+    online = false
+    await api(recorder()).mutate('/api/expenses', { amountCents: 100, categoryId: 'c1', at: '2026-11-08' }, { queue: true })
+    expect((await listOutbox())[0]!.userId).toBe('u1')
+    me = null
+    expect(await api(recorder()).mutate('/api/expenses', { amountCents: 1 }, { queue: true }).catch((e) => e)).toBeInstanceOf(OfflineError)
+    expect(await listOutbox()).toHaveLength(1)
+  })
+
+  it("never sends user A's rows when the server session is user B (or nobody)", async () => {
+    online = false
+    await api(recorder()).mutate('/api/bikes', { name: 'A bike' }, { queue: true })
+    await api(recorder()).mutate('/api/expenses', { amountCents: 100, categoryId: 'c1', at: '2026-11-08' }, { queue: true })
+    online = true
+    const send = recorder()
+    expect(await flush({ send, as: 'u2' })).toMatchObject({ sent: 0, failed: 0 })
+    expect(await flush({ send, as: null })).toMatchObject({ sent: 0, failed: 0 })
+    expect(calls).toHaveLength(0)
+    expect(await listOutbox()).toHaveLength(2)
+    // A signs back in: the same rows go through.
+    expect(await flush({ send, as: 'u1' })).toMatchObject({ sent: 2 })
+  })
+
+  it('a 401 pauses the whole queue without spending attempts', async () => {
+    online = false
+    await api(recorder()).mutate('/api/readings', { bikeId: 'b1', hoursTenths: 1450, km: 3900 }, { queue: true })
+    await api(recorder()).mutate('/api/expenses', { amountCents: 100, categoryId: 'c1', at: '2026-11-08' }, { queue: true })
+    online = true
+    const send = recorder(() => {
+      throw httpErr(401)
+    })
+    expect(await flush({ send })).toMatchObject({ sent: 0, failed: 0, paused: true })
+    expect(calls).toHaveLength(1)
+    const rows = await listOutbox()
+    expect(rows.map((r) => [r.attempts, r.nextAt, r.error])).toEqual([
+      [0, undefined, undefined],
+      [0, undefined, undefined],
+    ])
+  })
+})
+
+describe('retry cap (fix round 1)', () => {
+  it(`after ${6} failed attempts the head row is set aside with a reason and the rest go through`, async () => {
+    expect(MAX_ATTEMPTS).toBe(6)
+    online = false
+    await api(recorder()).mutate('/api/readings', { bikeId: 'b1', hoursTenths: 1450, km: 3900 }, { queue: true })
+    await api(recorder()).mutate('/api/expenses', { amountCents: 100, categoryId: 'c1', at: '2026-11-08' }, { queue: true })
+    online = true
+    const send = recorder((c) => {
+      if (c.url === '/api/readings') throw httpErr(503)
+      return { ok: true }
+    })
+    for (let i = 1; i < MAX_ATTEMPTS; i++) expect(await flush({ send, force: true })).toMatchObject({ sent: 0, failed: 0 })
+    expect((await listOutbox())[0]!.attempts).toBe(MAX_ATTEMPTS - 1)
+    expect(await flush({ send, force: true })).toMatchObject({ sent: 1, failed: 1 })
+    const rows = await listOutbox()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.error).toBe("Couldn't reach the server after several tries (503)")
+  })
+
+  it('a row older than 24 h is set aside on its next retryable failure', async () => {
+    online = false
+    await api(recorder()).mutate('/api/readings', { bikeId: 'b1', hoursTenths: 1450, km: 3900 }, { queue: true })
+    online = true
+    const later = Date.now() + 24 * 3_600_000 + 1
+    const res = await flush({ send: recorder(() => Promise.reject(httpErr(500))), now: () => later })
+    expect(res).toMatchObject({ failed: 1 })
+    expect((await listOutbox())[0]!.error).toMatch(/several tries/)
+  })
+})
+
+describe('pending invoice photos (Ruling R12)', () => {
+  const jpeg = () => new Blob([new Uint8Array([0xff, 0xd8, 0xff, 1, 2, 3])], { type: 'image/jpeg' })
+
+  it('stores the photos and the QR for the signed-in user', async () => {
+    await queuePhotos({ files: [jpeg(), jpeg()], qrRaw: 'A:1*B:2', userId: 'u1' })
+    const [p] = await listPhotos()
+    expect(p).toMatchObject({ userId: 'u1', qrRaw: 'A:1*B:2' })
+    expect(p!.files).toHaveLength(2)
+    expect(p!.clientId).toMatch(/^[0-9a-f-]{36}$/)
+  })
+
+  it('flush uploads them with the stored clientId, starts the read, and removes the row', async () => {
+    await queuePhotos({ files: [jpeg()], qrRaw: 'QR', userId: 'u1' })
+    const [p] = await listPhotos()
+    const send = recorder((c) => (c.url === '/api/documents' ? { id: 'd1', duplicate: false, status: 'reading' } : { ok: true }))
+    const res = await flush({ send })
+    expect(res).toMatchObject({ sent: 1, documents: ['d1'] })
+    expect(calls.map((c) => c.url)).toEqual(['/api/documents', '/api/documents/d1/read'])
+    const form = calls[0]!.body as unknown as FormData
+    expect(form).toBeInstanceOf(FormData)
+    expect(form.get('clientId')).toBe(p!.clientId)
+    expect(form.get('qrRaw')).toBe('QR')
+    expect((form.getAll('files')[0] as File).type).toBe('image/jpeg')
+    expect(await listPhotos()).toHaveLength(0)
+  })
+
+  it('a duplicate upload counts as success and is not read again', async () => {
+    await queuePhotos({ files: [jpeg()], userId: 'u1' })
+    const send = recorder(() => ({ id: 'd0', duplicate: true, status: 'review' }))
+    expect(await flush({ send })).toMatchObject({ sent: 1, documents: ['d0'] })
+    expect(calls).toHaveLength(1)
+  })
+
+  it('4xx sets it aside with the reason; another user never uploads it; network error keeps it', async () => {
+    await queuePhotos({ files: [jpeg()], userId: 'u1' })
+    expect(await flush({ send: recorder(), as: 'u2' })).toMatchObject({ sent: 0 })
+    expect(calls).toHaveLength(0)
+    await flush({
+      send: recorder(() => {
+        throw netErr()
+      }),
+    })
+    expect((await listPhotos())[0]!.error).toBeUndefined()
+    await flush({
+      send: recorder(() => {
+        throw httpErr(413, { statusMessage: 'PDF too large (10 MB max).' })
+      }),
+    })
+    expect((await listPhotos())[0]!.error).toBe('PDF too large (10 MB max).')
+  })
+
+  it('cleared with everything else on sign-out', async () => {
+    await queuePhotos({ files: [jpeg()], userId: 'u1' })
+    await clearOfflineData()
+    expect(await listPhotos()).toHaveLength(0)
   })
 })

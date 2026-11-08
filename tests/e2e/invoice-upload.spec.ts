@@ -64,18 +64,39 @@ test('a photo the browser cannot decode shows a calm error', async ({ page }) =>
   await expect(page.getByTestId('pages')).toHaveCount(0)
 })
 
-test('offline: buttons disabled and banner shown', async ({ page, context }) => {
-  await signUpFresh(page)
+test('offline: a photo is kept on the phone, then uploaded and read when back online (R12)', async ({ page, context }) => {
+  const { email } = await signUpFresh(page)
   await page.goto('/invoice')
-  // Wait for the app to be mounted (its online listener registered) before going offline.
+  // Mounted, and the auth middleware has confirmed and cached the session, before going offline.
   await expect(page.getByRole('heading', { name: 'Add invoice' })).toBeVisible()
-  await expect(page.getByTestId('camera-input')).toBeEnabled()
+  await page.waitForFunction(() => localStorage.getItem('enduro:session'))
   await expect(page.getByTestId('offline-banner')).toHaveCount(0)
   await context.setOffline(true)
-  await expect(page.getByTestId('offline-banner')).toHaveText("You're offline — invoices can be added when you're back online.")
-  await expect(page.getByTestId('camera-input')).toBeDisabled()
-  await expect(page.getByTestId('file-input')).toBeDisabled()
-  await context.setOffline(false)
+  await expect(page.getByTestId('offline-banner')).toHaveText("You're offline — photos are saved on this phone and uploaded when you're back online.")
+  await expect(page.getByTestId('camera-input')).toBeEnabled()
+  await page.getByTestId('camera-input').setInputFiles(FIXTURE)
+  await expect(page.getByTestId('pages').locator('img')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Save 1 page' }).click()
+  await expect(page.getByTestId('invoice-saved-offline')).toBeVisible()
+  await expect(page.getByTestId('invoices-waiting')).toHaveText('1 invoice waiting to upload — keep the app open when online')
+
+  const db = sql()
+  try {
+    const docs = async () => (await db`select d.id from documents d join "user" u on u.id = d.user_id where u.email = ${email}`).map((r) => r.id as string)
+    expect(await docs()).toHaveLength(0)
+    await context.setOffline(false)
+    await expect(page.getByTestId('invoices-waiting')).toBeHidden({ timeout: 30_000 })
+    await expect(page.getByTestId('invoice-uploaded')).toBeVisible()
+    const ids = await docs()
+    expect(ids).toHaveLength(1)
+    // It was read too: the review opens with the (mock) lines.
+    await page.getByTestId('invoice-uploaded').click()
+    await expect(page).toHaveURL(new RegExp(`/invoice/${ids[0]}$`))
+    await expect(page.getByTestId('inv-line')).toHaveCount(3, { timeout: 15_000 })
+    await expect(page.getByTestId('invoice-uploaded')).toHaveCount(0)
+  } finally {
+    await db.end()
+  }
 })
 
 test('anonymous /invoice redirects to /login; anonymous upload is 401', async ({ page, request }) => {

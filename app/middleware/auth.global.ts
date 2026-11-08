@@ -1,7 +1,7 @@
 import { authClient } from '~/lib/auth-client'
 import { clearOfflineData } from '~/offline/db'
 import { checkSession } from '~/offline/session'
-import { warmCacheOnce } from '~/composables/useOffline'
+import { requestFlush, warmCacheOnce } from '~/composables/useOffline'
 
 const PUBLIC = ['/login', '/register']
 
@@ -16,7 +16,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     useBikesStore().setLast(null)
   }
   // Fill the offline cache for screens not opened yet (non-blocking, once per run).
-  if (user) void warmCacheOnce()
+  if (user) {
+    void warmCacheOnce()
+    // Writes queued by this rider go now; the flush re-checks the session with the server itself.
+    void requestFlush()
+  }
   if (!user && !isPublic) return navigateTo('/login')
   if (user && isPublic) return navigateTo('/')
 })

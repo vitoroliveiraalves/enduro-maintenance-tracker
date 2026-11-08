@@ -7,6 +7,7 @@ const badge = computed(() => pending.value > 0 || failed.value.length > 0)
 <template>
   <div class="min-h-dvh bg-bg text-text" :class="badge ? 'pb-28' : 'pb-16'">
     <OfflineBanner />
+    <PendingInvoices />
     <NuxtPage />
     <PendingBadge />
     <BottomTabs />

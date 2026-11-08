@@ -219,3 +219,61 @@ test('sign out wipes the offline cache and outbox from this device', async ({ pa
   expect(await count()).toBe(0)
   expect(await page.evaluate(() => [localStorage.getItem('enduro:session'), localStorage.getItem('enduro:lastBike')])).toEqual([null, null])
 })
+
+test("sign-out → another rider signs in: the first rider's queued write is never sent under the new session", async ({ page, context }) => {
+  const a = await signUpFresh(page)
+  await page.goto('/history')
+  await page.waitForFunction(() => localStorage.getItem('enduro:session'))
+  // Open the expense sheet once online so the categories are on the phone.
+  await page.getByTestId('add-expense').click()
+  await expect(page.getByTestId('ex-category').locator('option').first()).toBeAttached()
+  await page.keyboard.press('Escape')
+  await context.setOffline(true)
+  await page.getByTestId('add-expense').click()
+  await page.getByTestId('ex-amount').fill('9,99')
+  await page.getByTestId('ex-description').fill('Cross-user fuel')
+  await page.getByTestId('ex-save').click()
+  await expect(page.getByTestId('pending-badge')).toHaveText('1 change waiting')
+
+  // Meanwhile rider A's session is replaced by rider B's (same browser profile).
+  const b = { email: `rider-${crypto.randomUUID()}@example.com`, password: 'enduro-pass-1' }
+  const res = await page.request.post('/api/auth/sign-up/email', { data: { ...b, name: 'rider' }, headers: { origin: 'http://localhost:3210' } })
+  expect(res.ok()).toBeTruthy()
+  await context.setOffline(false)
+  // Back online the flush runs (`online` + Sync now) but the server session is B: nothing goes.
+  await page.getByTestId('pending-badge').click()
+  await page.getByTestId('pending-sync-now').click()
+  await expect(page.getByTestId('pending-sync-now')).toHaveText('Sync now')
+  await expect(page.getByTestId('pending-row')).toHaveCount(1)
+  await page.getByTestId('pending-sheet-backdrop').click({ position: { x: 10, y: 10 } })
+
+  const db = sql()
+  const count = async (email: string) =>
+    (await db`select count(*)::int as n from expenses e join "user" u on u.id = e.user_id where u.email = ${email} and e.description = 'Cross-user fuel'`)[0]!.n as number
+  try {
+    expect(await count(b.email)).toBe(0)
+    expect(await count(a.email)).toBe(0)
+    // The next navigation confirms B as a different rider: A's data and queue are wiped from this device.
+    await page.getByTestId('tab-costs').click()
+    await expect(page.getByTestId('pending-badge')).toHaveCount(0)
+    expect(await count(b.email)).toBe(0)
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('enduro:session') ?? '{}').email)).toBe(b.email)
+  } finally {
+    await db.end()
+  }
+})
+
+test('a waiting change can be discarded from the pending sheet, after confirming', async ({ page, context }) => {
+  await primed(page)
+  await context.setOffline(true)
+  await page.getByTestId('log-ride').click()
+  await page.getByTestId('hours-input').fill('143')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByTestId('pending-badge').click()
+  await expect(page.getByTestId('pending-row')).toContainText('Ride · 143.0 h')
+  await page.getByTestId('pending-discard').click()
+  await page.getByTestId('pending-discard-confirm').click()
+  await expect(page.getByTestId('pending-badge')).toHaveCount(0)
+  await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
+  await context.setOffline(false)
+})
