@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatHours, formatKm, formatMoney } from '~/lib/format'
+import { formatDate, formatHours, formatHoursLong, formatKm, formatMoney } from '~/lib/format'
 
 describe('format', () => {
   it('formats money from cents', () => {
@@ -13,4 +13,11 @@ describe('format', () => {
     expect(formatKm(950)).toBe('950 km')
   })
   it('formats dates', () => expect(formatDate('2026-10-06')).toBe('6 Oct 2026'))
+})
+
+describe('formatHoursLong', () => {
+  it('groups thousands with a thin space', () => {
+    expect(formatHoursLong(12_825)).toBe(`1${String.fromCharCode(0x202f)}282.5 h`)
+    expect(formatHoursLong(1440)).toBe('144.0 h')
+  })
 })

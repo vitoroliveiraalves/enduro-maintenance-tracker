@@ -29,3 +29,9 @@ export function formatDate(value: Date | string): string {
   const d = typeof value === 'string' ? new Date(value) : value
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
+
+/** Tenths of an hour -> "1 282.5 h" (thin-space thousands), for sentences about big amounts. */
+export function formatHoursLong(tenths: number): string {
+  const [whole = '0', frac = '0'] = (Math.abs(tenths) / 10).toFixed(1).split('.')
+  return `${tenths < 0 ? '-' : ''}${groupThousands(whole, THIN_SPACE)}.${frac} h`
+}
