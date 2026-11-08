@@ -87,7 +87,10 @@ function cleanItem(raw: unknown): CleanItem {
     const l = raw.lastDone
     if (!isObj(l) || typeof l.at !== 'string') throw bad('Invalid lastDone')
     const at = l.at.slice(0, 10)
-    if (!DATE.test(at) || new Date(`${at}T00:00:00Z`).toISOString().slice(0, 10) !== at) throw bad('Invalid lastDone date')
+    const parsedAt = new Date(`${at}T00:00:00Z`)
+    if (!DATE.test(at) || Number.isNaN(parsedAt.getTime()) || parsedAt.toISOString().slice(0, 10) !== at) {
+      throw bad('Invalid lastDone date')
+    }
     // one day of slack for server/client timezone differences
     if (at > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw bad('Last done date is in the future')
     lastDone = { at, hoursTenths: optInt(l.hoursTenths, 'lastDone hours'), km: optInt(l.km, 'lastDone km') }

@@ -96,9 +96,7 @@ async function save() {
       const lh = optional(d.lastHours, `last done hours for ${label}`, 10)
       const lk = optional(d.lastKm, `last done km for ${label}`)
       if (lh === undefined || lk === undefined) return
-      {
-        lastDone = { at: d.lastAt || today(), ...(lh !== null ? { hoursTenths: lh } : {}), ...(lk !== null ? { km: lk } : {}) }
-      }
+      lastDone = { at: d.lastAt || today(), ...(lh !== null ? { hoursTenths: lh } : {}), ...(lk !== null ? { km: lk } : {}) }
     }
     items.push({
       name: d.name.trim(),

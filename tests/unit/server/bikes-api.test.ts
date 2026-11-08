@@ -108,6 +108,10 @@ describe('bikes api logic', () => {
     it('rejects km above current', () => reject({ at: '2026-09-01', km: 9999 }, /more than the bike's current 3812 km/))
     it('rejects a future date', () => reject({ at: '2999-01-01', hoursTenths: 1200 }, /future/))
     it('rejects an impossible calendar date with 400', () => reject({ at: '2026-02-31' }, /Invalid lastDone date/))
+    it('rejects impossible month/day with 400', async () => {
+      await reject({ at: '2026-13-45' }, /Invalid lastDone date/)
+      await reject({ at: '2026-00-10' }, /Invalid lastDone date/)
+    })
     it('accepts values equal to current and today', async () => {
       const today = new Date().toISOString().slice(0, 10)
       await expect(createBike(uid, withLast({ at: today, hoursTenths: 1425, km: 3812 }))).resolves.toBeTruthy()
