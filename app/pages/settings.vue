@@ -157,7 +157,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
       </template>
       <p v-else-if="push.state.value === 'unsupported'" class="mt-2 text-sm text-muted">This browser can't receive push notifications.</p>
       <p v-else-if="push.state.value === 'denied'" class="mt-2 text-sm text-muted" data-testid="push-denied">Notifications are blocked for this site. Allow them in your browser or phone settings, then come back.</p>
-      <p v-if="push.error.value" role="alert" class="mt-2 text-sm text-danger" data-testid="push-error">{{ push.error.value }}</p>
+      <p v-if="push.error.value" role="alert" class="mt-2 text-sm text-danger-text" data-testid="push-error">{{ push.error.value }}</p>
     </section>
 
     <template v-if="push.state.value !== 'ios-not-installed'">
@@ -192,8 +192,8 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
           </template>
         </div>
       </div>
-      <p v-if="remError" role="alert" class="mt-2 text-sm text-danger">{{ remError }}</p>
-      <button type="button" class="mt-1 w-full rounded-xl border border-dashed border-white/15 py-3 text-sm font-semibold text-accent" data-testid="add-reminder" @click="sheetOpen = true">+ Add reminder</button>
+      <p v-if="remError" role="alert" class="mt-2 text-sm text-danger-text">{{ remError }}</p>
+      <button type="button" class="mt-1 w-full rounded-xl border border-dashed border-white/15 py-3 text-sm font-semibold text-accent-text" data-testid="add-reminder" @click="sheetOpen = true">+ Add reminder</button>
     </section>
     <ReminderSheet v-model:open="sheetOpen" :bikes="store.bikes" @saved="loadReminders" />
 
@@ -204,7 +204,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
         {{ pending === 1 ? '1 change hasn’t' : `${pending} changes haven’t` }} synced yet — signing out now would lose {{ pending === 1 ? 'it' : 'them' }}.
       </p>
       <button type="button" class="mt-2 w-full rounded-xl bg-bg py-3 text-sm font-semibold text-white" data-testid="sign-out" @click="signOut">Sign out</button>
-      <p v-if="signOutError" role="alert" class="mt-2 text-sm text-danger" data-testid="sign-out-error">{{ signOutError }}</p>
+      <p v-if="signOutError" role="alert" class="mt-2 text-sm text-danger-text" data-testid="sign-out-error">{{ signOutError }}</p>
     </section>
 
     <section class="mt-3 rounded-xl border border-danger/40 bg-surface p-3" data-testid="delete-account">
@@ -221,7 +221,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
           class="mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-danger"
         >
       </label>
-      <p v-if="deleteError" role="alert" class="mt-2 text-sm text-danger">{{ deleteError }}</p>
+      <p v-if="deleteError" role="alert" class="mt-2 text-sm text-danger-text">{{ deleteError }}</p>
       <button
         type="button"
         :disabled="confirmText !== 'DELETE' || deleting"

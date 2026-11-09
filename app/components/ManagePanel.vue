@@ -42,9 +42,9 @@ function saveName() {
         Name
         <input v-model="nameText" maxlength="80" autocomplete="off" :data-testid="`${props.what}-rename`" class="mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-case text-white outline-none focus:ring-2 focus:ring-accent">
       </label>
-      <button type="submit" :disabled="busy || nameText.trim() === props.name" class="min-h-12 rounded-xl bg-bg px-4 text-sm font-semibold text-accent disabled:opacity-40" :data-testid="`${props.what}-rename-save`">Rename</button>
+      <button type="submit" :disabled="busy || nameText.trim() === props.name" class="min-h-12 rounded-xl bg-bg px-4 text-sm font-semibold text-accent-text disabled:opacity-40" :data-testid="`${props.what}-rename-save`">Rename</button>
     </form>
-    <p v-if="error" role="alert" class="mt-2 text-sm text-danger">{{ error }}</p>
+    <p v-if="error" role="alert" class="mt-2 text-sm text-danger-text">{{ error }}</p>
     <button v-if="!askRemove" type="button" class="mt-3 min-h-11 text-sm text-danger-text" :data-testid="`${props.what}-remove`" @click="askRemove = true">
       Remove {{ props.what }}
     </button>

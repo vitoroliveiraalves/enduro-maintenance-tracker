@@ -89,7 +89,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
           </select>
         </label>
       </template>
-      <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="buy-error">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="buy-error">{{ error }}</p>
       <button type="submit" :disabled="busy || !editable" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="buy-save">Save</button>
     </form>
 

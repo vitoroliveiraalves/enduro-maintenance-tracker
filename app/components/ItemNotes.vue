@@ -47,7 +47,7 @@ async function onDeleted(title: string) {
   <section data-testid="item-notes">
     <div class="mb-1.5 mt-5 flex items-center justify-between">
       <h2 class="text-[11px] uppercase tracking-[0.08em] text-muted">Notes</h2>
-      <button v-if="notes?.length" type="button" class="-my-2 min-h-11 px-1 text-sm font-semibold text-accent" data-testid="note-add" @click="add">+ Add note</button>
+      <button v-if="notes?.length" type="button" class="-my-2 min-h-11 px-1 text-sm font-semibold text-accent-text" data-testid="note-add" @click="add">+ Add note</button>
     </div>
 
     <p v-if="error" class="rounded-xl bg-surface p-3 text-sm text-muted" data-testid="notes-error">{{ error }}</p>
@@ -59,7 +59,7 @@ async function onDeleted(title: string) {
       data-testid="note-add"
       @click="add"
     >
-      <span class="block text-sm font-semibold text-accent">+ Add a note</span>
+      <span class="block text-sm font-semibold text-accent-text">+ Add a note</span>
       <span class="mt-0.5 block text-xs text-muted">Torque specs, how-to steps, part numbers and photos for {{ props.itemName }}.</span>
     </button>
 

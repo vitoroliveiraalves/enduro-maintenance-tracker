@@ -152,7 +152,7 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
           :key="s.title"
           type="button"
           class="min-h-11 rounded-full border border-white/15 px-3.5 text-sm"
-          :class="title === s.title ? 'border-accent text-accent' : 'text-text'"
+          :class="title === s.title ? 'border-accent text-accent-text' : 'text-text'"
           @click="useStarter(s)"
         >
           {{ s.title }}
@@ -171,7 +171,7 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
           <input v-model="s.value" autocomplete="off" maxlength="120" :placeholder="i === 0 ? 'e.g. 90 Nm' : ''" :aria-label="`Spec ${i + 1} value`" class="min-w-0 flex-[2] rounded-xl bg-bg px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-accent">
           <button type="button" class="size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" :aria-label="`Remove spec ${i + 1}`" @click="specs = specs.filter((x) => x.key !== s.key)">×</button>
         </div>
-        <button type="button" class="mt-2 min-h-11 text-sm font-semibold text-accent" data-testid="note-add-spec" @click="addSpec">+ Add spec line</button>
+        <button type="button" class="mt-2 min-h-11 text-sm font-semibold text-accent-text" data-testid="note-add-spec" @click="addSpec">+ Add spec line</button>
       </fieldset>
 
       <label class="mt-3" :class="label">
@@ -203,7 +203,7 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
         <input ref="picker" type="file" accept="image/jpeg,image/png,image/*" multiple class="sr-only" tabindex="-1" aria-hidden="true" data-testid="note-photo-input" @change="onPick">
       </div>
 
-      <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="note-error">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="note-error">{{ error }}</p>
       <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="note-save">
         {{ busy ? 'Saving…' : 'Save note' }}
       </button>

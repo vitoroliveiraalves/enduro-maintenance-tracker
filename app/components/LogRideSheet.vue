@@ -165,9 +165,9 @@ async function save(confirmBigJump = false) {
           {{ c.label }}
         </button>
       </div>
-      <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="log-error">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="log-error">{{ error }}</p>
       <div v-if="jump" class="mt-3 rounded-xl bg-bg p-3" data-testid="jump-prompt">
-        <p class="text-sm text-warn">{{ jump }}</p>
+        <p class="text-sm text-warn-text">{{ jump }}</p>
         <div class="mt-2 flex gap-2">
           <button type="button" class="flex-1 rounded-xl bg-accent py-2.5 font-bold text-on-accent" :disabled="busy" @click="save(true)">Save anyway</button>
           <button type="button" class="flex-1 rounded-xl bg-surface py-2.5 font-semibold text-white" @click="jump = ''">Fix it</button>

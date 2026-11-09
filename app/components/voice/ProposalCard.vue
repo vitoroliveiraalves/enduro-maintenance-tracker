@@ -32,7 +32,7 @@ const label = 'block text-xs text-muted'
   <li class="rounded-xl bg-bg p-3" data-testid="voice-card">
     <div class="flex items-start justify-between gap-2">
       <p class="pt-2 text-sm font-bold text-white">{{ CARD_TITLE[d.kind] ?? d.kind }}</p>
-      <span v-if="d.status === 'saved'" class="pt-2 text-sm font-semibold text-ok" data-testid="card-status">Saved</span>
+      <span v-if="d.status === 'saved'" class="pt-2 text-sm font-semibold text-ok-text" data-testid="card-status">Saved</span>
       <button v-else type="button" class="-mr-2 size-11 shrink-0 text-2xl leading-none text-muted" aria-label="Remove this change" data-testid="card-remove" :disabled="d.status === 'saving'" @click="$emit('remove')">×</button>
     </div>
 
@@ -63,7 +63,7 @@ const label = 'block text-xs text-muted'
 
       <template v-if="d.kind === 'service'">
         <div class="flex gap-2">
-          <button v-for="b in (['diy', 'garage'] as const)" :key="b" type="button" class="min-h-11 flex-1 rounded-lg border text-sm" :class="d.by === b ? 'border-accent text-accent' : 'border-white/10 text-muted'" @click="d.by = b">
+          <button v-for="b in (['diy', 'garage'] as const)" :key="b" type="button" class="min-h-11 flex-1 rounded-lg border text-sm" :class="d.by === b ? 'border-accent text-accent-text' : 'border-white/10 text-muted'" @click="d.by = b">
             {{ b === 'diy' ? 'DIY' : 'Garage' }}
           </button>
         </div>
@@ -127,6 +127,6 @@ const label = 'block text-xs text-muted'
       </label>
     </fieldset>
 
-    <p v-if="d.status === 'failed'" role="alert" class="mt-2 text-sm text-danger" data-testid="card-error">{{ d.error }}</p>
+    <p v-if="d.status === 'failed'" role="alert" class="mt-2 text-sm text-danger-text" data-testid="card-error">{{ d.error }}</p>
   </li>
 </template>

@@ -91,7 +91,7 @@ async function removeExpense(id: string) {
         <option v-for="b in bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
       </select>
     </label>
-    <p v-if="error" role="alert" class="mt-3 text-danger">{{ error }}</p>
+    <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
     <p v-else-if="loaded && !timeline.length" class="mt-4 text-muted" data-testid="history-empty">Nothing logged yet. Mark an item done or add an expense.</p>
 
     <ul class="mt-3 space-y-2">
@@ -111,8 +111,8 @@ async function removeExpense(id: string) {
           <p v-if="en.s.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">Pending sync</p>
           <div v-else class="mt-1.5 text-xs">
             <template v-if="confirmId === en.key">
-              <span class="text-warn">Delete this service?</span>
-              <button type="button" class="ml-2 font-bold text-danger" data-testid="confirm-delete" @click="removeService(en.s.id)">Yes, delete</button>
+              <span class="text-warn-text">Delete this service?</span>
+              <button type="button" class="ml-2 font-bold text-danger-text" data-testid="confirm-delete" @click="removeService(en.s.id)">Yes, delete</button>
               <button type="button" class="ml-3 text-muted" @click="confirmId = null">Keep</button>
             </template>
             <button v-else type="button" class="-my-2 min-h-11 px-2 text-muted" data-testid="delete-service" @click="confirmId = en.key">Delete</button>
@@ -129,8 +129,8 @@ async function removeExpense(id: string) {
           <p v-if="en.e.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">Pending sync</p>
           <div v-else class="mt-1.5 text-xs">
             <template v-if="confirmId === en.key">
-              <span class="text-warn">Delete this expense?</span>
-              <button type="button" class="ml-2 font-bold text-danger" data-testid="confirm-delete" @click="removeExpense(en.e.id)">Yes, delete</button>
+              <span class="text-warn-text">Delete this expense?</span>
+              <button type="button" class="ml-2 font-bold text-danger-text" data-testid="confirm-delete" @click="removeExpense(en.e.id)">Yes, delete</button>
               <button type="button" class="ml-3 text-muted" @click="confirmId = null">Keep</button>
             </template>
             <button v-else type="button" class="-my-2 min-h-11 px-2 text-muted" data-testid="delete-expense" @click="confirmId = en.key">Delete</button>

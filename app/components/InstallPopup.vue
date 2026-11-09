@@ -69,17 +69,17 @@ async function onInstall() {
       <p class="text-sm text-text">Add it to your Home Screen to open it like an app, use it offline in the garage, and get service reminders.</p>
       <ol class="mt-3 space-y-2 text-sm text-text" data-testid="install-popup-ios">
         <li class="flex items-center gap-3">
-          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-bg text-xs font-bold text-accent">1</span>
+          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-bg text-xs font-bold text-accent-text">1</span>
           <span>Tap Share
-            <svg class="inline-block h-4 w-4 align-[-3px] text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8" /></svg>
+            <svg class="inline-block h-4 w-4 align-[-3px] text-accent-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8" /></svg>
             in Safari (on newer iPhones it's in the ⋯ menu).</span>
         </li>
         <li class="flex items-center gap-3">
-          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-bg text-xs font-bold text-accent">2</span>
+          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-bg text-xs font-bold text-accent-text">2</span>
           <span>Choose 'Add to Home Screen'.</span>
         </li>
         <li class="flex items-center gap-3">
-          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-bg text-xs font-bold text-accent">3</span>
+          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-bg text-xs font-bold text-accent-text">3</span>
           <span>Open Enduro from your Home Screen.</span>
         </li>
       </ol>

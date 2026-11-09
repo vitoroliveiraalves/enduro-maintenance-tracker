@@ -18,7 +18,7 @@ const waitingText = computed(() => `${invoicesWaiting.value === 1 ? '1 invoice' 
       v-for="id in uploaded"
       :key="id"
       :to="`/invoice/${id}`"
-      class="mt-2 block rounded-lg bg-surface p-3 text-sm font-semibold text-accent"
+      class="mt-2 block rounded-lg bg-surface p-3 text-sm font-semibold text-accent-text"
       data-testid="invoice-uploaded"
       @click="forgetUploaded(id)"
     >

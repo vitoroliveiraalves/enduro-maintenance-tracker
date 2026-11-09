@@ -125,7 +125,7 @@ watch(open, (v) => {
 <template>
   <Sheet v-model:open="open" title="Voice note" testid="voice-sheet">
     <p v-if="voice.sheet.value.status === 'listening'" class="py-6 text-center text-sm text-muted" data-testid="voice-listening">Listening…</p>
-    <p v-else-if="voice.sheet.value.status === 'error'" role="alert" class="text-sm text-danger" data-testid="voice-error">{{ voice.sheet.value.error }}</p>
+    <p v-else-if="voice.sheet.value.status === 'error'" role="alert" class="text-sm text-danger-text" data-testid="voice-error">{{ voice.sheet.value.error }}</p>
 
     <template v-if="result">
       <label class="block text-xs text-muted">What I heard
@@ -165,7 +165,7 @@ watch(open, (v) => {
         v-if="voice.available.value"
         type="button"
         class="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-semibold"
-        :class="rec.state.value === 'recording' ? 'border-danger text-danger' : 'border-white/15 text-white'"
+        :class="rec.state.value === 'recording' ? 'border-danger text-danger-text' : 'border-white/15 text-white'"
         data-testid="voice-followup"
         @click="followUp"
       >
@@ -176,7 +176,7 @@ watch(open, (v) => {
     </template>
 
     <!-- Cards outlive a follow-up: still visible while it is listening or if it fails. -->
-      <p v-if="ctxError" role="alert" class="mt-3 text-sm text-danger">{{ ctxError }}</p>
+      <p v-if="ctxError" role="alert" class="mt-3 text-sm text-danger-text">{{ ctxError }}</p>
       <ul v-if="cards.length" class="mt-3 space-y-2">
         <VoiceProposalCard v-for="(c, i) in cards" :key="c.key" v-model="cards[i]!" :ctx="ctx" :items="items" @remove="cards.splice(i, 1)" />
       </ul>

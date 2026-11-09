@@ -62,7 +62,7 @@ watch(open, () => (confirmKey.value = null))
       type="button"
       data-testid="pending-badge"
       class="fixed right-3 z-30 rounded-full px-3.5 py-2 text-xs font-bold shadow-lg shadow-black/40"
-      :class="failed.length ? 'bg-danger text-on-danger' : 'bg-warn text-on-danger'"
+      :class="failed.length ? 'bg-danger text-on-danger' : 'bg-warn text-on-warn'"
       style="bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem)"
       @click="tap"
     >
@@ -111,7 +111,7 @@ watch(open, () => (confirmKey.value = null))
           <li v-for="w in waiting" :key="w.key" class="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2" data-testid="pending-row">
             <span class="min-w-0 text-sm text-white">{{ w.label }}</span>
             <span v-if="confirmKey === w.key" class="flex shrink-0 gap-3 text-[13px]">
-              <button type="button" class="font-bold text-danger" data-testid="pending-discard-confirm" @click="discard(w)">Yes, discard</button>
+              <button type="button" class="font-bold text-danger-text" data-testid="pending-discard-confirm" @click="discard(w)">Yes, discard</button>
               <button type="button" class="text-muted" @click="confirmKey = null">Keep</button>
             </span>
             <button v-else type="button" class="shrink-0 text-[13px] text-muted" data-testid="pending-discard" @click="confirmKey = w.key">

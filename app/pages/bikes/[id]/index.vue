@@ -151,7 +151,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 
 <template>
   <main class="mx-auto max-w-md px-4 pb-6 pt-[18px]">
-    <p v-if="error" role="alert" class="text-danger">{{ error }}</p>
+    <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
     <div class="flex items-center justify-between text-[13px] text-muted">
       <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">← GARAGE</NuxtLink>
       <NuxtLink to="/settings" class="-m-2 flex size-11 items-center justify-center text-lg" aria-label="Settings" data-testid="settings-link"><Icon name="settings" :size="22" /></NuxtLink>
@@ -212,7 +212,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
               <input v-model="newMonths" inputmode="decimal" autocomplete="off" data-testid="new-item-months" :class="field">
             </label>
           </div>
-          <p v-if="addError" role="alert" class="mt-2 text-sm text-danger" data-testid="new-item-error">{{ addError }}</p>
+          <p v-if="addError" role="alert" class="mt-2 text-sm text-danger-text" data-testid="new-item-error">{{ addError }}</p>
           <p v-else-if="addNote" role="status" class="mt-2 text-sm text-warn-text" data-testid="new-item-queued">{{ addNote }}</p>
           <button type="submit" :disabled="adding" class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60" data-testid="new-item-save">Add item</button>
         </form>
@@ -222,8 +222,8 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <form class="mb-3 rounded-xl bg-surface p-3" data-testid="bike-meters" @submit.prevent="saveMeters">
         <MetersChoice v-model="metersDraft" :disabled="metersBusy" />
         <p class="mt-2 text-xs text-muted">Switching hides the other meter; nothing is deleted, and switching back brings it back.</p>
-        <p v-if="metersError" role="alert" class="mt-2 text-sm text-danger">{{ metersError }}</p>
-        <button type="submit" :disabled="metersBusy || metersDraft === meters" class="mt-2 min-h-11 w-full rounded-xl bg-bg text-sm font-semibold text-accent disabled:opacity-40" data-testid="bike-meters-save">Save counts</button>
+        <p v-if="metersError" role="alert" class="mt-2 text-sm text-danger-text">{{ metersError }}</p>
+        <button type="submit" :disabled="metersBusy || metersDraft === meters" class="mt-2 min-h-11 w-full rounded-xl bg-bg text-sm font-semibold text-accent-text disabled:opacity-40" data-testid="bike-meters-save">Save counts</button>
       </form>
       <ManagePanel what="bike" :name="data.bike.name" remove-note="It leaves the garage; its services and costs stay in History and Costs." :rename="renameBike" :remove="removeBike" />
     </template>

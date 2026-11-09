@@ -45,7 +45,7 @@ async function submit() {
 
 <template>
   <main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-8">
-    <h1 class="text-3xl font-bold text-accent">Create account</h1>
+    <h1 class="text-3xl font-bold text-accent-text">Create account</h1>
     <p class="mt-1 text-sm text-muted">Enduro Tracker keeps your bikes, service and costs.</p>
 
     <form class="mt-8 space-y-4" @submit.prevent="submit">
@@ -79,7 +79,7 @@ async function submit() {
           class="mt-1 w-full rounded-lg border border-white/10 bg-surface px-3 py-3 text-base text-text outline-none focus:border-accent"
         >
       </label>
-      <p v-if="error" role="alert" class="text-sm text-danger">{{ error }}</p>
+      <p v-if="error" role="alert" class="text-sm text-danger-text">{{ error }}</p>
       <button
         type="submit"
         :disabled="busy"
@@ -95,7 +95,7 @@ async function submit() {
 
     <p class="mt-6 text-center text-sm text-muted">
       Already have an account?
-      <NuxtLink to="/login" class="text-accent underline">Sign in</NuxtLink>
+      <NuxtLink to="/login" class="text-accent-text underline">Sign in</NuxtLink>
     </p>
   </main>
 </template>

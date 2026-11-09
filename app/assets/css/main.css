@@ -13,8 +13,9 @@
   --color-surface: #1a1a1a;
   --color-accent: #ededed;
   --color-danger: #ededed;
-  --color-warn: #a3a3a3;
-  --color-ok: #5a5a5a;
+  --color-warn: #d0d0d0;
+  --color-ok: #7a7a7a;
+  --color-accent-text: #ededed;
   --color-text: #ededed;
   --color-muted: #a3a3a3;
   /* Text on a filled accent / danger / warn surface. */
@@ -25,7 +26,7 @@
   --color-danger-text: #ffffff;
   --color-warn-text: #c8c8c8;
   --color-ok-text: #a3a3a3;
-  --color-track: #3a3a3a;
+  --color-track: #2a2a2a;
   /* Decorative: stripes, the active tab mark. */
   --color-stripe-a: #ededed;
   --color-stripe-b: #ededed;
@@ -46,14 +47,15 @@ html[data-theme='tricolor'] {
   --color-bg: #0f1012;
   --color-surface: #1b1c1f;
   --color-accent: #d21f2a;
-  --color-danger: #d21f2a;
-  --color-warn: #3b5bdb;
-  --color-ok: #8c8a84;
+  --color-danger: #ff4f5a;
+  --color-warn: #6680ff;
+  --color-ok: #c9c6bf;
+  --color-accent-text: #ff6b70;
   --color-text: #f4f1ea;
   --color-muted: #a9a69f;
   --color-on-accent: #f4f1ea;
-  --color-on-danger: #f4f1ea;
-  --color-on-warn: #f4f1ea;
+  --color-on-danger: #0f1012;
+  --color-on-warn: #0f1012;
   --color-danger-text: #ff6b70;
   --color-warn-text: #8fa6ff;
   --color-ok-text: #c9c6bf;
@@ -219,4 +221,23 @@ html[data-theme='tricolor'] .item-overdue::before {
 }
 html[data-theme='tricolor'] .item-overdue {
   padding-left: 18px;
+}
+
+/* Links in steel are white like the text: underline them. */
+html:not([data-theme='tricolor']) .text-accent-text {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* A destructive button never looks like Save: a hazard edge in steel (danger is a lighter red with dark text in tricolor). */
+html:not([data-theme='tricolor']) :is(button, a).bg-danger {
+  border-left: 10px solid;
+  border-image: repeating-linear-gradient(-45deg, var(--color-bg) 0 4px, var(--color-danger) 4px 8px) 1;
+}
+
+/* Error messages carry a bar, so they never read as body text. */
+[role='alert'].text-danger-text {
+  border-left: 3px solid currentColor;
+  padding-left: 8px;
+  font-weight: 600;
 }

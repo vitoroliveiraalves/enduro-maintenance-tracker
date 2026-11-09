@@ -156,7 +156,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
     <div class="text-[13px] text-muted">
       <NuxtLink :to="`/bikes/${bikeId}`" class="-m-2 p-2" data-testid="back-to-bike">‹ {{ detail?.bike.name ?? 'Bike' }}</NuxtLink>
     </div>
-    <p v-if="error" role="alert" class="mt-3 text-danger">{{ error }}</p>
+    <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
     <template v-if="hist && detail">
       <h1 class="mb-3 mt-1.5 text-xl font-bold text-white" data-testid="item-name">{{ hist.item.name }}</h1>
 
@@ -204,9 +204,9 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
             <input v-model="moText" inputmode="decimal" autocomplete="off" data-testid="iv-months" :class="field">
           </label>
         </div>
-        <p v-if="editError" role="alert" class="mt-2 text-sm text-danger" data-testid="iv-error">{{ editError }}</p>
+        <p v-if="editError" role="alert" class="mt-2 text-sm text-danger-text" data-testid="iv-error">{{ editError }}</p>
         <p v-else-if="saved" role="status" class="mt-2 text-sm text-ok-text" data-testid="iv-saved">{{ savedQueued ? 'Saved on this phone — syncs when you’re back online' : 'Saved' }}</p>
-        <button type="submit" :disabled="saving" class="mt-3 w-full rounded-xl bg-bg py-3 text-sm font-semibold text-accent disabled:opacity-60" data-testid="iv-save">Save intervals</button>
+        <button type="submit" :disabled="saving" class="mt-3 w-full rounded-xl bg-bg py-3 text-sm font-semibold text-accent-text disabled:opacity-60" data-testid="iv-save">Save intervals</button>
       </form>
 
       <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted">Service history</h2>

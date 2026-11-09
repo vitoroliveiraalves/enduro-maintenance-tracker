@@ -100,7 +100,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         Description
         <input v-model="description" autocomplete="off" maxlength="200" placeholder="e.g. fuel at the track" data-testid="ex-description" :class="field">
       </label>
-      <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="ex-error">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="ex-error">{{ error }}</p>
       <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="ex-save">Save</button>
     </form>
   </Sheet>

@@ -106,9 +106,9 @@ function open(p: ShelfPart | null) {
     <template v-if="tab === 'parts'">
       <p v-if="itemFilter" class="mt-2 text-xs text-muted" data-testid="shelf-item-filter">
         Only parts for one maintenance item ·
-        <NuxtLink to="/shelf" class="inline-flex min-h-11 items-center text-accent underline">show all</NuxtLink>
+        <NuxtLink to="/shelf" class="inline-flex min-h-11 items-center text-accent-text underline">show all</NuxtLink>
       </p>
-      <p v-if="error" role="alert" class="mt-3 text-danger">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
 
       <ul v-if="shown.length" class="mt-3 space-y-2" data-testid="part-list">
         <li v-for="p in shown" :key="p.id">
@@ -138,7 +138,7 @@ function open(p: ShelfPart | null) {
     </template>
 
     <template v-else>
-      <p v-if="error" role="alert" class="mt-3 text-danger">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
       <section data-testid="buy-panel">
         <ul v-if="autoShown.length" class="mt-3 space-y-2">
           <li v-for="a in autoShown" :key="a.key">

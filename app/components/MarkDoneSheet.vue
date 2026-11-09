@@ -243,7 +243,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
               <button
                 v-if="!use[p.id]!.anyway"
                 type="button"
-                class="min-h-11 shrink-0 px-2 font-bold text-accent"
+                class="min-h-11 shrink-0 px-2 font-bold text-accent-text"
                 data-testid="parts-use-anyway"
                 @click="use[p.id]!.anyway = true"
               >
@@ -253,7 +253,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
             </div>
           </li>
         </ul>
-        <button v-if="!addOpen && shelf.length" type="button" class="mt-1 min-h-11 text-sm font-semibold text-accent" data-testid="parts-add-open" @click="addOpen = true">+ Add from shelf</button>
+        <button v-if="!addOpen && shelf.length" type="button" class="mt-1 min-h-11 text-sm font-semibold text-accent-text" data-testid="parts-add-open" @click="addOpen = true">+ Add from shelf</button>
         <div v-if="addOpen">
           <input v-model="addQuery" type="search" autocomplete="off" placeholder="Search the shelf" aria-label="Search the shelf" data-testid="parts-add" :class="field">
           <ul class="mt-1 space-y-1">
@@ -278,7 +278,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           </select>
         </label>
       </div>
-      <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="md-error">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="md-error">{{ error }}</p>
       <button type="submit" :disabled="busy || shelfLoading" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="md-save">Save</button>
     </form>
   </Sheet>

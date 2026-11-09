@@ -28,7 +28,7 @@ watch(syncTick, load)
       <NuxtLink to="/settings" class="-mr-2 flex size-11 items-center justify-center text-text" aria-label="Settings" data-testid="settings-link"><Icon name="settings" :size="22" /></NuxtLink>
     </div>
     <h1 class="mt-4 text-[46px] text-white">Garage</h1>
-    <p v-if="error" role="alert" class="mt-3 text-danger">{{ error }}</p>
+    <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
 
     <ul v-if="store.bikes.length" class="mt-4 space-y-3" data-testid="bike-list">
       <li v-for="b in store.bikes" :key="b.id">

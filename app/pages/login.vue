@@ -31,7 +31,7 @@ async function submit() {
 
 <template>
   <main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-8">
-    <h1 class="text-3xl font-bold text-accent">Enduro Tracker</h1>
+    <h1 class="text-3xl font-bold text-accent-text">Enduro Tracker</h1>
     <p class="mt-1 text-sm text-muted">Sign in to your garage.</p>
     <p v-if="deleted" role="status" class="mt-4 rounded-lg bg-surface p-3 text-sm text-text" data-testid="deleted-notice">Your account and data were deleted.</p>
 
@@ -56,7 +56,7 @@ async function submit() {
           class="mt-1 w-full rounded-lg border border-white/10 bg-surface px-3 py-3 text-base text-text outline-none focus:border-accent"
         >
       </label>
-      <p v-if="error" role="alert" class="text-sm text-danger">{{ error }}</p>
+      <p v-if="error" role="alert" class="text-sm text-danger-text">{{ error }}</p>
       <button
         type="submit"
         :disabled="busy"
@@ -68,7 +68,7 @@ async function submit() {
 
     <p class="mt-6 text-center text-sm text-muted">
       New here?
-      <NuxtLink to="/register" class="text-accent underline">Create an account</NuxtLink>
+      <NuxtLink to="/register" class="text-accent-text underline">Create an account</NuxtLink>
     </p>
   </main>
 </template>

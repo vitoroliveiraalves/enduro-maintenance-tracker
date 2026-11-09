@@ -447,9 +447,9 @@ async function discard() {
     <NuxtLink to="/invoice" class="-m-2 inline-block p-2 text-[13px] text-muted">‹ Invoices</NuxtLink>
     <h1 class="mt-1.5 text-xl font-bold text-white">{{ doc?.status === 'confirmed' ? 'Invoice' : 'Review invoice' }}</h1>
 
-    <p v-if="notFound" role="alert" class="mt-4 text-danger">Invoice not found.</p>
+    <p v-if="notFound" role="alert" class="mt-4 text-danger-text">Invoice not found.</p>
     <template v-else-if="doc">
-      <p v-if="duplicate" role="status" data-testid="duplicate-notice" class="mt-3 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn">
+      <p v-if="duplicate" role="status" data-testid="duplicate-notice" class="mt-3 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn-text">
         This invoice was already uploaded
       </p>
       <p v-if="qrNotice" role="status" data-testid="qr-notice" class="mt-3 rounded-lg border border-white/15 bg-surface p-3 text-sm text-muted">
@@ -463,7 +463,7 @@ async function discard() {
       </p>
 
       <div v-if="doc.status === 'manual'" role="status" data-testid="manual-notice" class="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm">
-        <p class="text-warn">{{ MANUAL_NOTICE }}</p>
+        <p class="text-warn-text">{{ MANUAL_NOTICE }}</p>
         <p v-if="doc.error" class="mt-1 text-muted" data-testid="manual-reason">{{ doc.error }}</p>
         <button
           v-if="doc.canRead"
@@ -481,7 +481,7 @@ async function discard() {
       <section class="mt-4 rounded-2xl bg-surface p-4" data-testid="invoice-header">
         <div class="flex items-center justify-between">
           <h2 class="font-semibold">Invoice</h2>
-          <span v-if="doc.qrRaw" class="rounded bg-ok/15 px-2 py-0.5 text-xs text-ok" data-testid="qr-badge">From QR code</span>
+          <span v-if="doc.qrRaw" class="rounded bg-ok/15 px-2 py-0.5 text-xs text-ok-text" data-testid="qr-badge">From QR code</span>
         </div>
         <template v-if="savedView || doc.status === 'reading'">
           <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -529,20 +529,20 @@ async function discard() {
 
       <!-- Saved invoice -->
       <section v-if="savedView" class="mt-4 rounded-2xl bg-surface p-4" data-testid="saved-lines">
-        <h2 class="font-semibold text-ok">Saved ✓</h2>
+        <h2 class="font-semibold text-ok-text">Saved ✓</h2>
         <ul class="mt-2 divide-y divide-white/5 text-sm">
           <li v-for="s in doc.saved" :key="s.line ?? s.description" class="flex justify-between gap-3 py-2">
             <span>{{ s.description || '—' }} <span class="block text-xs text-muted">{{ s.categoryName }}</span></span>
             <span class="shrink-0 tabular-nums">{{ money(s.amountCents) }}</span>
           </li>
         </ul>
-        <NuxtLink v-if="doc.saved[0]?.bikeId" :to="`/bikes/${doc.saved[0].bikeId}`" class="mt-2 inline-block text-sm text-accent underline" data-testid="saved-bike">
+        <NuxtLink v-if="doc.saved[0]?.bikeId" :to="`/bikes/${doc.saved[0].bikeId}`" class="mt-2 inline-block text-sm text-accent-text underline" data-testid="saved-bike">
           {{ bikes.find((b) => b.id === doc!.saved[0]!.bikeId)?.name ?? 'Open the bike' }} ›
         </NuxtLink>
       </section>
 
       <template v-if="savedView">
-        <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="inv-error">{{ error }}</p>
+        <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="inv-error">{{ error }}</p>
         <button v-if="doc.form" type="button" class="mt-4 w-full rounded-xl border border-white/15 bg-surface py-3 text-base font-semibold text-white" data-testid="change" @click="startChange">
           Change
         </button>
@@ -551,7 +551,7 @@ async function discard() {
         </button>
         <div v-else role="alert" class="mt-3 rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm" data-testid="delete-ask">
           <p>Delete this invoice, its photos, {{ deleteWhat }}? This can't be undone.</p>
-          <p v-for="w in doc.stockWarnings" :key="w.name" class="mt-1 text-warn" data-testid="stock-warning">
+          <p v-for="w in doc.stockWarnings" :key="w.name" class="mt-1 text-warn-text" data-testid="stock-warning">
             {{ w.name }} will go to {{ qty(w.afterHundredths, w.unit) }} on the shelf.
           </p>
           <div class="mt-2 flex gap-2">
@@ -566,7 +566,7 @@ async function discard() {
         <section class="mt-4 rounded-2xl bg-surface p-4">
           <h2 class="font-semibold">Bike</h2>
           <p v-if="!bikes.length" class="mt-2 text-sm text-muted">
-            <NuxtLink to="/bikes/new" class="text-accent underline">Add a bike</NuxtLink> first to save this invoice.
+            <NuxtLink to="/bikes/new" class="text-accent-text underline">Add a bike</NuxtLink> first to save this invoice.
           </p>
           <template v-else>
             <label :class="[label, 'mt-3']">
@@ -675,7 +675,7 @@ async function discard() {
                   v-for="itemId in l.itemIds"
                   :key="itemId"
                   type="button"
-                  class="rounded-full bg-accent/20 px-2.5 py-1 text-sm text-accent"
+                  class="rounded-full bg-accent/20 px-2.5 py-1 text-sm text-accent-text"
                   aria-pressed="true"
                   data-testid="item-chip"
                   @click="toggleItem(l, itemId)"
@@ -724,10 +724,10 @@ async function discard() {
         </p>
 
         <div v-if="mismatch !== null" role="alert" class="mt-3 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm" data-testid="totals-mismatch">
-          <p class="text-warn">The lines are {{ money(Math.abs(mismatch)) }} {{ mismatch < 0 ? 'short of' : 'over' }} the invoice total. Save anyway?</p>
+          <p class="text-warn-text">The lines are {{ money(Math.abs(mismatch)) }} {{ mismatch < 0 ? 'short of' : 'over' }} the invoice total. Save anyway?</p>
           <button type="button" class="mt-2 rounded-lg bg-warn px-3 py-1.5 font-semibold text-on-warn" :disabled="busy" data-testid="force-save" @click="confirm(true)">Save anyway</button>
         </div>
-        <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="inv-error">{{ error }}</p>
+        <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="inv-error">{{ error }}</p>
 
         <button
           type="button"

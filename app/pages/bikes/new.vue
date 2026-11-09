@@ -167,7 +167,7 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
         <fieldset class="block">
           <legend class="text-sm text-muted">Engine</legend>
           <div class="mt-1 flex gap-2">
-            <label v-for="s in ['2T', '4T']" :key="s" class="flex-1 cursor-pointer rounded-lg border px-3 py-3 text-center" :class="form.stroke === s ? 'border-accent text-accent' : 'border-white/10 bg-surface'">
+            <label v-for="s in ['2T', '4T']" :key="s" class="flex-1 cursor-pointer rounded-lg border px-3 py-3 text-center" :class="form.stroke === s ? 'border-accent text-accent-text' : 'border-white/10 bg-surface'">
               <input v-model="form.stroke" type="radio" :value="s" class="sr-only">{{ s }}
             </label>
           </div>
@@ -180,7 +180,7 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
         <label v-if="hasKm" class="block"><span class="text-sm text-muted">Current km</span>
           <input v-model="form.km" inputmode="decimal" placeholder="e.g. 3812" :class="field"></label>
       </div>
-      <p v-if="error" role="alert" class="text-sm text-danger">{{ error }}</p>
+      <p v-if="error" role="alert" class="text-sm text-danger-text">{{ error }}</p>
       <button type="submit" :disabled="busy" class="w-full rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60">Next: maintenance items</button>
     </form>
 
@@ -198,7 +198,7 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
             <label>… or months<input v-model="d.months" inputmode="numeric" :aria-label="`${d.name} every months`" :class="small"></label>
           </div>
           <details class="mt-2">
-            <summary class="cursor-pointer text-sm text-accent">Last done at</summary>
+            <summary class="cursor-pointer text-sm text-accent-text">Last done at</summary>
             <div class="mt-2 grid gap-2 text-xs text-muted">
               <label>Date <span class="normal-case">(leave empty if you don't know)</span><input v-model="d.lastAt" type="date" :aria-label="`${d.name} last done date`" :class="small"></label>
               <div class="grid gap-2" :class="hasHours && hasKm ? 'grid-cols-2' : 'grid-cols-1'">
@@ -210,7 +210,7 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
         </li>
       </ul>
       <button type="button" class="mt-3 w-full rounded-lg border border-white/15 py-3 text-sm font-semibold" @click="drafts.push(blank())">+ Add custom item</button>
-      <p v-if="error" role="alert" class="mt-3 text-sm text-danger">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text">{{ error }}</p>
       <div class="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 -mx-4 mt-4 flex gap-3 bg-bg/95 px-4 py-3 backdrop-blur">
         <button type="button" class="rounded-lg border border-white/15 px-4 py-3" @click="step = 1">Back</button>
         <button type="button" :disabled="busy" class="flex-1 rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60" @click="save">Save bike</button>

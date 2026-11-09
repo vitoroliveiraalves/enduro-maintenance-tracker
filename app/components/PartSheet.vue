@@ -207,7 +207,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
             :key="c.id"
             type="button"
             class="min-h-11 rounded-full px-3 text-sm"
-            :class="itemIds.includes(c.id) ? 'bg-accent/20 text-accent' : 'border border-white/15 text-muted'"
+            :class="itemIds.includes(c.id) ? 'bg-accent/20 text-accent-text' : 'border border-white/15 text-muted'"
             :aria-pressed="itemIds.includes(c.id)"
             data-testid="part-item"
             @click="toggle(c.id)"
@@ -222,7 +222,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
         <textarea v-model="notes" rows="2" maxlength="500" data-testid="part-notes" :class="field" />
       </label>
 
-      <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="part-error">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="part-error">{{ error }}</p>
       <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="part-save">Save</button>
     </form>
 

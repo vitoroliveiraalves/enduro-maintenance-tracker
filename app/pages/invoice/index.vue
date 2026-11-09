@@ -138,7 +138,7 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
     <h1 class="text-xl font-bold text-white">Add invoice</h1>
     <p class="mt-1 text-sm text-muted">Photograph the invoice or choose a file. The QR code is read on your phone.</p>
 
-    <p v-if="!online" role="status" data-testid="offline-banner" class="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn">
+    <p v-if="!online" role="status" data-testid="offline-banner" class="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn-text">
       You're offline — photos are saved on this phone and uploaded when you're back online.
     </p>
 
@@ -203,18 +203,18 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
     <p v-if="savedOffline" role="status" class="mt-4 rounded-lg bg-surface p-3 text-sm text-text" data-testid="invoice-saved-offline">
       Saved on this phone. It uploads and gets read when you're back online — then review it here.
     </p>
-    <p v-if="error" role="alert" class="mt-4 text-sm text-danger">{{ error }}</p>
+    <p v-if="error" role="alert" class="mt-4 text-sm text-danger-text">{{ error }}</p>
 
     <section class="mt-8" data-testid="invoice-list">
       <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted">Your invoices</h2>
-      <p v-if="listError" role="alert" class="mt-2 text-sm text-danger">{{ listError }}</p>
+      <p v-if="listError" role="alert" class="mt-2 text-sm text-danger-text">{{ listError }}</p>
       <p v-else-if="invoices && !invoices.length" class="mt-2 text-sm text-muted" data-testid="invoice-list-empty">No invoices yet.</p>
       <ul v-else-if="invoices" class="mt-2 divide-y divide-white/5 rounded-2xl bg-surface">
         <li v-for="r in invoices" :key="r.id">
           <NuxtLink :to="`/invoice/${r.id}`" class="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5" data-testid="invoice-row">
             <span class="min-w-0">
               <span class="block truncate text-sm font-semibold text-white">{{ r.supplierName || 'Invoice' }}</span>
-              <span class="block text-xs" :class="r.status === 'confirmed' ? 'text-muted' : 'text-warn'" data-testid="invoice-row-note">
+              <span class="block text-xs" :class="r.status === 'confirmed' ? 'text-muted' : 'text-warn-text'" data-testid="invoice-row-note">
                 {{ date(r.issuedAt ?? r.createdAt.slice(0, 10)) }} · {{ rowNote(r) }}
               </span>
             </span>

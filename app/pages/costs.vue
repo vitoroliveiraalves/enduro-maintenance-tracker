@@ -163,7 +163,7 @@ const SEG: Array<{ key: Period; label: string }> = [
       <button type="button" aria-label="Next" data-testid="period-next" class="h-9 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(1)">›</button>
     </div>
 
-    <p v-if="error" role="alert" class="text-danger">{{ error }}</p>
+    <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
     <template v-if="data">
       <section class="mb-2.5 rounded-[14px] bg-surface p-3">
         <div class="text-[11px] uppercase tracking-wider text-muted">{{ label }}</div>

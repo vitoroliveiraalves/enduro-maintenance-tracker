@@ -101,10 +101,10 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </label>
       </div>
       <label class="mt-3 flex items-center gap-2.5 text-sm text-text">
-        <input v-model="repeatYearly" type="checkbox" class="h-5 w-5 accent-[#ff6a00]" data-testid="rem-yearly">
+        <input v-model="repeatYearly" type="checkbox" class="h-5 w-5 accent-accent" data-testid="rem-yearly">
         Repeats every year
       </label>
-      <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="rem-error">{{ error }}</p>
+      <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="rem-error">{{ error }}</p>
       <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="rem-save">Save</button>
     </form>
   </Sheet>

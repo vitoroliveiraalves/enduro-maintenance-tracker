@@ -72,7 +72,7 @@ function up(e: PointerEvent) {
       :href="src(page.page)"
       target="_blank"
       rel="noopener"
-      class="flex h-40 items-center justify-center rounded-xl bg-black/40 font-semibold text-accent"
+      class="flex h-40 items-center justify-center rounded-xl bg-black/40 font-semibold text-accent-text"
       data-testid="viewer-pdf"
     >
       Open the PDF ↗
