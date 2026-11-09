@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { errorMessage } from '~/offline/outbox'
+import { partsLine, type PartUsedLine } from '~/lib/parts-used'
 
 type Bike = { id: string; name: string }
 type Svc = {
   id: string; bikeId: string; bikeName: string; at: string; atUnknown?: boolean; notes: string | null; hoursTenths: number | null; km: number | null
   by: 'diy' | 'garage'; garageName: string | null; documentId: string | null; itemNames: string[]; totalCents: number
+  partsUsed?: PartUsedLine[]
   pending?: boolean
 }
 type Exp = {
@@ -105,6 +107,7 @@ async function removeExpense(id: string) {
             <span v-if="en.s.notes === 'Initial'"> · from setup</span>
             <span v-if="en.s.documentId" title="Invoice attached" data-testid="history-invoice"> · 🧾</span>
           </p>
+          <p v-if="en.s.partsUsed?.length" class="mt-0.5 text-xs text-muted" data-testid="history-parts">{{ partsLine(en.s.partsUsed) }}</p>
           <p v-if="en.s.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">Pending sync</p>
           <div v-else class="mt-1.5 text-xs">
             <template v-if="confirmId === en.key">

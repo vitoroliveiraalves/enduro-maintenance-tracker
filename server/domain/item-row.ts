@@ -7,6 +7,8 @@ export type ItemRow = {
   def: ItemDef
   last: (NonNullable<LastDone> & { serviceId: string; by: 'diy' | 'garage'; garageName?: string }) | null
   status: Status
+  /** Spare parts on the shelf for this item: null = none linked, 'none' = any linked part is out, else 'in'. */
+  stock: 'in' | 'none' | null
 }
 
 type Json<T> = T extends Date ? string : T extends object ? { [K in keyof T]: Json<T[K]> } : T

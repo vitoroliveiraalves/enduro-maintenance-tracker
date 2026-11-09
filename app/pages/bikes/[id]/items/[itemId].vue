@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { stateText, subline } from '~/lib/item-state'
 import { parseDecimal } from '~/lib/parse-number'
+import { partsLine, type PartUsedLine } from '~/lib/parts-used'
 import { errorMessage, OfflineError } from '~/offline/outbox'
 import type { ItemRowJson } from '../../../../../server/domain/item-row'
 
@@ -14,6 +15,7 @@ type Service = {
   garageName: string | null
   costCents: number
   documentId: string | null
+  partsUsed?: PartUsedLine[]
   pending?: boolean
 }
 type History = { item: ItemRowJson & { bikeId: string }; status: ItemRowJson['status']; services: Service[]; pendingSync?: boolean; notCached?: boolean }
@@ -213,6 +215,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           <div class="mt-0.5 text-xs text-muted">
             {{ [s.hoursTenths !== null ? hours(s.hoursTenths) : null, s.km !== null ? km(s.km) : null, s.by === 'garage' ? (s.garageName ? `Garage · ${s.garageName}` : 'Garage') : 'DIY'].filter(Boolean).join(' · ') }}
           </div>
+          <div v-if="s.partsUsed?.length" class="mt-0.5 text-xs text-muted" data-testid="service-parts">{{ partsLine(s.partsUsed) }}</div>
         </li>
       </ul>
 

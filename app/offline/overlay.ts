@@ -53,6 +53,15 @@ function applyPartRows(p: Obj, rows: OutboxRow[]) {
       p.pendingSync = true
     }
   }
+  // A queued service that used this part lowers its count too.
+  for (const r of servicesFor(rows)) {
+    const used = Array.isArray(r.body.partsUsed) ? (r.body.partsUsed as Obj[]) : []
+    for (const u of used) {
+      if (u.partId !== p.id) continue
+      p.qtyHundredths = (num(p.qtyHundredths) ?? 0) - (num(u.qtyHundredths) ?? 0)
+      p.pendingSync = true
+    }
+  }
 }
 
 export function overlay<T>(url: string, data: T, rows: OutboxRow[]): T {

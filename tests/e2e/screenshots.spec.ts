@@ -192,3 +192,34 @@ test('shelf and part sheet', async ({ page }) => {
   await page.getByTestId('part-history').waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/part-sheet.png' })
 })
+
+test('mark done with parts and the bike stock mark', async ({ page }) => {
+  await signUpFresh(page)
+  const day = new Date().toISOString().slice(0, 10)
+  const bike = (await (await page.request.post('/api/bikes', {
+    data: bikeBody("KTM 300 EXC '23", [
+      { name: 'Engine oil', everyHoursTenths: 200, lastDone: { at: day, hoursTenths: 1250, km: 3000 } },
+      { name: 'Air filter clean', everyHoursTenths: 50, lastDone: { at: day, hoursTenths: 1400, km: 3700 } },
+      { name: 'Chain & sprockets', everyKm: 1500, lastDone: { at: day, hoursTenths: 1100, km: 2900 } },
+    ]),
+  })).json()) as { id: string }
+  const detail = (await (await page.request.get(`/api/bikes/${bike.id}`)).json()) as { items: Array<{ id: string; name: string }> }
+  const idOf = (n: string) => detail.items.find((i) => i.name === n)!.id
+  const mk = async (name: string, qty: number, extra: object = {}) => {
+    const r = await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name, qtyHundredths: qty, startClientId: crypto.randomUUID(), bikeId: bike.id, ...extra } })
+    if (!r.ok()) throw new Error('seed failed')
+  }
+  await mk('Oil filter', 100, { itemIds: [idOf('Engine oil')] })
+  await mk('Air filter', 0, { itemIds: [idOf('Air filter clean')] })
+  await mk('Motorex 10W-50', 150, { unit: 'L' })
+  await page.goto(`/bikes/${bike.id}`)
+  await page.getByTestId('item-stock').first().waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/bike-stock.png' })
+  await page.getByTestId('item-row').filter({ hasText: 'Engine oil' }).click()
+  await page.getByTestId('mark-done').click()
+  await page.getByTestId('parts-used-row').first().waitFor()
+  await page.getByTestId('parts-add-open').click()
+  await page.getByTestId('parts-add').fill('motorex')
+  await page.getByTestId('parts-add-option').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/mark-done-parts.png' })
+})
