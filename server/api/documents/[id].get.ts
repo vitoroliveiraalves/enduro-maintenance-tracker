@@ -3,6 +3,7 @@ import { defineEventHandler, getRouterParam } from 'h3'
 import { db } from '../../db/client'
 import { categories, documentFiles, expenses } from '../../db/schema'
 import { ownedDocument } from '../../utils/owned'
+import { savedForm, stockWarnings } from '../../utils/invoice-confirm'
 import { flipIfStuck, readerConfig, readingAvailable } from '../../utils/invoice-read'
 
 export default defineEventHandler(async (event) => {
@@ -22,5 +23,6 @@ export default defineEventHandler(async (event) => {
           .where(and(eq(expenses.documentId, doc.id), eq(expenses.userId, doc.userId)))
           .orderBy(asc(expenses.documentLine))
       : []
-  return { ...doc, pages, saved, canRead: readingAvailable(readerConfig(event)) }
+  const [form, warnings] = await Promise.all([savedForm(doc), stockWarnings(doc)])
+  return { ...doc, pages, saved, form, stockWarnings: warnings, canRead: readingAvailable(readerConfig(event)) }
 })

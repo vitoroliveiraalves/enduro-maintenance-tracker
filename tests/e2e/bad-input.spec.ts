@@ -83,6 +83,8 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
       ['patch', `/api/reminders/${id}`, { title: 'x' }, 404],
       ['get', `/api/documents/${id}`, null, 404],
       ['get', `/api/documents/${id}/files/1`, null, 404],
+      ['delete', `/api/documents/${id}`, null, 404],
+      ['post', `/api/documents/${id}/confirm`, confirm({ replace: true }), 404],
       ['get', `/api/costs?bikeId=${id}`, null, 404],
       ['get', `/api/expenses?bikeId=${id}`, null, 404],
       ['post', '/api/readings', rd({ bikeId: id }), 404],
@@ -94,6 +96,8 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
       ['post', '/api/reminders', { clientId: id, title: 'IUC', dueOn: '2027-03-15' }, 400],
     )
   }
+  // A replace with bad lines is a 400 like any confirm.
+  for (const replace of [true, 'yes', 1]) cases.push(['post', `/api/documents/${docId}/confirm`, confirm({ replace, lines: [] }), 400])
   for (const page of ['99999999999', '0', '6', '-1', '1.5', 'abc']) cases.push(['get', `/api/documents/${docId}/files/${page}`, null, 404])
   for (const bikeId of [123, true, {}, []]) {
     cases.push(['patch', `/api/reminders/${reminder.id}`, { bikeId }, 400], ['post', '/api/reminders', { clientId: uuid(), title: 'IUC', dueOn: '2027-03-15', bikeId }, 400])

@@ -1,7 +1,7 @@
-import { and, eq, ne } from 'drizzle-orm'
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { createError } from 'h3'
 import { db } from '../db/client'
-import { documents, expenseItems, expenses, parts } from '../db/schema'
+import { documents, expenseItems, expenses, partMovements, parts, services } from '../db/schema'
 import type { Bike, Document, Part } from '../db/schema'
 import { cleanDate, countedMeters, isObj, str } from './bikes'
 import { bad, isUuid, uuid } from './validate'
@@ -56,8 +56,10 @@ export type ConfirmResult =
  * are ownership-checked; validation is the services/expenses code, not a copy.
  */
 export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): Promise<ConfirmResult> {
-  if (doc.status === 'confirmed') throw alreadySaved() // re-checked under the row lock below
   if (!isObj(raw)) throw bad('Invalid body')
+  // `replace: true` on a saved invoice = change it: undo what it made, save again, all in one transaction.
+  const replace = raw.replace === true
+  if (doc.status === 'confirmed' && !replace) throw alreadySaved() // re-checked under the row lock below
   if (!Array.isArray(raw.lines) || raw.lines.length > MAX_LINES) throw bad('Invalid lines')
   if (!raw.lines.length) throw bad('Add at least one line')
   const at = cleanDate(raw.at, 'invoice')
@@ -69,11 +71,15 @@ export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): P
   const clientId = typeof raw.clientId === 'string' ? raw.clientId : crypto.randomUUID()
   const userId = doc.userId
 
-  return db.transaction(async (tx): Promise<ConfirmResult> => {
+  try {
+    return await db.transaction(async (tx): Promise<ConfirmResult> => {
     // Row lock: two taps on Confirm cannot both pass the status check.
     const [fresh] = await tx.select().from(documents).where(and(eq(documents.id, doc.id), eq(documents.userId, userId))).for('update')
     if (!fresh) throw createError({ statusCode: 404, statusMessage: 'Not found' })
-    if (fresh.status === 'confirmed') throw alreadySaved()
+    if (fresh.status === 'confirmed') {
+      if (!replace) throw alreadySaved()
+      await undoInvoice(tx, fresh) // rolled back with everything else if the new version fails
+    }
 
     const lines = []
     for (const l of raw.lines as unknown[]) {
@@ -94,7 +100,8 @@ export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): P
     const total = fresh.totalCents
     if (total != null && raw.forceTotals !== true) {
       const diffCents = lines.reduce((s, l) => s + l.amountCents, 0) - total
-      if (Math.abs(diffCents) > totalsTolerance(total)) return { status: 409, body: { error: 'totals-mismatch', diffCents } }
+      // Thrown, not returned: a replace must roll its undo back.
+      if (Math.abs(diffCents) > totalsTolerance(total)) throw new TotalsMismatch(diffCents)
     }
 
     const itemIds = [...new Set(lines.flatMap((l) => l.itemIds))]
@@ -132,10 +139,132 @@ export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): P
       })
       .where(and(eq(documents.id, fresh.id), eq(documents.userId, userId)))
     return { status: 200, body: { id: fresh.id, bikeId: bike.id, serviceId } }
+    })
+  } catch (e) {
+    if (e instanceof TotalsMismatch) return { status: 409, body: { error: 'totals-mismatch', diffCents: e.diffCents } }
+    throw e
+  }
+}
+
+class TotalsMismatch extends Error {
+  constructor(readonly diffCents: number) {
+    super('totals-mismatch')
+  }
+}
+
+const ofDoc = (doc: Document) => ({
+  movement: and(eq(partMovements.documentId, doc.id), eq(partMovements.userId, doc.userId), eq(partMovements.kind, 'bought')),
+  expense: and(eq(expenses.documentId, doc.id), eq(expenses.userId, doc.userId)),
+  service: and(eq(services.documentId, doc.id), eq(services.userId, doc.userId)),
+})
+
+/**
+ * Remove what saving this invoice created: its shelf stock (each part lowered by what was
+ * bought, even below zero), its costs (item links cascade) and its garage service (item links
+ * cascade, so the bike's items work their status out again). Nothing else is touched.
+ */
+export async function undoInvoice(tx: Tx, doc: Document) {
+  const own = ofDoc(doc)
+  const bought = await tx.delete(partMovements).where(own.movement).returning({ partId: partMovements.partId, qty: partMovements.qtyHundredths })
+  for (const m of bought) {
+    if (!m.partId) continue
+    await tx.update(parts).set({ qtyHundredths: sql`${parts.qtyHundredths} - ${m.qty}` }).where(and(eq(parts.id, m.partId), eq(parts.userId, doc.userId)))
+  }
+  await tx.delete(expenses).where(own.expense)
+  await tx.delete(services).where(own.service)
+}
+
+/**
+ * Delete a document of any status. A saved one first undoes what it created; a shelf part the
+ * same save created (same transaction time) and nothing else ever touched goes too.
+ */
+export async function deleteDocument(doc: Document) {
+  await db.transaction(async (tx) => {
+    const [fresh] = await tx.select().from(documents).where(and(eq(documents.id, doc.id), eq(documents.userId, doc.userId))).for('update')
+    if (!fresh) throw createError({ statusCode: 404, statusMessage: 'Not found' })
+    if (fresh.status === 'confirmed') {
+      const made = await tx
+        .select({ partId: parts.id })
+        .from(partMovements)
+        .innerJoin(parts, eq(partMovements.partId, parts.id))
+        .where(and(ofDoc(fresh).movement, eq(parts.createdAt, partMovements.createdAt)))
+      await undoInvoice(tx, fresh)
+      const ids = made.map((m) => m.partId)
+      if (ids.length) {
+        const touched = await tx.select({ partId: partMovements.partId }).from(partMovements).where(inArray(partMovements.partId, ids))
+        const gone = ids.filter((id) => !touched.some((t) => t.partId === id))
+        if (gone.length) await tx.delete(parts).where(and(inArray(parts.id, gone), eq(parts.userId, fresh.userId)))
+      }
+    }
+    await tx.delete(documents).where(and(eq(documents.id, fresh.id), eq(documents.userId, fresh.userId)))
   })
 }
 
-/** Delete an unconfirmed document and its files. A confirmed invoice is never discarded. */
+export type SavedForm = {
+  bikeId: string | null
+  at: string
+  hoursTenths: number | null
+  km: number | null
+  garageName: string | null
+  lines: Array<{
+    description: string
+    amountCents: number
+    categoryId: string
+    itemIds: string[]
+    shelf: { partId: string; name: string; unit: string; qtyHundredths: number } | null
+  }>
+}
+
+/** What the review form needs to change a saved invoice: what is saved now, line by line. */
+export async function savedForm(doc: Document): Promise<SavedForm | null> {
+  if (doc.status !== 'confirmed') return null
+  const own = ofDoc(doc)
+  const exp = await db.select().from(expenses).where(own.expense).orderBy(asc(expenses.documentLine), asc(expenses.createdAt))
+  const ids = exp.map((e) => e.id)
+  const links = ids.length ? await db.select().from(expenseItems).where(inArray(expenseItems.expenseId, ids)) : []
+  const shelf = await db
+    .select({ expenseId: partMovements.expenseId, partId: parts.id, name: parts.name, unit: parts.unit, qty: partMovements.qtyHundredths })
+    .from(partMovements)
+    .innerJoin(parts, eq(partMovements.partId, parts.id))
+    .where(own.movement)
+  const [svc] = await db.select().from(services).where(own.service)
+  return {
+    bikeId: exp[0]?.bikeId ?? svc?.bikeId ?? null,
+    at: exp[0]?.at ?? svc?.at ?? doc.issuedAt ?? '',
+    hoursTenths: svc?.hoursTenths ?? null,
+    km: svc?.km ?? null,
+    garageName: svc?.garageName ?? doc.supplierName,
+    lines: exp.map((e) => {
+      const s = shelf.find((m) => m.expenseId === e.id)
+      return {
+        description: e.description,
+        amountCents: e.amountCents,
+        categoryId: e.categoryId,
+        itemIds: links.filter((l) => l.expenseId === e.id).map((l) => l.itemId),
+        shelf: s ? { partId: s.partId, name: s.name, unit: s.unit, qtyHundredths: s.qty } : null,
+      }
+    }),
+  }
+}
+
+/** Parts that would go below zero if this invoice's stock were taken back. */
+export async function stockWarnings(doc: Document): Promise<Array<{ name: string; unit: string; afterHundredths: number }>> {
+  if (doc.status !== 'confirmed') return []
+  const rows = await db
+    .select({ id: parts.id, name: parts.name, unit: parts.unit, now: parts.qtyHundredths, qty: partMovements.qtyHundredths })
+    .from(partMovements)
+    .innerJoin(parts, eq(partMovements.partId, parts.id))
+    .where(ofDoc(doc).movement)
+  const by = new Map<string, { name: string; unit: string; afterHundredths: number }>()
+  for (const r of rows) {
+    const cur = by.get(r.id) ?? { name: r.name, unit: r.unit, afterHundredths: r.now }
+    cur.afterHundredths -= r.qty
+    by.set(r.id, cur)
+  }
+  return [...by.values()].filter((w) => w.afterHundredths < 0)
+}
+
+/** Delete an unconfirmed document and its files (the review screen's Discard). A saved invoice is deleted with `deleteDocument`. */
 export async function discardDocument(doc: Document) {
   const [row] = await db
     .delete(documents)
