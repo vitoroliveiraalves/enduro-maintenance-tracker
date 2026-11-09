@@ -2,8 +2,8 @@ import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, notificationsSent, reminders } from '../db/schema'
 import type { Bike, Reminder } from '../db/schema'
-import { isObj, realDate, str } from './bikes'
-import { bad, uuid } from './validate'
+import { isObj, str } from './bikes'
+import { bad, day, uuid } from './validate'
 
 export const REMINDER_PRESETS = ['Insurance', 'IUC', 'Inspection', 'Licence'] as const
 
@@ -19,8 +19,7 @@ export type ReminderRow = {
 
 /** dueOn must be exactly "YYYY-MM-DD" and a real day (future dates are the point here). */
 function dueOn(v: unknown): string {
-  if (typeof v !== 'string' || v.length !== 10) throw bad('Invalid dueOn date')
-  return realDate(v, 'dueOn')
+  return day(v, 'dueOn date')
 }
 
 function repeat(v: unknown): boolean {
