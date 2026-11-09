@@ -69,7 +69,7 @@ const clock = computed(() => `0:${String(rec.seconds.value).padStart(2, '0')}`)
     <button
       type="button"
       class="fixed right-3 z-30 flex size-14 touch-none select-none items-center justify-center rounded-full shadow-lg shadow-black/50"
-      :class="rec.state.value === 'recording' ? 'bg-danger text-[#111]' : 'bg-accent text-[#111]'"
+      :class="['mic-btn', rec.state.value === 'recording' && 'is-recording']"
       :style="{ bottom: `calc(3.5rem + env(safe-area-inset-bottom) + ${badge ? '3.5rem' : '0.75rem'})` }"
       :aria-label="rec.state.value === 'recording' ? 'Stop and send voice note' : 'Voice note: hold to talk'"
       data-testid="mic"

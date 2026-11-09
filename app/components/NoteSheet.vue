@@ -204,7 +204,7 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
       </div>
 
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="note-error">{{ error }}</p>
-      <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60" data-testid="note-save">
+      <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="note-save">
         {{ busy ? 'Saving…' : 'Save note' }}
       </button>
 
@@ -212,7 +212,7 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
         <div v-if="confirmDelete" class="mt-3 rounded-xl bg-danger/10 p-3" data-testid="note-delete-confirm">
           <p class="text-sm text-white">Delete “{{ props.note!.title }}” and its photos?</p>
           <div class="mt-2 flex gap-2">
-            <button type="button" :disabled="busy" class="min-h-11 flex-1 rounded-xl bg-danger font-bold text-black disabled:opacity-60" data-testid="note-delete-yes" @click="remove">Delete</button>
+            <button type="button" :disabled="busy" class="min-h-11 flex-1 rounded-xl bg-danger font-bold text-on-danger disabled:opacity-60" data-testid="note-delete-yes" @click="remove">Delete</button>
             <button type="button" class="min-h-11 flex-1 rounded-xl border border-white/15" @click="confirmDelete = false">Keep</button>
           </div>
         </div>

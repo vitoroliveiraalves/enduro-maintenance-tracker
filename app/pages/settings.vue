@@ -11,6 +11,7 @@ const store = useBikesStore()
 const push = usePush()
 const voice = useVoice()
 const { pending, syncTick } = useOffline()
+const look = useTheme()
 
 const email = ref('')
 const reminders = ref<Reminder[]>([])
@@ -101,9 +102,31 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
 <template>
   <main class="mx-auto max-w-md px-4 pb-6 pt-[18px]">
     <div class="text-[13px] text-muted">
-      <NuxtLink :to="store.lastBikeId ? `/bikes/${store.lastBikeId}` : '/'" class="-m-2 p-2">‹ Back</NuxtLink>
+      <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">← GARAGE</NuxtLink>
     </div>
-    <h1 class="mt-1.5 text-xl font-bold text-white">Settings</h1>
+    <h1 class="mt-2 text-[34px] text-white">Settings</h1>
+
+    <h2 :class="h2">Look</h2>
+    <fieldset class="grid gap-2" data-testid="theme-section">
+      <legend class="sr-only">Look of the app on this phone</legend>
+      <label
+        v-for="t in look.themes"
+        :key="t.id"
+        class="flex min-h-14 cursor-pointer items-center gap-3 border-[1.5px] px-3 py-2.5"
+        :class="look.theme.value === t.id ? 'border-text' : 'border-white/15'"
+      >
+        <input type="radio" name="theme" class="size-5 accent-accent" :value="t.id" :checked="look.theme.value === t.id" @change="look.set(t.id)">
+        <span class="min-w-0 flex-1">
+          <span class="block font-extrabold uppercase text-white" style="font-stretch: 110%">{{ t.name }}</span>
+          <span class="block text-xs text-muted">{{ t.hint }}</span>
+        </span>
+        <span class="flex shrink-0" aria-hidden="true">
+          <template v-if="t.id === 'steel'"><i class="size-5 bg-[#0e0e0e] ring-1 ring-white/30" /><i class="size-5 bg-[#ededed]" /></template>
+          <template v-else><i class="size-5 bg-[#d21f2a]" /><i class="size-5 bg-[#f4f1ea]" /><i class="size-5 bg-[#1f3fa8]" /></template>
+        </span>
+      </label>
+    </fieldset>
+    <p class="mt-1.5 text-xs text-muted">Saved on this phone only.</p>
 
     <h2 :class="h2">Notifications</h2>
     <section class="rounded-xl bg-surface p-3" data-testid="push-section">
@@ -164,7 +187,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
           </template>
           <template v-else>
             <span class="self-center text-[13px] text-text">Remove {{ r.title }}?</span>
-            <button type="button" class="min-h-11 rounded-lg bg-danger px-4 text-[13px] font-bold text-[#111]" data-testid="reminder-remove-confirm" :disabled="acting" @click="act(r, 'remove')">Remove</button>
+            <button type="button" class="min-h-11 rounded-lg bg-danger px-4 text-[13px] font-bold text-on-danger" data-testid="reminder-remove-confirm" :disabled="acting" @click="act(r, 'remove')">Remove</button>
             <button type="button" class="min-h-11 rounded-lg px-4 text-[13px] text-muted" @click="askRemove = null">Keep</button>
           </template>
         </div>
@@ -202,7 +225,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
       <button
         type="button"
         :disabled="confirmText !== 'DELETE' || deleting"
-        class="mt-3 w-full rounded-xl bg-danger py-3 text-sm font-bold text-[#111] disabled:opacity-40"
+        class="mt-3 w-full rounded-xl bg-danger py-3 text-sm font-bold text-on-danger disabled:opacity-40"
         data-testid="delete-account-button"
         @click="deleteAccount"
       >

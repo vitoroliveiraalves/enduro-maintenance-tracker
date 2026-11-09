@@ -77,7 +77,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           :aria-pressed="title === p"
           :data-testid="`preset-${p}`"
           class="rounded-full px-3 py-1.5 text-[13px]"
-          :class="title === p ? 'bg-accent font-bold text-[#111]' : 'bg-bg text-text'"
+          :class="title === p ? 'bg-accent font-bold text-on-accent' : 'bg-bg text-text'"
           @click="title = p"
         >
           {{ p }}
@@ -105,7 +105,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         Repeats every year
       </label>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="rem-error">{{ error }}</p>
-      <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60" data-testid="rem-save">Save</button>
+      <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="rem-save">Save</button>
     </form>
   </Sheet>
 </template>

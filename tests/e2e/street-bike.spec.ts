@@ -54,8 +54,8 @@ test('street bike: add with km only, log a ride, mark done, switch meters, costs
   // Home card: km only.
   await page.goto('/')
   const card = page.getByTestId('bike-card').filter({ has: page.getByText('CB 500', { exact: true }) })
-  await expect(card).toContainText(`4${T}100 km`)
-  await expect(card).not.toContainText(HOURS)
+  await expect(card).toContainText(`KM4${T}100`)
+  await expect(card).not.toContainText('HRS')
 
   // Costs with only this bike: no hours tiles, per-km on the bike line.
   const cat = ((await (await page.request.get('/api/categories')).json()) as Array<{ id: string }>)[0]!.id

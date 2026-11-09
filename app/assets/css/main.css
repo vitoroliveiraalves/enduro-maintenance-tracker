@@ -1,14 +1,65 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/archivo/wdth-italic.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/600.css';
 
+/*
+ * Two looks, picked in Settings (app/lib/theme.ts → html[data-theme]). Screens use these tokens
+ * only, so every screen follows the look. Stamped Steel is the default (also with no attribute).
+ */
 @theme {
-  --color-bg: #121417;
-  --color-surface: #1c2026;
-  --color-accent: #ff6a00;
-  --color-danger: #ff4d4f;
-  --color-warn: #ffb020;
-  --color-ok: #3ecf8e;
-  --color-text: #e8eaed;
-  --color-muted: #8b929c;
+  --color-bg: #0e0e0e;
+  --color-surface: #1a1a1a;
+  --color-accent: #ededed;
+  --color-danger: #ededed;
+  --color-warn: #a3a3a3;
+  --color-ok: #5a5a5a;
+  --color-text: #ededed;
+  --color-muted: #a3a3a3;
+  /* Text on a filled accent / danger / warn surface. */
+  --color-on-accent: #0e0e0e;
+  --color-on-danger: #0e0e0e;
+  --color-on-warn: #0e0e0e;
+  /* State labels on dark surfaces (bars use the solid tokens above). */
+  --color-danger-text: #ffffff;
+  --color-warn-text: #c8c8c8;
+  --color-ok-text: #a3a3a3;
+  --color-track: #3a3a3a;
+  /* Decorative: stripes, the active tab mark. */
+  --color-stripe-a: #ededed;
+  --color-stripe-b: #ededed;
+
+  --font-sans: 'Archivo Variable', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Square, stamped corners; `rounded-full` stays round. */
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 3px;
+  --radius-3xl: 4px;
+}
+
+html[data-theme='tricolor'] {
+  --color-bg: #0f1012;
+  --color-surface: #1b1c1f;
+  --color-accent: #d21f2a;
+  --color-danger: #d21f2a;
+  --color-warn: #3b5bdb;
+  --color-ok: #8c8a84;
+  --color-text: #f4f1ea;
+  --color-muted: #a9a69f;
+  --color-on-accent: #f4f1ea;
+  --color-on-danger: #f4f1ea;
+  --color-on-warn: #f4f1ea;
+  --color-danger-text: #ff6b70;
+  --color-warn-text: #8fa6ff;
+  --color-ok-text: #c9c6bf;
+  --color-track: #33343a;
+  --color-stripe-a: #d21f2a;
+  --color-stripe-b: #1f3fa8;
 }
 
 html,
@@ -16,12 +67,156 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text);
   color-scheme: dark;
+  font-family: var(--font-sans);
 }
 
-@theme {
-  /* Lighter text tones for state labels on dark surfaces (bars use the solid tokens above). */
-  --color-danger-text: #ff6b6b;
-  --color-warn-text: #ffc24d;
-  --color-ok-text: #5fdca6;
-  --color-track: #2a3038;
+/* Headings: heavy, wide, uppercase; slanted in the tricolor look. */
+h1 {
+  font-weight: 900;
+  font-stretch: 125%;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+html[data-theme='tricolor'] h1,
+html[data-theme='tricolor'] .brand-slant {
+  font-style: italic;
+}
+h2 {
+  font-stretch: 110%;
+}
+
+/* Numbers read like stamped tags. */
+.font-tag {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The band under a screen header: hazard stripe in steel, red/white/blue in tricolor. */
+.brand-band {
+  height: 8px;
+  background: repeating-linear-gradient(-45deg, var(--color-text) 0 8px, transparent 8px 16px);
+}
+html[data-theme='tricolor'] .brand-band {
+  height: 17px;
+  background: linear-gradient(var(--color-stripe-a) 0 7px, var(--color-text) 7px 10px, var(--color-stripe-b) 10px 17px);
+}
+
+/* Active bottom tab: inverted in steel, a red top bar in tricolor. */
+.tab-active {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+html[data-theme='tricolor'] .tab-active {
+  background: transparent;
+  color: var(--color-text);
+  box-shadow: inset 0 3px 0 var(--color-accent);
+}
+
+/* The mic: a white disc; recording inverts it (steel) or turns it red (tricolor). */
+.mic-btn {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+.mic-btn.is-recording {
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: inset 0 0 0 2.5px var(--color-text);
+}
+html[data-theme='tricolor'] .mic-btn {
+  color: var(--color-accent);
+  box-shadow: inset 0 0 0 4px var(--color-stripe-b);
+}
+html[data-theme='tricolor'] .mic-btn.is-recording {
+  background: var(--color-accent);
+  color: var(--color-text);
+  box-shadow: none;
+}
+
+/* The brand mark: a stamped square, red in tricolor. */
+.brand-mark {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-weight: 900;
+  font-stretch: 125%;
+  font-size: 15px;
+}
+html[data-theme='tricolor'] .brand-mark {
+  background: var(--color-accent);
+  color: var(--color-text);
+  font-style: italic;
+}
+
+/* Garage bike card: an outlined tag; a bike with something overdue is the filled tag. */
+.bike-tag {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1.5px solid var(--color-text);
+  padding: 15px 15px 13px;
+  color: var(--color-text);
+}
+.bike-tag-sub {
+  color: var(--color-muted);
+}
+.bike-tag-rule {
+  border-top: 1px dashed color-mix(in srgb, var(--color-text) 35%, transparent);
+}
+.bike-tag-badge {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.bike-tag.is-alert {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+.bike-tag.is-alert .bike-tag-sub {
+  color: color-mix(in srgb, var(--color-bg) 75%, var(--color-text));
+}
+.bike-tag.is-alert .bike-tag-rule {
+  border-top: 1.5px solid var(--color-bg);
+}
+.bike-tag-stripe {
+  display: none;
+}
+html[data-theme='tricolor'] .bike-tag-badge {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+html[data-theme='tricolor'] .bike-tag-stripe {
+  display: flex;
+  position: absolute;
+  right: -30px;
+  top: 0;
+  bottom: 0;
+  width: 46px;
+  transform: skewX(-20deg);
+  background: linear-gradient(90deg, var(--color-stripe-a) 0 22px, transparent 22px 28px, var(--color-stripe-b) 28px 38px, transparent 38px);
+}
+
+/* Maintenance item that is overdue: a hazard edge (red in tricolor). */
+.item-overdue {
+  position: relative;
+  padding-left: 24px;
+}
+.item-overdue::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  background-image: repeating-linear-gradient(-45deg, var(--color-danger) 0 5px, transparent 5px 10px);
+}
+html[data-theme='tricolor'] .item-overdue::before {
+  background: var(--color-danger);
+  width: 6px;
+}
+html[data-theme='tricolor'] .item-overdue {
+  padding-left: 18px;
 }

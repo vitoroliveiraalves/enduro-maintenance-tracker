@@ -555,7 +555,7 @@ async function discard() {
             {{ w.name }} will go to {{ qty(w.afterHundredths, w.unit) }} on the shelf.
           </p>
           <div class="mt-2 flex gap-2">
-            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-black" :disabled="busy" data-testid="delete-confirm" @click="deleteInvoice">Delete</button>
+            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-on-danger" :disabled="busy" data-testid="delete-confirm" @click="deleteInvoice">Delete</button>
             <button type="button" class="rounded-lg border border-white/15 px-3 py-1.5" @click="askDelete = false">Keep</button>
           </div>
         </div>
@@ -621,7 +621,7 @@ async function discard() {
                 <button
                   type="button"
                   class="min-h-11 rounded-lg text-sm font-semibold"
-                  :class="l.shelf ? 'text-muted' : 'bg-accent text-black'"
+                  :class="l.shelf ? 'text-muted' : 'bg-accent text-on-accent'"
                   :aria-pressed="!l.shelf"
                   data-testid="line-used"
                   @click="setShelf(l, false)"
@@ -631,7 +631,7 @@ async function discard() {
                 <button
                   type="button"
                   class="min-h-11 rounded-lg text-sm font-semibold"
-                  :class="l.shelf ? 'bg-accent text-black' : 'text-muted'"
+                  :class="l.shelf ? 'bg-accent text-on-accent' : 'text-muted'"
                   :aria-pressed="l.shelf"
                   data-testid="line-shelf"
                   @click="setShelf(l, true)"
@@ -725,13 +725,13 @@ async function discard() {
 
         <div v-if="mismatch !== null" role="alert" class="mt-3 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm" data-testid="totals-mismatch">
           <p class="text-warn">The lines are {{ money(Math.abs(mismatch)) }} {{ mismatch < 0 ? 'short of' : 'over' }} the invoice total. Save anyway?</p>
-          <button type="button" class="mt-2 rounded-lg bg-warn px-3 py-1.5 font-semibold text-black" :disabled="busy" data-testid="force-save" @click="confirm(true)">Save anyway</button>
+          <button type="button" class="mt-2 rounded-lg bg-warn px-3 py-1.5 font-semibold text-on-warn" :disabled="busy" data-testid="force-save" @click="confirm(true)">Save anyway</button>
         </div>
         <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="inv-error">{{ error }}</p>
 
         <button
           type="button"
-          class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60"
+          class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60"
           :disabled="busy || !bikes.length"
           data-testid="confirm"
           @click="confirm(false)"
@@ -750,7 +750,7 @@ async function discard() {
         <div v-else role="alert" class="mt-3 rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm" data-testid="discard-ask">
           <p>Discard this invoice and its photos? This can't be undone.</p>
           <div class="mt-2 flex gap-2">
-            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-black" :disabled="busy" data-testid="discard-confirm" @click="discard">Discard</button>
+            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-on-danger" :disabled="busy" data-testid="discard-confirm" @click="discard">Discard</button>
             <button type="button" class="rounded-lg border border-white/15 px-3 py-1.5" @click="askDiscard = false">Keep</button>
           </div>
         </div>

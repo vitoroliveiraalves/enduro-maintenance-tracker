@@ -223,7 +223,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
       </label>
 
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="part-error">{{ error }}</p>
-      <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60" data-testid="part-save">Save</button>
+      <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="part-save">Save</button>
     </form>
 
     <section v-if="!isNew" class="mt-5">
@@ -245,7 +245,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
           <p class="text-sm text-white">Delete {{ props.part?.name }}? Its history stays in your records.</p>
           <div class="mt-2.5 grid grid-cols-2 gap-2">
             <button type="button" class="min-h-11 rounded-lg border border-white/15 text-sm" @click="confirmDelete = false">Keep it</button>
-            <button type="button" :disabled="busy" class="min-h-11 rounded-lg bg-danger text-sm font-bold text-black disabled:opacity-60" data-testid="part-delete-yes" @click="remove">Delete</button>
+            <button type="button" :disabled="busy" class="min-h-11 rounded-lg bg-danger text-sm font-bold text-on-danger disabled:opacity-60" data-testid="part-delete-yes" @click="remove">Delete</button>
           </div>
         </div>
       </div>

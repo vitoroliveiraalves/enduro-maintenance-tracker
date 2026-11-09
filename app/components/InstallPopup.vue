@@ -83,11 +83,11 @@ async function onInstall() {
           <span>Open Enduro from your Home Screen.</span>
         </li>
       </ol>
-      <button type="button" class="mt-4 min-h-11 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111]" data-testid="install-popup-ok" @click="open = false">Got it</button>
+      <button type="button" class="mt-4 min-h-11 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent" data-testid="install-popup-ok" @click="open = false">Got it</button>
     </template>
     <template v-else>
       <p class="text-sm text-text">Open it like an app from your home screen, use it offline in the garage, and get service reminders.</p>
-      <button type="button" class="mt-4 min-h-11 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111]" data-testid="install-popup-install" @click="onInstall">Install</button>
+      <button type="button" class="mt-4 min-h-11 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent" data-testid="install-popup-install" @click="onInstall">Install</button>
       <button type="button" class="mt-2 min-h-11 w-full rounded-xl py-3 text-sm font-semibold text-muted" data-testid="install-popup-later" @click="open = false">Not now</button>
     </template>
   </Sheet>

@@ -170,7 +170,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 
       <button
         type="button"
-        class="my-3.5 block w-full rounded-xl bg-accent p-[11px] text-sm font-bold text-[#111]"
+        class="my-3.5 block w-full rounded-xl bg-accent p-[11px] text-sm font-bold text-on-accent"
         data-testid="mark-done"
         @click="doneOpen = true"
       >
@@ -218,7 +218,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
             <span>{{ s.atUnknown ? 'Date unknown' : date(s.at) }}<span v-if="s.pending" class="ml-1.5 text-xs font-normal text-warn-text" data-testid="service-pending">pending sync</span></span>
             <span class="flex shrink-0 items-center gap-2">
               <span v-if="s.costCents" data-testid="service-cost">{{ money(s.costCents) }}</span>
-              <NuxtLink v-if="s.documentId" :to="`/invoice/${s.documentId}`" class="-m-2 p-2" aria-label="Open invoice" data-testid="service-invoice">🧾</NuxtLink>
+              <NuxtLink v-if="s.documentId" :to="`/invoice/${s.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" aria-label="Open invoice" data-testid="service-invoice"><Icon name="invoice" :size="15" /></NuxtLink>
             </span>
           </div>
           <div class="mt-0.5 text-xs text-muted">

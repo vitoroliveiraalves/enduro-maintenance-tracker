@@ -149,7 +149,7 @@ watch(open, (v) => {
       <section v-if="result.answer" class="mt-3 rounded-xl bg-bg p-3" data-testid="voice-answer">
         <div class="flex items-start gap-2">
           <p class="min-w-0 flex-1 text-base text-white" data-testid="voice-answer-text">{{ result.answer }}</p>
-          <button v-if="canSpeak" type="button" class="-mr-1 -mt-1 size-11 shrink-0 text-lg text-muted" aria-label="Read the answer aloud" data-testid="voice-speak" @click="speak(result.answer)">🔊</button>
+          <button v-if="canSpeak" type="button" class="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center text-muted" aria-label="Read the answer aloud" data-testid="voice-speak" @click="speak(result.answer)"><Icon name="speaker" /></button>
         </div>
         <template v-if="result.sources.length">
           <p class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-muted">From your records</p>
@@ -169,7 +169,8 @@ watch(open, (v) => {
         data-testid="voice-followup"
         @click="followUp"
       >
-        {{ rec.state.value === 'recording' ? `Send · 0:${String(rec.seconds.value).padStart(2, '0')}` : '🎤 Ask a follow-up' }}
+        <Icon v-if="rec.state.value !== 'recording'" name="mic" :size="18" />
+        {{ rec.state.value === 'recording' ? `Send · 0:${String(rec.seconds.value).padStart(2, '0')}` : 'Ask a follow-up' }}
       </button>
       <p v-if="rec.state.value === 'denied'" class="mt-2 text-sm text-muted">The microphone is blocked for this app. Allow it in your browser's site settings, then try again.</p>
     </template>
@@ -183,7 +184,7 @@ watch(open, (v) => {
         v-if="toSave.length"
         type="button"
         :disabled="saving || voice.sheet.value.status === 'listening'"
-        class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111] disabled:opacity-60"
+        class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60"
         data-testid="voice-save"
         @click="saveAll"
       >

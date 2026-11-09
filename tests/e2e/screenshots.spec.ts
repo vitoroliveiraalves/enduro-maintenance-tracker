@@ -359,3 +359,20 @@ test('invoices list, saved invoice and delete with a stock warning', async ({ pa
   await page.getByTestId('delete-ask').scrollIntoViewIfNeeded()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/invoice-delete.png' })
 })
+
+test('looks: garage and bike in Stamped Steel and the tricolor', async ({ page }) => {
+  await signUpFresh(page)
+  const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
+  const cb = await page.request.post('/api/bikes', { data: { ...bikeBody('CB500F', []), make: 'Honda', model: 'CB500F', year: 2020, stroke: '4T', meters: 'km', km: 12040 } })
+  if (!cb.ok()) throw new Error('seed failed')
+  for (const look of ['steel', 'tricolor'] as const) {
+    await page.goto('/settings')
+    await page.getByRole('radio', { name: look === 'steel' ? /Stamped Steel/ : /Old-school tricolor/ }).check()
+    await page.goto('/')
+    await page.getByTestId('bike-card').nth(1).waitFor()
+    await page.screenshot({ path: `tests/e2e/__screenshots__/look-${look}-garage.png` })
+    await page.goto(`/bikes/${id}`)
+    await page.getByTestId('item-row').first().waitFor()
+    await page.screenshot({ path: `tests/e2e/__screenshots__/look-${look}-bike.png` })
+  }
+})

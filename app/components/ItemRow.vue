@@ -12,10 +12,10 @@ const router = useRouter()
 </script>
 
 <template>
-  <NuxtLink :to="to" class="mb-[7px] block rounded-xl bg-surface px-3 py-2.5" data-testid="item-row">
-    <div class="flex justify-between gap-2 text-sm font-semibold text-white">
-      <span class="min-w-0">{{ item.name }}</span>
-      <span class="flex shrink-0 items-center gap-2">
+  <NuxtLink :to="to" class="mb-2 block bg-surface px-3 py-2.5" :class="{ 'item-overdue': item.status.state === 'overdue' }" data-testid="item-row">
+    <div class="flex justify-between gap-2 text-white">
+      <span class="brand-slant min-w-0 text-[17px] font-extrabold uppercase leading-tight" style="font-stretch: 105%">{{ item.name }}</span>
+      <span class="flex shrink-0 items-center gap-2 font-tag text-xs font-semibold">
         <span :class="tone" data-testid="item-state">{{ stateText(item) }}</span>
         <button
           v-if="showStock"
@@ -29,7 +29,7 @@ const router = useRouter()
         </button>
       </span>
     </div>
-    <div class="mt-0.5 text-xs text-muted" data-testid="item-subline">
+    <div class="mt-1 font-tag text-[11px] text-muted" data-testid="item-subline">
       {{ subline(item) }}<span v-if="item.pendingSync" class="text-warn-text" data-testid="item-pending"> · done, pending sync</span>
     </div>
     <ProgressBar :state="item.status.state" :ratio="item.status.ratio" :label="`${item.name} wear`" />

@@ -90,7 +90,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
         </label>
       </template>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="buy-error">{{ error }}</p>
-      <button type="submit" :disabled="busy || !editable" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60" data-testid="buy-save">Save</button>
+      <button type="submit" :disabled="busy || !editable" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="buy-save">Save</button>
     </form>
 
     <div v-if="!isNew && editable" class="mt-4">
@@ -99,7 +99,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
         <p class="text-sm text-white">Remove "{{ props.entry?.text }}"?</p>
         <div class="mt-2.5 grid grid-cols-2 gap-2">
           <button type="button" class="min-h-11 rounded-lg border border-white/15 text-sm" @click="confirmDelete = false">Keep it</button>
-          <button type="button" :disabled="busy" class="min-h-11 rounded-lg bg-danger text-sm font-bold text-black disabled:opacity-60" data-testid="buy-delete-yes" @click="remove">Remove</button>
+          <button type="button" :disabled="busy" class="min-h-11 rounded-lg bg-danger text-sm font-bold text-on-danger disabled:opacity-60" data-testid="buy-delete-yes" @click="remove">Remove</button>
         </div>
       </div>
     </div>

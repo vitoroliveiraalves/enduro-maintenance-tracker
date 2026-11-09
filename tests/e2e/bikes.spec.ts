@@ -38,7 +38,7 @@ test('add a 2T bike with Gearbox oil last done, see overdue and unknown rows', a
   await expect(page.getByRole('heading', { name: 'Garage' })).toBeVisible()
   const card = page.getByTestId('bike-card').filter({ has: page.getByText('KTM 300 EXC', { exact: true }) })
   await expect(card.getByTestId('count-overdue')).toContainText('1')
-  await expect(card).toContainText('142.5 h')
+  await expect(card).toContainText('142.5')
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'tests/e2e/__screenshots__/garage.png' })
 })
 

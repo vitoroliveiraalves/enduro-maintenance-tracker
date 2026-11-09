@@ -144,7 +144,7 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
 
     <div class="mt-5 grid gap-3">
       <label
-        class="block rounded-lg bg-accent px-4 py-3 text-center font-semibold text-black"
+        class="block rounded-lg bg-accent px-4 py-3 text-center font-semibold text-on-accent"
         :class="{ 'pointer-events-none opacity-40': busy || pages.length >= MAX_PAGES }"
       >
         Take photos
@@ -191,7 +191,7 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
       </ul>
       <button
         type="button"
-        class="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-semibold text-black disabled:opacity-40"
+        class="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-semibold text-on-accent disabled:opacity-40"
         :disabled="busy"
         @click="send(pages.map((p) => p.file))"
       >

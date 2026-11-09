@@ -60,7 +60,7 @@ async function submit() {
       <button
         type="submit"
         :disabled="busy"
-        class="w-full rounded-lg bg-accent py-3 text-base font-semibold text-black disabled:opacity-60"
+        class="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-accent disabled:opacity-60"
       >
         Sign in
       </button>

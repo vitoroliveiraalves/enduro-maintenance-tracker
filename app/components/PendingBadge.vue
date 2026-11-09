@@ -62,7 +62,7 @@ watch(open, () => (confirmKey.value = null))
       type="button"
       data-testid="pending-badge"
       class="fixed right-3 z-30 rounded-full px-3.5 py-2 text-xs font-bold shadow-lg shadow-black/40"
-      :class="failed.length ? 'bg-danger text-[#111]' : 'bg-warn text-[#111]'"
+      :class="failed.length ? 'bg-danger text-on-danger' : 'bg-warn text-on-danger'"
       style="bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem)"
       @click="tap"
     >
@@ -79,7 +79,7 @@ watch(open, () => (confirmKey.value = null))
               <button
                 v-if="online"
                 type="button"
-                class="rounded-lg bg-accent px-3 py-1.5 text-[13px] font-semibold text-[#111]"
+                class="rounded-lg bg-accent px-3 py-1.5 text-[13px] font-semibold text-on-accent"
                 data-testid="pending-retry"
                 @click="retry(r)"
               >
@@ -96,7 +96,7 @@ watch(open, () => (confirmKey.value = null))
         <ul class="space-y-2">
           <li v-for="v in voiceReady" :key="v.id" class="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2">
             <span class="text-sm text-white">Voice note ready</span>
-            <button type="button" class="min-h-11 shrink-0 rounded-lg bg-accent px-3 text-[13px] font-semibold text-[#111]" data-testid="pending-voice-open" @click="openVoice(v)">Open</button>
+            <button type="button" class="min-h-11 shrink-0 rounded-lg bg-accent px-3 text-[13px] font-semibold text-on-accent" data-testid="pending-voice-open" @click="openVoice(v)">Open</button>
           </li>
         </ul>
         <p v-if="voiceWaiting" class="mt-2 text-xs text-muted">{{ plural(voiceWaiting, 'voice note', 'voice notes') }} kept on this phone, answered when you're back online with the app open.</p>
@@ -123,7 +123,7 @@ watch(open, () => (confirmKey.value = null))
           v-if="online"
           type="button"
           :disabled="syncing"
-          class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111] disabled:opacity-60"
+          class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60"
           data-testid="pending-sync-now"
           @click="syncNow"
         >
