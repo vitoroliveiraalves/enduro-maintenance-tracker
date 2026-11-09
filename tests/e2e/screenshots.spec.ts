@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { test } from '@playwright/test'
 import { loginAs, signUpFresh } from './helpers/login'
 import { bikeBody, seedMockupBike } from './helpers/seed'
@@ -314,4 +315,47 @@ test('voice review card and a sourced answer', async ({ page }) => {
   await page.getByTestId('voice-resend').click()
   await page.getByTestId('voice-source').first().waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/voice-answer.png' })
+})
+
+test('invoices list, saved invoice and delete with a stock warning', async ({ page }) => {
+  await signUpFresh(page)
+  const bike = await page.request.post('/api/bikes', { data: bikeBody("KTM 300 EXC '23", [{ name: 'Wheel bearings', everyHoursTenths: 500, everyMonths: 12 }]) })
+  if (!bike.ok()) throw new Error('seed failed')
+  const bikeId = ((await bike.json()) as { id: string }).id
+  const cats = (await (await page.request.get('/api/categories')).json()) as Array<{ id: string; kind: string }>
+  const cat = (k: string) => cats.find((c) => c.kind === k)!.id
+  const up = await page.request.post('/api/documents', {
+    multipart: { clientId: crypto.randomUUID(), files: { name: 'invoice.jpg', mimeType: 'image/jpeg', buffer: readFileSync('tests/e2e/fixtures/invoice-garage.jpg') } },
+  })
+  const docId = ((await up.json()) as { id: string }).id
+  const partClientId = crypto.randomUUID()
+  const ok = await page.request.post(`/api/documents/${docId}/confirm`, {
+    data: {
+      clientId: crypto.randomUUID(), bikeId, at: '2026-11-02', garageName: 'Moto Garage Braga', forceTotals: true,
+      lines: [
+        { description: 'Pneu Michelin Enduro Medium 140/80-18', amountCents: 12900, categoryId: cat('tyres') },
+        { description: 'Mão de obra', amountCents: 3000, categoryId: cat('labour') },
+        { description: 'Junta escape', amountCents: 5640, categoryId: cat('parts'), shelf: { clientId: crypto.randomUUID(), partClientId, name: 'Junta escape', qtyHundredths: 200 } },
+      ],
+    },
+  })
+  if (!ok.ok()) throw new Error(`confirm failed ${ok.status()}`)
+  const parts = (await (await page.request.get('/api/parts')).json()) as Array<{ id: string }>
+  await page.request.post(`/api/parts/${parts[0]!.id}/movements`, { data: { clientId: crypto.randomUUID(), qtyHundredths: -300 } })
+  await page.request.post('/api/documents', {
+    multipart: { clientId: crypto.randomUUID(), files: { name: 'b.jpg', mimeType: 'image/jpeg', buffer: readFileSync('tests/e2e/fixtures/invoice-qr.jpg') } },
+  })
+
+  await page.goto('/invoice')
+  await page.getByTestId('invoice-row').nth(1).waitFor()
+  await page.getByTestId('invoice-list').scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/invoices-list.png' })
+  await page.goto(`/invoice/${docId}`)
+  await page.getByTestId('saved-lines').waitFor()
+  await page.getByTestId('viewer-image').evaluate((i: HTMLImageElement) => i.decode())
+  await page.getByTestId('change').scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/invoice-saved.png' })
+  await page.getByTestId('delete').click()
+  await page.getByTestId('delete-ask').scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/invoice-delete.png' })
 })

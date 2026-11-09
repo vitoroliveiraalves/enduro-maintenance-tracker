@@ -19,6 +19,16 @@ type Doc = {
   extracted: { lines?: Array<{ description: string; totalCents: number | null; kind: LineKind; qty?: number }> } | null
   pages: Array<{ page: number; mime: string }>
   saved: Array<{ line: number | null; description: string; amountCents: number; bikeId: string | null; categoryName: string }>
+  form: SavedForm | null
+  stockWarnings: Array<{ name: string; unit: string; afterHundredths: number }>
+}
+type SavedForm = {
+  bikeId: string | null
+  at: string
+  hoursTenths: number | null
+  km: number | null
+  garageName: string | null
+  lines: Array<{ description: string; amountCents: number; categoryId: string; itemIds: string[]; shelf: { partId: string; name: string; unit: string; qtyHundredths: number } | null }>
 }
 type Category = { id: string; name: string; kind: string }
 type Item = { id: string; name: string }
@@ -92,11 +102,16 @@ const busy = ref(false)
 const error = ref('')
 const mismatch = ref<number | null>(null)
 const askDiscard = ref(false)
+// Changing a saved invoice: the review form, filled with what is saved; Save replaces it in one go.
+const changing = ref(false)
+const askDelete = ref(false)
+let keepItems = false // the first item load after filling keeps the saved item links
 let confirmClientId = crypto.randomUUID()
 let timer: ReturnType<typeof setTimeout> | null = null
 
 const isQr = computed(() => !!doc.value?.qrRaw)
-const editable = computed(() => doc.value?.status === 'review' || doc.value?.status === 'manual')
+const editable = computed(() => doc.value?.status === 'review' || doc.value?.status === 'manual' || changing.value)
+const savedView = computed(() => doc.value?.status === 'confirmed' && !changing.value)
 const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-2.5 text-base normal-case text-white outline-none focus:ring-2 focus:ring-accent disabled:opacity-70'
 const label = 'block text-[11px] uppercase tracking-wider text-muted'
 
@@ -161,8 +176,13 @@ async function loadBike() {
     items.value = []
     readings.value = []
   }
-  // Item ids belong to one bike: suggest again for the new one.
-  for (const l of lines.value) l.itemIds = matchLineToItems(l.description, items.value)
+  if (keepItems) {
+    keepItems = false
+    for (const l of lines.value) l.itemIds = l.itemIds.filter((x) => items.value.some((i) => i.id === x))
+  } else {
+    // Item ids belong to one bike: suggest again for the new one.
+    for (const l of lines.value) l.itemIds = matchLineToItems(l.description, items.value)
+  }
   defaultMeters()
 }
 
@@ -182,7 +202,10 @@ function defaultMeters() {
   kmText.value = hasKm.value && best?.km != null ? String(best.km) : ''
 }
 
-watch(bikeId, loadBike)
+watch(bikeId, () => {
+  if (!keepItems) metersTouched.value = false // another bike's hours/km mean nothing here
+  return loadBike()
+})
 watch(at, defaultMeters)
 
 onMounted(async () => {
@@ -235,7 +258,8 @@ function toggleItem(l: Line, itemId: string) {
 
 const confirmLabel = computed(() => {
   const n = lines.value.length
-  return n ? `Save ${n} line${n === 1 ? '' : 's'} · ${money(linesCents.value)}` : 'Save'
+  const verb = changing.value ? 'Save changes' : 'Save'
+  return n ? `${verb} · ${n} line${n === 1 ? '' : 's'} · ${money(linesCents.value)}`.replace(/^Save ·/, 'Save') : verb
 })
 
 const linesCents = computed(() => lines.value.reduce((s, l) => s + (parseCents(l.amountText) ?? 0), 0))
@@ -245,6 +269,75 @@ const totals = computed(() => {
   const diff = linesCents.value - total
   if (Math.abs(diff) <= Math.max(50, Math.round(total / 100))) return { ok: true, text: 'Lines match the invoice total ✓' }
   return { ok: false, text: `Lines are ${money(Math.abs(diff))} ${diff < 0 ? 'short of' : 'over'} the total` }
+})
+
+async function startChange() {
+  const f = doc.value?.form
+  if (!f) return
+  error.value = ''
+  mismatch.value = null
+  garageName.value = f.garageName ?? ''
+  nif.value = doc.value!.supplierNif ?? ''
+  number.value = doc.value!.number ?? ''
+  at.value = f.at || at.value
+  hoursText.value = f.hoursTenths != null ? (f.hoursTenths / 10).toFixed(1) : ''
+  kmText.value = f.km != null ? String(f.km) : ''
+  metersTouched.value = true
+  lines.value = f.lines.map((l) =>
+    newLine(++lineSeq, {
+      description: l.description,
+      amountText: centsText(l.amountCents),
+      categoryId: l.categoryId,
+      itemIds: l.itemIds,
+      open: false,
+      ...(l.shelf
+        ? {
+            shelf: true,
+            shelfName: l.shelf.name,
+            shelfUnit: l.shelf.unit,
+            shelfQtyText: String(l.shelf.qtyHundredths / 100).replace('.', ','),
+            shelfPart: { id: l.shelf.partId, name: l.shelf.name, unit: l.shelf.unit, qtyHundredths: 0 },
+          }
+        : {}),
+    }),
+  )
+  changing.value = true
+  const target = f.bikeId && bikes.value.some((b) => b.id === f.bikeId) ? f.bikeId : bikeId.value
+  keepItems = true
+  if (bikeId.value === target) await loadBike()
+  else bikeId.value = target
+  if (lines.value.some((l) => l.shelf)) void setShelf(lines.value.find((l) => l.shelf)!, true)
+}
+function cancelChange() {
+  changing.value = false
+  keepItems = false
+  error.value = ''
+  mismatch.value = null
+}
+
+async function deleteInvoice() {
+  if (busy.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    await mutate(`/api/documents/${id}`, {}, { method: 'DELETE' })
+    useToast().show('Invoice deleted')
+    await navigateTo('/invoice')
+  } catch (e) {
+    error.value = errorMessage(e, 'Could not delete. Try again.')
+    askDelete.value = false
+  } finally {
+    busy.value = false
+  }
+}
+const deleteWhat = computed(() => {
+  const f = doc.value?.form
+  if (!f) return ''
+  const n = f.lines.length
+  const parts = [`its ${n} cost${n === 1 ? '' : 's'} (${money(f.lines.reduce((s, l) => s + l.amountCents, 0))})`]
+  if (f.lines.some((l) => !l.shelf && l.itemIds.length)) parts.push('the garage service')
+  if (f.lines.some((l) => l.shelf)) parts.push('the shelf stock it added')
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`
 })
 
 async function retryRead() {
@@ -307,8 +400,17 @@ async function confirm(force = false) {
       ...(isQr.value ? {} : { supplierNif: nif.value.trim(), number: number.value.trim() }),
       lines: out,
       forceTotals: force,
+      ...(changing.value ? { replace: true } : {}),
     })
     confirmClientId = crypto.randomUUID()
+    if (changing.value) {
+      useToast().show(`Invoice changed · ${out.length} line${out.length === 1 ? '' : 's'} · ${money(out.reduce((t, l) => t + l.amountCents, 0))}`)
+      store.setLast(bikeId.value)
+      changing.value = false
+      formFor = null
+      await load()
+      return
+    }
     useToast().show(`Invoice saved · ${out.length} line${out.length === 1 ? '' : 's'} · ${money(out.reduce((t, l) => t + l.amountCents, 0))}`)
     store.setLast(bikeId.value)
     await navigateTo(`/bikes/${bikeId.value}`)
@@ -381,7 +483,7 @@ async function discard() {
           <h2 class="font-semibold">Invoice</h2>
           <span v-if="doc.qrRaw" class="rounded bg-ok/15 px-2 py-0.5 text-xs text-ok" data-testid="qr-badge">From QR code</span>
         </div>
-        <template v-if="doc.status === 'confirmed' || doc.status === 'reading'">
+        <template v-if="savedView || doc.status === 'reading'">
           <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt class="text-muted">Garage</dt>
             <dd data-testid="supplier-name">{{ doc.supplierName ?? '—' }}</dd>
@@ -392,7 +494,7 @@ async function discard() {
             <dt class="text-muted">Date</dt>
             <dd>{{ doc.issuedAt ? date(doc.issuedAt) : '—' }}</dd>
             <dt class="text-muted">Total</dt>
-            <dd data-testid="invoice-total">{{ doc.totalCents != null ? money(doc.totalCents) : '—' }}</dd>
+            <dd data-testid="invoice-total">{{ doc.totalCents != null ? money(doc.totalCents) : doc.saved.length ? money(doc.saved.reduce((t, l) => t + l.amountCents, 0)) : '—' }}</dd>
           </dl>
         </template>
         <div v-else class="mt-3 grid gap-3">
@@ -426,7 +528,7 @@ async function discard() {
       </section>
 
       <!-- Saved invoice -->
-      <section v-if="doc.status === 'confirmed'" class="mt-4 rounded-2xl bg-surface p-4" data-testid="saved-lines">
+      <section v-if="savedView" class="mt-4 rounded-2xl bg-surface p-4" data-testid="saved-lines">
         <h2 class="font-semibold text-ok">Saved ✓</h2>
         <ul class="mt-2 divide-y divide-white/5 text-sm">
           <li v-for="s in doc.saved" :key="s.line ?? s.description" class="flex justify-between gap-3 py-2">
@@ -434,8 +536,30 @@ async function discard() {
             <span class="shrink-0 tabular-nums">{{ money(s.amountCents) }}</span>
           </li>
         </ul>
-        <NuxtLink v-if="doc.saved[0]?.bikeId" :to="`/bikes/${doc.saved[0].bikeId}`" class="mt-2 inline-block text-sm text-accent underline">Open the bike</NuxtLink>
+        <NuxtLink v-if="doc.saved[0]?.bikeId" :to="`/bikes/${doc.saved[0].bikeId}`" class="mt-2 inline-block text-sm text-accent underline" data-testid="saved-bike">
+          {{ bikes.find((b) => b.id === doc!.saved[0]!.bikeId)?.name ?? 'Open the bike' }} ›
+        </NuxtLink>
       </section>
+
+      <template v-if="savedView">
+        <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="inv-error">{{ error }}</p>
+        <button v-if="doc.form" type="button" class="mt-4 w-full rounded-xl border border-white/15 bg-surface py-3 text-base font-semibold text-white" data-testid="change" @click="startChange">
+          Change
+        </button>
+        <button v-if="!askDelete" type="button" class="mt-3 w-full py-2 text-sm text-muted underline" data-testid="delete" @click="askDelete = true">
+          Delete invoice
+        </button>
+        <div v-else role="alert" class="mt-3 rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm" data-testid="delete-ask">
+          <p>Delete this invoice, its photos, {{ deleteWhat }}? This can't be undone.</p>
+          <p v-for="w in doc.stockWarnings" :key="w.name" class="mt-1 text-warn" data-testid="stock-warning">
+            {{ w.name }} will go to {{ qty(w.afterHundredths, w.unit) }} on the shelf.
+          </p>
+          <div class="mt-2 flex gap-2">
+            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-black" :disabled="busy" data-testid="delete-confirm" @click="deleteInvoice">Delete</button>
+            <button type="button" class="rounded-lg border border-white/15 px-3 py-1.5" @click="askDelete = false">Keep</button>
+          </div>
+        </div>
+      </template>
 
       <template v-if="editable">
         <!-- Bike and meters at the time -->
@@ -613,6 +737,9 @@ async function discard() {
           @click="confirm(false)"
         >
           {{ busy ? 'Saving…' : confirmLabel }}
+        </button>
+        <button v-if="changing" type="button" class="mt-3 w-full py-2 text-sm text-muted underline" data-testid="change-cancel" @click="cancelChange">
+          Cancel — keep it as saved
         </button>
       </template>
 

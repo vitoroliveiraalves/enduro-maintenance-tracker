@@ -7,7 +7,24 @@ import { readSession } from '~/offline/session'
 const MAX_PAGES = 5
 const PHOTO_ERROR = "Couldn't read that photo — try another or choose a file."
 const online = useOnline()
-const { mutate } = useApi()
+const { get, mutate } = useApi()
+const { money, date } = useFormatters()
+
+type InvoiceRow = {
+  id: string; status: 'reading' | 'review' | 'manual' | 'confirmed'; supplierName: string | null; issuedAt: string | null
+  createdAt: string; totalCents: number | null; bikeId: string | null; bikeName: string | null; lines: number
+}
+const invoices = ref<InvoiceRow[] | null>(null)
+const listError = ref('')
+onMounted(async () => {
+  try {
+    invoices.value = await get<InvoiceRow[]>('/api/documents')
+  } catch (e) {
+    listError.value = errorMessage(e, "Couldn't load your invoices.")
+  }
+})
+const rowNote = (r: InvoiceRow) =>
+  r.status === 'reading' ? 'Reading…' : r.status === 'confirmed' ? (r.bikeName ?? 'No bike') : 'Not saved yet'
 const { scan } = useQrScan()
 
 type Page = { id: number; file: Blob; url: string }
@@ -187,5 +204,24 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
       Saved on this phone. It uploads and gets read when you're back online — then review it here.
     </p>
     <p v-if="error" role="alert" class="mt-4 text-sm text-danger">{{ error }}</p>
+
+    <section class="mt-8" data-testid="invoice-list">
+      <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted">Your invoices</h2>
+      <p v-if="listError" role="alert" class="mt-2 text-sm text-danger">{{ listError }}</p>
+      <p v-else-if="invoices && !invoices.length" class="mt-2 text-sm text-muted" data-testid="invoice-list-empty">No invoices yet.</p>
+      <ul v-else-if="invoices" class="mt-2 divide-y divide-white/5 rounded-2xl bg-surface">
+        <li v-for="r in invoices" :key="r.id">
+          <NuxtLink :to="`/invoice/${r.id}`" class="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5" data-testid="invoice-row">
+            <span class="min-w-0">
+              <span class="block truncate text-sm font-semibold text-white">{{ r.supplierName || 'Invoice' }}</span>
+              <span class="block text-xs" :class="r.status === 'confirmed' ? 'text-muted' : 'text-warn'" data-testid="invoice-row-note">
+                {{ date(r.issuedAt ?? r.createdAt.slice(0, 10)) }} · {{ rowNote(r) }}
+              </span>
+            </span>
+            <span class="shrink-0 text-sm tabular-nums text-white" data-testid="invoice-row-total">{{ r.totalCents != null ? money(r.totalCents) : '—' }}</span>
+          </NuxtLink>
+        </li>
+      </ul>
+    </section>
   </main>
 </template>
