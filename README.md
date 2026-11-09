@@ -74,3 +74,16 @@ Rules for a production host:
 - **Generate VAPID keys with `pnpm vapid:generate`** and set `NUXT_VAPID_*`;
   `NUXT_VAPID_SUBJECT` must be a real `mailto:` (Apple rejects placeholders).
 - Set a long random `BETTER_AUTH_SECRET`; never reuse the example value.
+- **The server refuses to start** with a missing, placeholder or short
+  `BETTER_AUTH_SECRET`, or without `BETTER_AUTH_URL`; it logs `[config]` warnings
+  for plain-http URLs and missing push/AI keys.
+- **Health:** `GET /api/health` is 200 when the app and Postgres answer, 503 when
+  the database is unreachable. The image has a Docker `HEALTHCHECK` on it; point
+  your uptime monitor there too.
+- **Back up Postgres daily** and keep copies off the host. It holds everything,
+  including invoice photos (`document_files`), so expect it to grow. For example:
+  `pg_dump --format=custom "$DATABASE_URL" > enduro-$(date +%F).dump`, restore with
+  `pg_restore --clean --dbname "$DATABASE_URL" <file>`. Test a restore before launch.
+- **Security headers** (nosniff, no framing, referrer policy, camera-only
+  permissions, HSTS, `no-store` on `/api`) come from `routeRules` in
+  `nuxt.config.ts`. Terminate TLS at the proxy; HSTS only takes effect over https.

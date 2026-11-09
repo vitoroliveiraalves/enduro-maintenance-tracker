@@ -23,6 +23,25 @@ export default defineNuxtConfig({
     scheduledTasks: { '0 * * * *': ['notify'] },
   },
 
+  // Baseline security headers. No script-src CSP yet: the QR reader (wasm) and
+  // pdf.js need careful allow-listing, tested on real phones first.
+  routeRules: {
+    '/**': {
+      headers: {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        // Camera for invoice capture; nothing else.
+        'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), payment=()',
+        'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
+        // Browsers ignore HSTS over plain http, so this is safe in dev.
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      },
+    },
+    // Rider data never sits in a shared browser/proxy cache.
+    '/api/**': { headers: { 'Cache-Control': 'no-store' } },
+  },
+
   runtimeConfig: {
     databaseUrl: '',
     openrouterApiKey: '',
