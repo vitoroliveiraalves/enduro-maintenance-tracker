@@ -44,19 +44,19 @@ The e2e run uses its own `enduro_e2e` database and never touches the dev one.
 ## Deploy
 
 Production runs on one server with Docker Compose (`compose.prod.yml`), behind
-**Nginx Proxy Manager** (NPM) for HTTPS. The stack:
+**Nginx Proxy Manager** (NPM), running on another machine on the LAN, for HTTPS. The stack:
 
 - `db`: Postgres 16 on a volume. Not published, no internet.
 - `migrate`: applies pending migrations, then exits. The app waits for it.
-- `app`: the server. It joins NPM's Docker network as `enduro-app`, so no port is
-  published.
+- `app`: the server, published only on this server's LAN address
+  (`APP_BIND:APP_PORT`, default port 3020), never on 0.0.0.0.
 - `backup`: a `pg_dump` every 24 h into `BACKUP_DIR`, kept `BACKUP_KEEP_DAYS` days.
 
 First deploy:
 
 ```sh
 cp .env.example prod.env          # never commit it (git-ignored)
-# set DOMAIN, NPM_NETWORK (`docker network ls`), POSTGRES_PASSWORD (`openssl rand -hex 32`),
+# set DOMAIN, APP_BIND (`hostname -I`, the LAN IP), APP_PORT if 3020 is taken, POSTGRES_PASSWORD (`openssl rand -hex 32`),
 # BETTER_AUTH_SECRET (`openssl rand -base64 48`), NUXT_VAPID_* (`pnpm vapid:generate`),
 # NUXT_OPENROUTER_API_KEY. DATABASE_URL and BETTER_AUTH_URL are set by the compose file.
 docker compose -f compose.prod.yml --env-file prod.env up -d --build
@@ -64,7 +64,8 @@ docker compose -f compose.prod.yml --env-file prod.env up -d --build
 
 Then in NPM add a **Proxy Host**:
 
-- domain `DOMAIN`, scheme `http`, forward to `enduro-app` port `3000`;
+- domain `DOMAIN`, scheme `http`, forward to `APP_BIND` port `APP_PORT`
+  (e.g. `192.168.1.172` port `3020`);
 - SSL tab: request a Let's Encrypt certificate, turn on **Force SSL**
   (HSTS is already sent by the app).
 
@@ -93,7 +94,9 @@ Rules for a production host:
   client address. NPM does this on every proxy host
   (`proxy_set_header X-Real-IP $remote_addr;`). The auth rate limiter reads that
   header (`AUTH_IP_HEADER`); if the proxy passes a client-set value through, the
-  limit can be dodged. If NPM itself sits behind Cloudflare or another proxy,
+  limit can be dodged. The published port is reachable by anything on the LAN,
+  which could set its own `X-Real-IP`; keep the LAN trusted, or firewall
+  `APP_PORT` to NPM's IP. If NPM itself sits behind Cloudflare or another proxy,
   `$remote_addr` is that proxy: set NPM's real-IP handling first, or every rider
   shares one rate limit.
 - **`BETTER_AUTH_URL` must be the public https origin** riders open

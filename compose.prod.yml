@@ -1,9 +1,9 @@
 # Production on one server: Postgres, migrations, the app and daily backups.
-# HTTPS comes from Nginx Proxy Manager (NPM): the app joins NPM's Docker network
-# as `enduro-app`, so no port is published; in NPM add a Proxy Host
-# DOMAIN -> http://enduro-app:3000 with an SSL certificate (Force SSL on).
+# HTTPS comes from Nginx Proxy Manager (NPM) on another machine: the app publishes
+# APP_PORT on this server's LAN address APP_BIND only; in NPM add a Proxy Host
+# DOMAIN -> http://APP_BIND:APP_PORT with an SSL certificate (Force SSL on).
 #
-#   cp .env.example prod.env    # fill in DOMAIN, NPM_NETWORK, POSTGRES_PASSWORD, BETTER_AUTH_SECRET, keys
+#   cp .env.example prod.env    # fill in DOMAIN, APP_BIND, POSTGRES_PASSWORD, BETTER_AUTH_SECRET, keys
 #   docker compose -f compose.prod.yml --env-file prod.env up -d --build
 #
 # Same command to update: it rebuilds, migrates, then restarts the app. See README "Deploy".
@@ -54,12 +54,12 @@ services:
     depends_on:
       db: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
-    # npm: NPM reaches it as enduro-app:3000; that network also gives the way out
-    # to OpenRouter (invoice lines) and the Web Push services.
-    networks:
-      internal: {}
-      npm:
-        aliases: [enduro-app]
+    # Only on the LAN address (never 0.0.0.0: this host also has public IPv6
+    # addresses, and Docker-published ports bypass the host firewall).
+    ports:
+      - '${APP_BIND:?set APP_BIND in prod.env (the LAN IP of this server, e.g. 192.168.1.172)}:${APP_PORT:-3020}:3000'
+    # edge: the way out to OpenRouter (invoice lines) and the Web Push services.
+    networks: [internal, edge]
     # Healthcheck (GET /api/health) comes from the image.
 
   # Daily pg_dump into BACKUP_DIR on the host (copy that folder off the server).
@@ -99,6 +99,4 @@ volumes:
 networks:
   internal:
     internal: true # no route out: the database and backups never reach the internet
-  npm:
-    external: true
-    name: ${NPM_NETWORK:?set NPM_NETWORK in prod.env (docker network ls; the network Nginx Proxy Manager runs on)}
+  edge: {}
