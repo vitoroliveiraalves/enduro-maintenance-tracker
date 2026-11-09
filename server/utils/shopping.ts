@@ -105,6 +105,9 @@ export async function createEntry(tx: Tx, userId: string, raw: unknown): Promise
   if (!isObj(raw)) throw bad('Invalid body')
   const clientId = uuid(raw.clientId)
   const values = { userId, clientId, text: entryText(raw.text), bikeId: refId(raw.bikeId, 'bikeId'), partId: refId(raw.partId, 'partId') }
+  // Replay first: the bike/part it names may be gone by the time the outbox resends it.
+  const [replayed] = await tx.select().from(shoppingEntries).where(and(eq(shoppingEntries.userId, userId), eq(shoppingEntries.clientId, clientId)))
+  if (replayed) return replayed
   if (values.bikeId) await checkBike(tx, userId, values.bikeId)
   if (values.partId) await checkPart(tx, userId, values.partId)
   const [row] = await tx.insert(shoppingEntries).values(values).onConflictDoNothing({ target: [shoppingEntries.userId, shoppingEntries.clientId] }).returning()

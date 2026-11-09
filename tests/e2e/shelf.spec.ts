@@ -103,3 +103,90 @@ test('part sheet: changing the bike drops links to the other bike\'s items', asy
   expect(row.bikeId).toBe(b.id)
   expect(row.itemIds).toEqual([b.item])
 })
+
+test('to buy: low part listed, manual entry added and ticked (kept after reload), count badge', async ({ page }) => {
+  await signUpFresh(page)
+  const r = await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name: 'Gasket', qtyHundredths: 100, minHundredths: 200, startClientId: crypto.randomUUID() } })
+  expect(r.ok()).toBeTruthy()
+
+  await page.goto('/shelf')
+  await page.getByTestId('shelf-tab-buy').click()
+  const auto = page.getByTestId('buy-auto')
+  await expect(auto).toHaveCount(1)
+  await expect(auto.getByTestId('buy-auto-name')).toHaveText('Gasket')
+  await expect(auto.getByTestId('buy-auto-detail')).toHaveText('keep 2, have 1')
+  await expect(page.getByTestId('buy-count')).toHaveText('1')
+
+  await page.getByTestId('buy-add').click()
+  await page.getByTestId('buy-text').fill('Chain lube')
+  await page.getByTestId('buy-save').click()
+  await expect(page.getByTestId('shopping-sheet')).toBeHidden()
+  const manual = page.getByTestId('buy-manual')
+  await expect(manual).toHaveCount(1)
+  await expect(page.getByTestId('buy-count')).toHaveText('2')
+
+  await manual.getByTestId('buy-tick').click()
+  await expect(manual).toHaveAttribute('data-done', 'true')
+  await expect(page.getByTestId('buy-count')).toHaveText('1')
+
+  await page.reload()
+  await page.getByTestId('shelf-tab-buy').click()
+  await expect(page.getByTestId('buy-manual')).toHaveAttribute('data-done', 'true')
+  await expect(page.getByTestId('buy-text-row')).toHaveCSS('text-decoration-line', 'line-through')
+
+  // Tapping an automatic entry opens its part.
+  await page.getByTestId('buy-auto').click()
+  await expect(page.getByTestId('part-name')).toHaveValue('Gasket')
+})
+
+test('to buy: a manual entry added offline shows at once and syncs', async ({ page, context }) => {
+  await signUpFresh(page)
+  await page.goto('/shelf')
+  await page.getByTestId('shelf-tab-buy').click()
+  await expect(page.getByTestId('buy-empty')).toBeVisible()
+  await context.setOffline(true)
+  await page.getByTestId('buy-add').click()
+  await page.getByTestId('buy-text').fill('Brake fluid')
+  await page.getByTestId('buy-save').click()
+  await expect(page.getByTestId('buy-manual')).toContainText('Brake fluid')
+  await expect(page.getByTestId('pending-badge')).toHaveText('1 change waiting')
+  await context.setOffline(false)
+  await expect(page.getByTestId('pending-badge')).toBeHidden()
+  const list = (await (await page.request.get('/api/shopping')).json()) as { manual: Array<{ text: string }> }
+  expect(list.manual.map((m) => m.text)).toEqual(['Brake fluid'])
+})
+
+test('to buy: a linked manual entry is ticked when an invoice puts its part on the shelf', async ({ page }) => {
+  await signUpFresh(page)
+  const bike = await page.request.post('/api/bikes', { data: bikeBody('Invoice Bike', [{ name: 'Wheel bearings', everyHoursTenths: 500, everyMonths: 12 }]) })
+  expect(bike.ok()).toBeTruthy()
+  const part = (await (await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name: 'Rolamentos roda traseira' } })).json()) as { id: string }
+  const entry = await page.request.post('/api/shopping', { data: { clientId: crypto.randomUUID(), text: 'Bearings for the rear wheel', partId: part.id } })
+  expect(entry.ok()).toBeTruthy()
+
+  await page.goto('/shelf')
+  await page.getByTestId('shelf-tab-buy').click()
+  await expect(page.getByTestId('buy-manual')).toHaveAttribute('data-done', 'false')
+  await expect(page.getByTestId('buy-count')).toHaveText('1')
+
+  const bikeId = ((await bike.json()) as { id: string }).id
+  for (const [at, hoursTenths, km] of [['2026-10-06T10:00:00Z', 1305, 3500], ['2026-11-05T10:00:00Z', 1400, 3700]] as const) {
+    expect((await page.request.post('/api/readings', { data: { clientId: crypto.randomUUID(), bikeId, at, hoursTenths, km } })).ok()).toBeTruthy()
+  }
+  // The mock reader reads three lines; the third is the part, put on the shelf under the existing part.
+  await page.goto('/invoice')
+  await page.getByTestId('file-input').setInputFiles('tests/e2e/fixtures/invoice-garage.jpg')
+  await page.waitForURL(/\/invoice\/[0-9a-f-]{36}/, { timeout: 30_000 })
+  const line = page.getByTestId('inv-line').nth(2)
+  await line.waitFor({ timeout: 15_000 })
+  await line.getByTestId('line-shelf').click()
+  await line.getByTestId('line-shelf-pick').fill('ROLAM')
+  await line.getByTestId('line-shelf-option').click()
+  await page.getByTestId('confirm').click()
+  await page.waitForURL(`/bikes/${bikeId}`, { timeout: 15_000 })
+
+  await page.goto('/shelf')
+  await page.getByTestId('shelf-tab-buy').click()
+  await expect(page.getByTestId('buy-manual')).toHaveAttribute('data-done', 'true')
+  await expect(page.getByTestId('buy-count')).toHaveCount(0)
+})

@@ -181,6 +181,32 @@ export function overlay<T>(url: string, data: T, rows: OutboxRow[]): T {
     return out as T
   }
 
+  if (path === '/api/shopping' && !Array.isArray(out)) {
+    const d = out as { manual?: Obj[] }
+    const manual = d.manual ?? []
+    for (const e of manual) {
+      for (const r of rows) {
+        if (r.method !== 'PATCH' || pathOf(r.url) !== `/api/shopping/${e.id as string}`) continue
+        if (typeof r.body.text === 'string') e.text = r.body.text
+        if (typeof r.body.done === 'boolean') e.doneAt = r.body.done ? (e.doneAt ?? new Date(r.createdAt).toISOString()) : null
+        e.pendingSync = true
+      }
+    }
+    for (const r of rows.filter((x) => isPost(x, '/api/shopping'))) {
+      manual.push({
+        id: `pending-${r.clientId}`,
+        text: str(r.body.text) ?? '',
+        bikeId: str(r.body.bikeId),
+        bikeName: r.meta?.bikeName ?? null,
+        partId: str(r.body.partId),
+        doneAt: null,
+        pending: true,
+      })
+    }
+    d.manual = manual
+    return out as T
+  }
+
   if (path === '/api/reminders' && Array.isArray(out)) {
     const bikeId = q.get('bikeId')
     const removed = new Set(rows.filter((r) => r.method === 'DELETE' && /^\/api\/reminders\/[^/]+$/.test(pathOf(r.url))).map((r) => pathOf(r.url).split('/')[3]))
