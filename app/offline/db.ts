@@ -90,6 +90,8 @@ export function cacheTableFor(url: string): CacheTable | null {
   if (['/api/services', '/api/expenses', '/api/categories', '/api/reminders'].includes(path)) return 'lists'
   // The stock item list for a new bike (not user data), so a bike can be added offline.
   if (/^\/api\/templates\/(2T|4T)$/.test(path)) return 'lists'
+  // Item notes: torque specs and how-tos are wanted in the garage, often without signal.
+  if (/^\/api\/items\/[^/]+\/notes$/.test(path)) return 'lists'
   return null
 }
 

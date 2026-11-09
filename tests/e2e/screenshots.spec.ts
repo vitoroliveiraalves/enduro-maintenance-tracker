@@ -101,3 +101,26 @@ test('smoke: home', async ({ page }) => {
   await page.getByText('Enduro Tracker').first().waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/task-1-smoke.png' })
 })
+
+test('item notes', async ({ page }) => {
+  await loginAs(page)
+  const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
+  const detail = (await (await page.request.get(`/api/bikes/${id}`)).json()) as { items: Array<{ id: string; name: string }> }
+  const chain = detail.items.find((i) => i.name === 'Chain & sprockets')!
+  await page.goto(`/bikes/${id}/items/${chain.id}`)
+  await page.getByTestId('note-add').click()
+  await page.getByTestId('note-sheet').getByRole('button', { name: 'Torque specs', exact: true }).click()
+  await page.getByLabel('Spec 1 name').fill('Rear sprocket bolts')
+  await page.getByLabel('Spec 1 value').fill('35 Nm')
+  await page.getByLabel('Spec 2 name').fill('Rear axle nut')
+  await page.getByLabel('Spec 2 value').fill('90 Nm')
+  await page.getByTestId('note-body').fill('1. Loosen the axle nut\n2. Set slack to 50–55 mm at the swingarm block\n3. Blue Loctite on sprocket bolts')
+  await page.getByTestId('note-photo-input').setInputFiles('tests/e2e/fixtures/invoice-garage.jpg')
+  await page.getByTestId('note-photo-new').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/note-sheet.png' })
+  await page.getByTestId('note-save').click()
+  await page.getByTestId('note-card').waitFor()
+  await page.getByTestId('toast').waitFor({ state: 'detached', timeout: 6000 })
+  await page.getByTestId('note-card').scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/item-notes.png' })
+})

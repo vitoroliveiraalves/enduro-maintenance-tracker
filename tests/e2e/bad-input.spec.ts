@@ -29,7 +29,8 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   })
   expect(upload.ok()).toBeTruthy()
   const docId = ((await upload.json()) as { id: string }).id
-  for (const id of [bike.id, itemId, categoryId, expense.id, reminder.id, docId]) expect(id).toBeTruthy()
+  const note = (await (await request.post(`/api/items/${itemId}/notes`, { data: { clientId: uuid(), title: 'Torque specs' } })).json()) as { id: string }
+  for (const id of [bike.id, itemId, categoryId, expense.id, reminder.id, docId, note.id]) expect(id).toBeTruthy()
 
   type Case = [method: 'get' | 'post' | 'patch' | 'delete', url: string, data: unknown, expected: number]
   const cases: Case[] = []
@@ -65,6 +66,14 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
       ['patch', `/api/bikes/${id}`, { name: 'x' }, 404],
       ['get', `/api/readings/${id}`, null, 404],
       ['delete', `/api/bikes/${id}/latest-reading`, { readingId: uuid() }, 404],
+      ['get', `/api/items/${id}/notes`, null, 404],
+      ['post', `/api/items/${id}/notes`, { clientId: uuid(), title: 'x' }, 404],
+      ['patch', `/api/notes/${id}`, { title: 'x' }, 404],
+      ['delete', `/api/notes/${id}`, null, 404],
+      ['get', `/api/notes/${id}/photos/${uuid()}`, null, 404],
+      ['get', `/api/notes/${note.id}/photos/${id}`, null, 404],
+      ['delete', `/api/notes/${note.id}/photos/${id}`, null, 404],
+      ['post', `/api/items/${itemId}/notes`, { clientId: id, title: 'x' }, 400],
       ['patch', `/api/items/${id}`, { name: 'x' }, 404],
       ['get', `/api/items/${id}/history`, null, 404],
       ['delete', `/api/services/${id}`, null, 404],
@@ -91,6 +100,12 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   }
   cases.push(['post', '/api/expenses', exp({ bikeId: 123 }), 400])
   cases.push(['post', `/api/reminders/${reminder.id}/done`, {}, 400]) // no dueOn: a blind replay could roll it twice
+
+  // Bad notes.
+  for (const body of [{ title: '' }, { title: 123 }, { title: 'x'.repeat(121) }, { title: 'x', body: 5 }, { title: 'x', specs: 'a' }, { title: 'x', specs: [{ label: '', value: '1' }] }, { title: 'x', specs: [{ label: 'a', value: 1 }] }]) {
+    cases.push(['post', `/api/items/${itemId}/notes`, { clientId: uuid(), ...body }, 400], ['patch', `/api/notes/${note.id}`, body, 400])
+  }
+  cases.push(['post', `/api/notes/${note.id}/photos`, { clientId: uuid() }, 400]) // not multipart, no file
 
   // Bad push subscriptions (e2e build has VAPID keys, so push is configured).
   const pushKeys = { p256dh: 'x', auth: 'y' }

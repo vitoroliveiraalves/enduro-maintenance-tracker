@@ -175,7 +175,9 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         @saved="onDone"
       />
 
-      <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-[0.08em] text-muted">Service interval</h2>
+      <ItemNotes :item-id="itemId" :item-name="hist.item.name" />
+
+      <h2 class="mb-1.5 mt-5 text-[11px] uppercase tracking-[0.08em] text-muted">Service interval</h2>
       <form class="rounded-xl bg-surface px-3 py-3" data-testid="interval-editor" @submit.prevent="saveIntervals" @input="editError = ''; saved = false">
         <div class="flex gap-2.5">
           <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">

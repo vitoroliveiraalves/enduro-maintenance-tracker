@@ -373,6 +373,47 @@ export const notificationsSent = pgTable(
   (t) => [unique('notifications_sent_user_key_uq').on(t.userId, t.key)],
 )
 
+// ---- item notes ------------------------------------------------------------
+
+/** A label/value line on a note: "Axle nut · 90 Nm", "Oil · 0.8 L Motorex 10W-50". */
+export type NoteSpec = { label: string; value: string }
+
+/** The rider's own notes on a maintenance item: how-to, torque specs, parts, photos. */
+export const itemNotes = pgTable(
+  'item_notes',
+  {
+    id: id(),
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => maintenanceItems.id, { onDelete: 'cascade' }),
+    userId: userRef(),
+    clientId: clientId(),
+    title: text('title').notNull(),
+    body: text('body').notNull().default(''),
+    specs: jsonb('specs').$type<NoteSpec[]>().notNull().default([]),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [unique('item_notes_user_client_uq').on(t.userId, t.clientId), index('item_notes_item_idx').on(t.itemId)],
+)
+
+export const itemNotePhotos = pgTable(
+  'item_note_photos',
+  {
+    id: id(),
+    noteId: uuid('note_id')
+      .notNull()
+      .references(() => itemNotes.id, { onDelete: 'cascade' }),
+    userId: userRef(),
+    clientId: clientId(),
+    mime: text('mime').notNull(),
+    bytes: bytea('bytes').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [unique('item_note_photos_user_client_uq').on(t.userId, t.clientId), index('item_note_photos_note_idx').on(t.noteId)],
+)
+
 export type Bike = typeof bikes.$inferSelect
 export type MaintenanceItem = typeof maintenanceItems.$inferSelect
 export type Document = typeof documents.$inferSelect
@@ -380,3 +421,4 @@ export type Expense = typeof expenses.$inferSelect
 export type Service = typeof services.$inferSelect
 export type Category = typeof categories.$inferSelect
 export type Reminder = typeof reminders.$inferSelect
+export type ItemNote = typeof itemNotes.$inferSelect
