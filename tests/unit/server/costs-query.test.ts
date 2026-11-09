@@ -107,6 +107,41 @@ describe('costsOverview', () => {
     expect(r.perHourCents).toBe(4371) // 612 / 14 h
     expect(r.perKmCents).toBe(219)
   })
+  it('meters: hours sum only hour bikes, km only km bikes; per-unit uses those bikes\' spend', async () => {
+    const street = await createBike(uid, {
+      clientId: crypto.randomUUID(), name: 'Street', make: 'Honda', model: 'CB', year: 2020, stroke: '4T', meters: 'km', km: 0,
+      items: [{ name: 'Oil', everyKm: 6000 }],
+    })
+    await db.delete(meterReadings)
+    await exp('2026-10-05', 50_000)
+    await exp('2026-10-06', 20_000, { bikeId: street.id })
+    await reading('2026-09-28', 1000, 3000)
+    await reading('2026-10-31', 1100, 3200) // 10 h, 200 km
+    await db.insert(meterReadings).values([
+      { bikeId: street.id, userId: uid, at: new Date('2026-09-28T12:00:00Z'), hoursTenths: null, km: 10_000 },
+      { bikeId: street.id, userId: uid, at: new Date('2026-10-31T12:00:00Z'), hoursTenths: null, km: 11_000 },
+    ])
+    const r = await costsOverview(uid, { period: 'month', date: '2026-10-15' }, NOW)
+    expect(r.hoursTenths).toBe(100)
+    expect(r.km).toBe(1200)
+    expect(r.countsHours).toBe(true)
+    expect(r.countsKm).toBe(true)
+    expect(r.perHourCents).toBe(5000) // 500 € / 10 h — the street bike's spend is not per hour
+    expect(r.perKmCents).toBe(58) // 700 € / 1 200 km
+    expect(r.byBike.find((b) => b.bikeId === street.id)).toMatchObject({ meters: 'km', hoursTenths: 0, km: 1000 })
+    expect(r.byBike.find((b) => b.bikeId === bike.id)).toMatchObject({ meters: 'hours_km' })
+    const only = await costsOverview(uid, { period: 'month', date: '2026-10-15', bikeId: street.id }, NOW)
+    expect(only.countsHours).toBe(false)
+    expect(only.perHourCents).toBeNull()
+  })
+  it('readingsDelta per unit: a start reading without hours does not zero the hours', () => {
+    const rs = [
+      { day: '2026-09-01', hoursTenths: 100, km: 1000 },
+      { day: '2026-09-20', hoursTenths: null, km: 1500 },
+      { day: '2026-10-20', hoursTenths: 160, km: 2000 },
+    ]
+    expect(readingsDelta(rs, { from: '2026-10-01', to: '2026-10-31' })).toEqual({ hoursTenths: 60, km: 500 })
+  })
   it('month view lists only that month, with category totals desc', async () => {
     await exp('2026-10-01', 1000, { description: 'first of month' })
     await exp('2026-10-31', 2000, { description: 'last of month' })

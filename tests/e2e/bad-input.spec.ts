@@ -125,6 +125,7 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
     ['patch', `/api/bikes/${bike.id}`, { meters: 7 }, 400],
     ['patch', `/api/bikes/${bike.id}`, { meters: 'x' }, 400],
     ['post', '/api/readings', rd({ hoursTenths: undefined }), 400],
+    ['get', '/api/templates/4T?meters=x', null, 400],
   )
 
   // Bad numbers.
