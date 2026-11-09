@@ -189,6 +189,16 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   for (const v of [123, true, {}, []]) cases.push(['post', '/api/shopping', newEntry({ bikeId: v }), 400], ['post', '/api/shopping', newEntry({ partId: v }), 400])
   for (const v of ['nope', uuid()]) cases.push(['post', '/api/shopping', newEntry({ bikeId: v }), 404], ['post', '/api/shopping', newEntry({ partId: v }), 400])
 
+  // Invoice shelf lines: bad qty, a part that is not the rider's, no name and no part, bad ids -> 400.
+  const shelfConfirm = (shelf: object) => confirm({ lines: [{ description: 'Plug', amountCents: 100, categoryId, shelf: { clientId: uuid(), partClientId: uuid(), name: 'Plug', qtyHundredths: 100, ...shelf } }] })
+  for (const v of [0, -1, 1.5, '1', null, undefined, HUGE, 1_000_001]) cases.push(['post', `/api/documents/${docId}/confirm`, shelfConfirm({ qtyHundredths: v }), 400])
+  for (const v of [uuid(), 'nope', 5]) cases.push(['post', `/api/documents/${docId}/confirm`, shelfConfirm({ partId: v }), 400])
+  for (const v of [undefined, '', '  ', 5]) cases.push(['post', `/api/documents/${docId}/confirm`, shelfConfirm({ name: v }), 400])
+  for (const v of [undefined, 'nope', 5]) cases.push(['post', `/api/documents/${docId}/confirm`, shelfConfirm({ partClientId: v }), 400])
+  for (const v of [undefined, 'nope', 5]) cases.push(['post', `/api/documents/${docId}/confirm`, shelfConfirm({ clientId: v }), 400])
+  for (const v of [123, 'nope']) cases.push(['post', `/api/documents/${docId}/confirm`, shelfConfirm({ bikeId: v }), 400])
+  cases.push(['post', `/api/documents/${docId}/confirm`, confirm({ lines: [{ description: 'Plug', amountCents: 100, categoryId, shelf: 'x' }] }), 400])
+
   const failures: string[] = []
   for (const [method, url, data, expected] of cases) {
     const res = await request.fetch(url, { method, ...(data === null ? {} : { data }) })

@@ -1,10 +1,12 @@
 import { and, eq, ne } from 'drizzle-orm'
 import { createError } from 'h3'
 import { db } from '../db/client'
-import { documents, expenseItems, expenses } from '../db/schema'
-import type { Bike, Document } from '../db/schema'
+import { documents, expenseItems, expenses, parts } from '../db/schema'
+import type { Bike, Document, Part } from '../db/schema'
 import { cleanDate, isObj, optInt, str } from './bikes'
-import { bad } from './validate'
+import { bad, isUuid, uuid } from './validate'
+import { applyMovement, createPart, qty } from './parts'
+import type { Tx } from './expenses'
 import { amountCents, checkCategory, checkItemIds, description } from './expenses'
 import { insertService } from './services'
 
@@ -12,6 +14,35 @@ const MAX_LINES = 50
 
 /** Lines may be off the invoice total by max(50 cents, 1 %) — rounding and VAT splits. */
 export const totalsTolerance = (totalCents: number) => Math.max(50, Math.round(Math.abs(totalCents) / 100))
+
+interface ShelfLine {
+  clientId: string
+  part: Part | null
+  partClientId: string | null
+  name: string | null
+  unit: string | undefined
+  qtyHundredths: number
+  /** undefined = the invoice's bike, null = any bike. */
+  bikeId: string | null | undefined
+}
+
+/** A line's `shelf` object, validated; `partId` must be one of the rider's parts (400 otherwise). */
+async function shelfLine(tx: Tx, userId: string, raw: unknown): Promise<ShelfLine> {
+  if (!isObj(raw)) throw bad('Invalid shelf line')
+  const q = qty(raw.qtyHundredths, 'qtyHundredths')
+  if (q <= 0) throw bad('Invalid qtyHundredths')
+  const base = { clientId: uuid(raw.clientId, 'shelf clientId'), qtyHundredths: q }
+  if (raw.partId !== undefined && raw.partId !== null) {
+    if (!isUuid(raw.partId)) throw bad('Invalid partId')
+    const [part] = await tx.select().from(parts).where(and(eq(parts.id, raw.partId), eq(parts.userId, userId)))
+    if (!part) throw bad('Invalid partId')
+    return { ...base, part, partClientId: null, name: null, unit: undefined, bikeId: undefined }
+  }
+  const name = str(raw.name, 'name', 80)
+  const unit = raw.unit === undefined || raw.unit === null ? undefined : str(raw.unit, 'unit', 12)
+  const bikeId = raw.bikeId === null ? null : raw.bikeId === undefined ? undefined : uuid(raw.bikeId, 'bikeId')
+  return { ...base, part: null, partClientId: uuid(raw.partClientId, 'partClientId'), name, unit, bikeId }
+}
 
 const alreadySaved = () => createError({ statusCode: 409, statusMessage: 'This invoice is already saved.' })
 
@@ -52,9 +83,13 @@ export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): P
         description: description(l.description),
         amountCents: amountCents(l.amountCents),
         categoryId: await checkCategory(userId, l.categoryId, tx),
-        itemIds: await checkItemIds(bike, l.itemIds, {}, tx),
+        shelf: l.shelf == null ? null : await shelfLine(tx, userId, l.shelf),
+        // A shelf line is stock, not a service: its item links are ignored.
+        itemIds: l.shelf == null ? await checkItemIds(bike, l.itemIds, {}, tx) : [],
       })
     }
+    const shelfIds = lines.flatMap((l) => (l.shelf ? [l.shelf.clientId] : []))
+    if (new Set(shelfIds).size !== shelfIds.length) throw bad('Duplicate shelf clientId')
 
     // QR total when there is a QR (it is the only total stored then), else the read/typed one.
     const total = fresh.totalCents
@@ -73,8 +108,17 @@ export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): P
     for (const [i, l] of lines.entries()) {
       const [exp] = await tx
         .insert(expenses)
-        .values({ userId, bikeId: bike.id, at, amountCents: l.amountCents, categoryId: l.categoryId, description: l.description, documentId: fresh.id, documentLine: i + 1, serviceId })
+        .values({ userId, bikeId: bike.id, at, amountCents: l.amountCents, categoryId: l.categoryId, description: l.description, documentId: fresh.id, documentLine: i + 1, serviceId: l.shelf ? null : serviceId })
         .returning({ id: expenses.id })
+      if (l.shelf) {
+        const s = l.shelf
+        const part =
+          s.part ??
+          (await createPart(tx, userId, { clientId: s.partClientId, name: s.name, ...(s.unit ? { unit: s.unit } : {}), bikeId: s.bikeId === undefined ? bike.id : s.bikeId }))
+        await applyMovement(tx, {
+          userId, clientId: s.clientId, part, partName: part.name, unit: part.unit, kind: 'bought', qtyHundredths: s.qtyHundredths, at, expenseId: exp!.id, documentId: fresh.id,
+        })
+      }
       if (l.itemIds.length) await tx.insert(expenseItems).values(l.itemIds.map((itemId) => ({ expenseId: exp!.id, itemId })))
     }
 

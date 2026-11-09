@@ -32,6 +32,24 @@ test('invoice review', async ({ page }) => {
   await page.screenshot({ path: 'tests/e2e/__screenshots__/invoice-review.png' })
 })
 
+test('invoice review with a shelf line', async ({ page }) => {
+  await signUpFresh(page)
+  const bike = await page.request.post('/api/bikes', { data: bikeBody("KTM 300 EXC '23", [{ name: 'Wheel bearings', everyHoursTenths: 500, everyMonths: 12 }]) })
+  if (!bike.ok()) throw new Error('seed failed')
+  const part = await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name: 'Rolamentos 6004', qtyHundredths: 200, startClientId: crypto.randomUUID() } })
+  if (!part.ok()) throw new Error('seed failed')
+  await page.goto('/invoice')
+  await page.getByTestId('file-input').setInputFiles('tests/e2e/fixtures/invoice-garage.jpg')
+  await page.waitForURL(/\/invoice\/[0-9a-f-]{36}/, { timeout: 30_000 })
+  const line = page.getByTestId('inv-line').nth(2)
+  await line.waitFor({ timeout: 15_000 })
+  await line.getByTestId('line-shelf').click()
+  await line.getByTestId('line-shelf-pick').fill('rolam')
+  await line.getByTestId('line-shelf-option').waitFor()
+  await line.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/invoice-shelf-line.png' })
+})
+
 test('settings', async ({ page }) => {
   // Headless Chromium reports notifications as 'denied' and has no SW here: show a fresh phone's state.
   await page.addInitScript(() => {

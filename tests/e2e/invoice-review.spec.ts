@@ -111,6 +111,40 @@ test('read → review 3 lines with suggestions → confirm → bike shows Wheel 
   expect(again.status()).toBe(409)
 })
 
+test('line 3 to the shelf → no service, part on the shelf with 1; a second invoice adds to it via the picker', async ({ page }) => {
+  const { bikeId } = await freshRiderWithBike(page)
+  await upload(page, GARAGE)
+  const lines = page.getByTestId('inv-line')
+  await expect(lines).toHaveCount(3, { timeout: 15_000 })
+  await lines.nth(2).getByTestId('line-shelf').click()
+  await expect(lines.nth(2).getByTestId('line-shelf-name')).toHaveValue('Rolamentos roda traseira')
+  await expect(lines.nth(2).getByTestId('line-shelf-qty')).toHaveValue('1')
+  await expect(lines.nth(2).getByTestId('line-shelf-unit')).toHaveValue('pcs')
+  await expect(lines.nth(2).getByTestId('item-chip')).toHaveCount(0)
+  await expect(lines.nth(2).getByTestId('link-items')).toHaveCount(0)
+  await page.getByTestId('confirm').click()
+  await page.waitForURL(`/bikes/${bikeId}`)
+
+  const parts = (await (await page.request.get('/api/parts')).json()) as Array<{ name: string; qtyHundredths: number }>
+  expect(parts.map((p) => [p.name, p.qtyHundredths])).toEqual([['Rolamentos roda traseira', 100]])
+  const svcs = (await (await page.request.get('/api/services')).json()) as Array<{ documentId: string | null }>
+  expect(svcs.filter((x) => x.documentId)).toHaveLength(0) // only the bike's seeded history
+
+  // Second invoice: pick the existing part, 1,5 units
+  await upload(page, QR_123)
+  const first = page.getByTestId('inv-line').first()
+  await expect(first).toBeVisible({ timeout: 15_000 })
+  await first.getByTestId('line-shelf').click()
+  await first.getByTestId('line-shelf-pick').fill('ROLAM')
+  await first.getByTestId('line-shelf-option').click()
+  await first.getByTestId('line-shelf-qty').fill('1,5')
+  await page.getByTestId('confirm').click()
+  await page.getByTestId('force-save').click() // the mock reads 3 lines against a 123,00 QR total
+  await page.waitForURL(`/bikes/${bikeId}`, { timeout: 15_000 })
+  const after = (await (await page.request.get('/api/parts')).json()) as Array<{ qtyHundredths: number }>
+  expect(after.map((p) => p.qtyHundredths)).toEqual([250])
+})
+
 test('reading fails → manual notice; one line typed by hand; confirm works', async ({ page }) => {
   const { bikeId } = await freshRiderWithBike(page)
   const docId = await upload(page, FAIL_PDF)

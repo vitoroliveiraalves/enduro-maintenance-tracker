@@ -16,14 +16,43 @@ type Doc = {
   qrRaw: string | null
   error: string | null
   canRead: boolean
-  extracted: { lines?: Array<{ description: string; totalCents: number | null; kind: LineKind }> } | null
+  extracted: { lines?: Array<{ description: string; totalCents: number | null; kind: LineKind; qty?: number }> } | null
   pages: Array<{ page: number; mime: string }>
   saved: Array<{ line: number | null; description: string; amountCents: number; bikeId: string | null; categoryName: string }>
 }
 type Category = { id: string; name: string; kind: string }
 type Item = { id: string; name: string }
 type Reading = { at: string; hoursTenths: number; km: number }
-type Line = { key: number; description: string; amountText: string; categoryId: string; itemIds: string[]; open: boolean }
+type Part = { id: string; name: string; unit: string; qtyHundredths: number }
+type Line = {
+  key: number
+  description: string
+  amountText: string
+  categoryId: string
+  itemIds: string[]
+  open: boolean
+  // "To the shelf": stock bought, not a service
+  shelf: boolean
+  shelfName: string
+  shelfQtyText: string
+  shelfUnit: string
+  shelfPart: Part | null
+  pickQuery: string
+  movementId: string
+  partClientId: string
+}
+const newLine = (key: number, over: Partial<Line> & Pick<Line, 'description' | 'amountText' | 'categoryId' | 'itemIds' | 'open'>): Line => ({
+  key,
+  shelf: false,
+  shelfName: over.description,
+  shelfQtyText: '1',
+  shelfUnit: 'pcs',
+  shelfPart: null,
+  pickQuery: '',
+  movementId: crypto.randomUUID(),
+  partClientId: crypto.randomUUID(),
+  ...over,
+})
 
 const MANUAL_NOTICE = "Couldn't read this invoice automatically. The photos are saved — add the lines yourself."
 const POLL_MS = 2000
@@ -102,14 +131,16 @@ function fillForm() {
   number.value = d.number ?? number.value
   at.value = d.issuedAt ?? at.value
   if (d.status === 'review' && d.extracted?.lines?.length) {
-    lines.value = d.extracted.lines.map((l) => ({
-      key: ++lineSeq,
-      description: l.description,
-      amountText: centsText(l.totalCents),
-      categoryId: categoryFor(defaultCategory(l.kind, l.description)),
-      itemIds: matchLineToItems(l.description, items.value),
-      open: false,
-    }))
+    lines.value = d.extracted.lines.map((l) =>
+      newLine(++lineSeq, {
+        description: l.description,
+        amountText: centsText(l.totalCents),
+        categoryId: categoryFor(defaultCategory(l.kind, l.description)),
+        itemIds: matchLineToItems(l.description, items.value),
+        open: false,
+        shelfQtyText: String(l.qty != null && l.qty > 0 ? Math.round(l.qty * 100) / 100 : 1),
+      }),
+    )
   }
   defaultMeters()
 }
@@ -168,11 +199,33 @@ onBeforeUnmount(() => {
 })
 
 function addLine() {
-  lines.value.push({ key: ++lineSeq, description: '', amountText: '', categoryId: categoryFor('maintenance'), itemIds: [], open: true })
+  lines.value.push(newLine(++lineSeq, { description: '', amountText: '', categoryId: categoryFor('maintenance'), itemIds: [], open: true }))
   nextTick(() => document.querySelector<HTMLInputElement>(`[data-line-key="${lineSeq}"] input`)?.focus())
 }
 function removeLine(key: number) {
   lines.value = lines.value.filter((l) => l.key !== key)
+}
+const shelfParts = ref<Part[]>([])
+let partsLoaded = false
+async function setShelf(l: Line, on: boolean) {
+  l.shelf = on
+  if (on && !l.shelfName.trim()) l.shelfName = l.description
+  if (!on || partsLoaded) return
+  partsLoaded = true
+  try {
+    shelfParts.value = await get<Part[]>('/api/parts')
+  } catch {
+    partsLoaded = false // the picker stays empty; a new part can still be typed
+  }
+}
+const pickMatches = (l: Line) => {
+  const q = l.pickQuery.trim().toLowerCase()
+  return q ? shelfParts.value.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 5) : []
+}
+function pickPart(l: Line, p: Part | null) {
+  l.shelfPart = p
+  l.pickQuery = ''
+  if (p) l.shelfUnit = p.unit
 }
 function toggleItem(l: Line, itemId: string) {
   l.itemIds = l.itemIds.includes(itemId) ? l.itemIds.filter((x) => x !== itemId) : [...l.itemIds, itemId]
@@ -224,7 +277,16 @@ async function confirm(force = false) {
     if (!l.description.trim()) return void (error.value = `Line ${i + 1}: add a description.`)
     if (cents === null) return void (error.value = `Line ${i + 1}: enter the amount, like 24,90.`)
     if (!l.categoryId) return void (error.value = `Line ${i + 1}: pick a category.`)
-    out.push({ description: l.description.trim(), amountCents: cents, categoryId: l.categoryId, itemIds: l.itemIds })
+    let shelf
+    if (l.shelf) {
+      const q = parseDecimal(l.shelfQtyText)
+      if (q === null || Math.round(q * 100) <= 0) return void (error.value = `Line ${i + 1}: enter the quantity, like 1,5.`)
+      if (!l.shelfPart && !l.shelfName.trim()) return void (error.value = `Line ${i + 1}: name the part.`)
+      shelf = l.shelfPart
+        ? { clientId: l.movementId, partId: l.shelfPart.id, qtyHundredths: Math.round(q * 100) }
+        : { clientId: l.movementId, partClientId: l.partClientId, name: l.shelfName.trim(), unit: l.shelfUnit.trim() || 'pcs', qtyHundredths: Math.round(q * 100) }
+    }
+    out.push({ description: l.description.trim(), amountCents: cents, categoryId: l.categoryId, itemIds: l.shelf ? [] : l.itemIds, ...(shelf ? { shelf } : {}) })
   }
   const h = hoursText.value.trim() ? parseDecimal(hoursText.value) : undefined
   const k = kmText.value.trim() ? parseDecimal(kmText.value) : undefined
@@ -428,7 +490,60 @@ async function discard() {
                   </select>
                 </label>
               </div>
-              <div class="mt-2.5 flex flex-wrap gap-1.5" data-testid="line-items">
+              <div class="mt-2.5 grid grid-cols-2 gap-1 rounded-xl bg-bg p-1" role="group" :aria-label="`Line ${i + 1} destination`">
+                <button
+                  type="button"
+                  class="min-h-11 rounded-lg text-sm font-semibold"
+                  :class="l.shelf ? 'text-muted' : 'bg-accent text-black'"
+                  :aria-pressed="!l.shelf"
+                  data-testid="line-used"
+                  @click="setShelf(l, false)"
+                >
+                  Used now
+                </button>
+                <button
+                  type="button"
+                  class="min-h-11 rounded-lg text-sm font-semibold"
+                  :class="l.shelf ? 'bg-accent text-black' : 'text-muted'"
+                  :aria-pressed="l.shelf"
+                  data-testid="line-shelf"
+                  @click="setShelf(l, true)"
+                >
+                  To the shelf
+                </button>
+              </div>
+              <div v-if="l.shelf" class="mt-2.5 grid gap-2" data-testid="line-shelf-fields">
+                <p v-if="l.shelfPart" class="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2 text-sm" data-testid="line-shelf-picked">
+                  <span>Adds to <b>{{ l.shelfPart.name }}</b></span>
+                  <button type="button" class="size-11 shrink-0 text-xl text-muted" :aria-label="`Don't add to ${l.shelfPart.name}`" @click="pickPart(l, null)">×</button>
+                </p>
+                <label v-else :class="label">
+                  Part name
+                  <input v-model="l.shelfName" maxlength="80" autocomplete="off" data-testid="line-shelf-name" :class="field">
+                </label>
+                <div class="grid grid-cols-[1fr_6rem] gap-2">
+                  <label :class="label">
+                    Quantity
+                    <input v-model="l.shelfQtyText" inputmode="decimal" autocomplete="off" data-testid="line-shelf-qty" :class="field">
+                  </label>
+                  <label :class="label">
+                    Unit
+                    <input v-model="l.shelfUnit" maxlength="12" autocomplete="off" :disabled="!!l.shelfPart" data-testid="line-shelf-unit" :class="field">
+                  </label>
+                </div>
+                <label v-if="!l.shelfPart" :class="label">
+                  Same as a part on the shelf
+                  <input v-model="l.pickQuery" autocomplete="off" placeholder="Search your parts" data-testid="line-shelf-pick" :class="field">
+                </label>
+                <ul v-if="pickMatches(l).length" class="grid gap-1">
+                  <li v-for="p in pickMatches(l)" :key="p.id">
+                    <button type="button" class="min-h-11 w-full rounded-xl border border-white/15 px-3 text-left text-sm" data-testid="line-shelf-option" @click="pickPart(l, p)">
+                      {{ p.name }} <span class="text-muted">· {{ p.qtyHundredths / 100 }} {{ p.unit }}</span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+              <div v-if="!l.shelf" class="mt-2.5 flex flex-wrap gap-1.5" data-testid="line-items">
                 <button
                   v-for="itemId in l.itemIds"
                   :key="itemId"
@@ -451,7 +566,7 @@ async function discard() {
                   {{ l.itemIds.length ? 'Items' : 'Resets an item?' }} {{ l.open ? '▴' : '▾' }}
                 </button>
               </div>
-              <div v-if="l.open" class="mt-2 flex flex-wrap gap-1.5">
+              <div v-if="l.open && !l.shelf" class="mt-2 flex flex-wrap gap-1.5">
                 <button
                   v-for="it in items.filter((x) => !l.itemIds.includes(x.id))"
                   :key="it.id"
