@@ -1,8 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
 import { db } from '../db/client'
-import { bikes, categories, documents, expenses, itemNotes, maintenanceItems, reminders, services } from '../db/schema'
-import type { Bike, Category, Document, Expense, ItemNote, MaintenanceItem, Reminder, Service } from '../db/schema'
+import { bikes, categories, documents, expenses, itemNotes, maintenanceItems, parts, reminders, services, shoppingEntries } from '../db/schema'
+import type { Bike, Category, Document, Expense, ItemNote, MaintenanceItem, Part, Reminder, Service, ShoppingEntry } from '../db/schema'
 import { requireUser } from './require-user'
 import { isUuid } from './validate'
 
@@ -97,6 +97,28 @@ export async function ownedNote(event: H3Event, noteId: string): Promise<ItemNot
     .select()
     .from(itemNotes)
     .where(and(eq(itemNotes.id, noteId), eq(itemNotes.userId, user.id)))
+  if (!row) throw notFound()
+  return row
+}
+
+export async function ownedPart(event: H3Event, partId: string): Promise<Part> {
+  const user = await requireUser(event)
+  if (!isUuid(partId)) throw notFound()
+  const [row] = await db
+    .select()
+    .from(parts)
+    .where(and(eq(parts.id, partId), eq(parts.userId, user.id)))
+  if (!row) throw notFound()
+  return row
+}
+
+export async function ownedShoppingEntry(event: H3Event, entryId: string): Promise<ShoppingEntry> {
+  const user = await requireUser(event)
+  if (!isUuid(entryId)) throw notFound()
+  const [row] = await db
+    .select()
+    .from(shoppingEntries)
+    .where(and(eq(shoppingEntries.id, entryId), eq(shoppingEntries.userId, user.id)))
   if (!row) throw notFound()
   return row
 }

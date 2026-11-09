@@ -414,6 +414,90 @@ export const itemNotePhotos = pgTable(
   (t) => [unique('item_note_photos_user_client_uq').on(t.userId, t.clientId), index('item_note_photos_note_idx').on(t.noteId)],
 )
 
+// ---- Shelf: spare parts in stock -------------------------------------------
+
+export type MovementKind = 'bought' | 'used' | 'adjust'
+
+/** A spare part on the shelf. `qtyHundredths` always equals the sum of its movements (may go negative). */
+export const parts = pgTable(
+  'parts',
+  {
+    id: id(),
+    userId: userRef(),
+    clientId: clientId(),
+    bikeId: uuid('bike_id').references(() => bikes.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    unit: text('unit').notNull().default('pcs'),
+    qtyHundredths: integer('qty_hundredths').notNull().default(0),
+    minHundredths: integer('min_hundredths'),
+    notes: text('notes'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [unique('parts_user_client_uq').on(t.userId, t.clientId), index('parts_user_idx').on(t.userId)],
+)
+
+/** Which maintenance items a part fits. */
+export const partItems = pgTable(
+  'part_items',
+  {
+    partId: uuid('part_id')
+      .notNull()
+      .references(() => parts.id, { onDelete: 'cascade' }),
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => maintenanceItems.id, { onDelete: 'cascade' }),
+  },
+  (t) => [unique('part_items_pair_uq').on(t.partId, t.itemId)],
+)
+
+/** Every change to a part's count; name and unit are snapshots so history survives renames and deletes. */
+export const partMovements = pgTable(
+  'part_movements',
+  {
+    id: id(),
+    userId: userRef(),
+    clientId: clientId(),
+    partId: uuid('part_id').references(() => parts.id, { onDelete: 'set null' }),
+    partName: text('part_name').notNull(),
+    unit: text('unit').notNull(),
+    kind: text('kind').$type<MovementKind>().notNull(),
+    qtyHundredths: integer('qty_hundredths').notNull(),
+    at: date('at', { mode: 'string' }).notNull(),
+    expenseId: uuid('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
+    documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+    serviceId: uuid('service_id').references(() => services.id, { onDelete: 'cascade' }),
+    note: text('note'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('part_movements_user_client_uq').on(t.userId, t.clientId),
+    index('part_movements_part_idx').on(t.partId),
+    index('part_movements_service_idx').on(t.serviceId),
+  ],
+)
+
+/** Manual shopping-list lines; ticked by a 'bought' movement on the linked part. */
+export const shoppingEntries = pgTable(
+  'shopping_entries',
+  {
+    id: id(),
+    userId: userRef(),
+    clientId: clientId(),
+    text: text('text').notNull(),
+    bikeId: uuid('bike_id').references(() => bikes.id, { onDelete: 'set null' }),
+    partId: uuid('part_id').references(() => parts.id, { onDelete: 'set null' }),
+    doneAt: timestamp('done_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [unique('shopping_entries_user_client_uq').on(t.userId, t.clientId)],
+)
+
+export type Part = typeof parts.$inferSelect
+export type PartMovement = typeof partMovements.$inferSelect
+export type ShoppingEntry = typeof shoppingEntries.$inferSelect
+
 export type Bike = typeof bikes.$inferSelect
 export type MaintenanceItem = typeof maintenanceItems.$inferSelect
 export type Document = typeof documents.$inferSelect
