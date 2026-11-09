@@ -195,8 +195,6 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </form>
       </section>
 
-      <div class="mt-4"><InstallPrompt variant="banner" /></div>
-
       <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted">Bike</h2>
       <ManagePanel what="bike" :name="data.bike.name" remove-note="It leaves the garage; its services and costs stay in History and Costs." :rename="renameBike" :remove="removeBike" />
     </template>

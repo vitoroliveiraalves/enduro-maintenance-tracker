@@ -128,22 +128,74 @@ test('push off on the server: Settings says so calmly', async ({ page }) => {
 test.describe('iPhone in Safari (not installed)', () => {
   test.use({ userAgent: IPHONE_UA })
 
-  test('explains Add to Home Screen; the bike-screen banner is dismissible and stays dismissed', async ({ page }) => {
+  test('a popup explains Add to Home Screen once; Got it snoozes it; Settings keeps the help', async ({ page }) => {
     await signUpFresh(page)
     const bikeId = await seedBike(page)
+    await page.goto(`/bikes/${bikeId}`)
+    await expect(page.getByTestId('install-popup')).toBeVisible()
+    await expect(page.getByTestId('install-popup-ios')).toContainText("Choose 'Add to Home Screen'.")
+    await page.getByTestId('install-popup-ok').click()
+    await expect(page.getByTestId('install-popup')).toHaveCount(0)
+    await page.reload()
+    await expect(page.getByTestId('bike-name')).toBeVisible()
+    await page.waitForTimeout(2000)
+    await expect(page.getByTestId('install-popup')).toHaveCount(0)
+
     await page.goto('/settings')
     await expect(page.getByTestId('push-ios')).toHaveText('Add to Home Screen first, then turn notifications on.')
     await expect(page.getByTestId('install-ios')).toHaveText("To get notifications, add Enduro Tracker to your Home Screen: tap Share , then 'Add to Home Screen'.")
     await expect(page.getByTestId('push-toggle')).toHaveCount(0)
-
-    await page.goto(`/bikes/${bikeId}`)
-    await expect(page.getByTestId('install-prompt')).toBeVisible()
-    await page.getByTestId('install-dismiss').click()
-    await expect(page.getByTestId('install-prompt')).toHaveCount(0)
-    await page.reload()
-    await expect(page.getByTestId('bike-name')).toBeVisible()
-    await expect(page.getByTestId('install-prompt')).toHaveCount(0)
   })
+
+  test('no popup before sign-in', async ({ page }) => {
+    await page.goto('/login')
+    await page.waitForTimeout(2000)
+    await expect(page.getByTestId('install-popup')).toHaveCount(0)
+  })
+})
+
+test('Chrome/Android: the popup opens the browser install dialog', async ({ page }) => {
+  await signUpFresh(page)
+  const bikeId = await seedBike(page)
+  await page.goto(`/bikes/${bikeId}`)
+  await expect(page.getByTestId('bike-name')).toBeVisible()
+  // What Chrome fires when the site is installable.
+  await page.evaluate(() => {
+    const e = new Event('beforeinstallprompt', { cancelable: true }) as Event & Record<string, unknown>
+    e.prompt = async () => {
+      ;(window as unknown as { prompted: boolean }).prompted = true
+    }
+    e.userChoice = Promise.resolve({ outcome: 'accepted' })
+    window.dispatchEvent(e)
+  })
+  await expect(page.getByTestId('install-popup')).toBeVisible()
+  await page.getByTestId('install-popup-install').click()
+  await expect(page.getByTestId('install-popup')).toHaveCount(0)
+  expect(await page.evaluate(() => (window as unknown as { prompted?: boolean }).prompted)).toBe(true)
+})
+
+test('Chrome/Android: Not now hides the popup and it stays hidden after a reload', async ({ page }) => {
+  await signUpFresh(page)
+  await page.goto('/settings')
+  const fire = () =>
+    page.evaluate(() => {
+      const e = new Event('beforeinstallprompt', { cancelable: true }) as Event & Record<string, unknown>
+      e.prompt = async () => {}
+      e.userChoice = Promise.resolve({ outcome: 'dismissed' })
+      window.dispatchEvent(e)
+    })
+  await expect(page.getByRole('heading', { name: 'Reminders' })).toBeVisible()
+  await fire()
+  await expect(page.getByTestId('install-popup')).toBeVisible()
+  await page.getByTestId('install-popup-later').click()
+  await expect(page.getByTestId('install-popup')).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Reminders' })).toBeVisible()
+  await fire()
+  await page.waitForTimeout(2000)
+  await expect(page.getByTestId('install-popup')).toHaveCount(0)
+  // Settings still offers it.
+  await expect(page.getByTestId('install-button')).toBeVisible()
 })
 
 test('sign out returns to the login page', async ({ page }) => {

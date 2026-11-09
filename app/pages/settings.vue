@@ -128,7 +128,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
       <p v-if="push.state.value === 'not-configured'" class="mt-2 text-sm text-muted" data-testid="push-not-configured">Notifications aren't set up on this server.</p>
       <template v-else-if="push.state.value === 'ios-not-installed'">
         <p class="mt-2 text-sm text-warn-text" data-testid="push-ios">Add to Home Screen first, then turn notifications on.</p>
-        <div class="mt-2"><InstallPrompt variant="inline" /></div>
+        <div class="mt-2"><InstallPrompt /></div>
       </template>
       <p v-else-if="push.state.value === 'unsupported'" class="mt-2 text-sm text-muted">This browser can't receive push notifications.</p>
       <p v-else-if="push.state.value === 'denied'" class="mt-2 text-sm text-muted" data-testid="push-denied">Notifications are blocked for this site. Allow them in your browser or phone settings, then come back.</p>
@@ -136,7 +136,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
     </section>
 
     <template v-if="push.state.value !== 'ios-not-installed'">
-      <InstallPrompt variant="inline" class="mt-3" />
+      <InstallPrompt class="mt-3" />
     </template>
 
     <h2 id="reminders" :class="h2" class="scroll-mt-4">Reminders</h2>

@@ -124,3 +124,29 @@ test('item notes', async ({ page }) => {
   await page.getByTestId('note-card').scrollIntoViewIfNeeded()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/item-notes.png' })
 })
+
+test.describe('install popup', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1' })
+  test('iPhone steps', async ({ page }) => {
+    await signUpFresh(page)
+    const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
+    await page.goto(`/bikes/${id}`)
+    await page.getByTestId('install-popup').waitFor()
+    await page.screenshot({ path: 'tests/e2e/__screenshots__/install-popup-ios.png' })
+  })
+})
+
+test('install popup (Chrome/Android)', async ({ page }) => {
+  await signUpFresh(page)
+  const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
+  await page.goto(`/bikes/${id}`)
+  await page.getByTestId('item-row').first().waitFor()
+  await page.evaluate(() => {
+    const e = new Event('beforeinstallprompt', { cancelable: true }) as Event & Record<string, unknown>
+    e.prompt = async () => {}
+    e.userChoice = Promise.resolve({ outcome: 'dismissed' })
+    window.dispatchEvent(e)
+  })
+  await page.getByTestId('install-popup').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/install-popup-android.png' })
+})

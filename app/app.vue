@@ -17,6 +17,7 @@ const topInset = computed(() => online.value || route.path === '/invoice')
     <NuxtPage />
     <PendingBadge />
     <Toast />
+    <InstallPopup />
     <BottomTabs />
   </div>
 </template>
