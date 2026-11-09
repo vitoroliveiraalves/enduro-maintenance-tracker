@@ -86,13 +86,12 @@ answer when you're back online" (same queue).
 - Limits: `NUXT_VOICE_DAILY_CAP` per user (default 60) → 429 "Daily voice limit reached —
   you can still use the app as usual."; a global daily cap like invoices
   (`NUXT_VOICE_GLOBAL_DAILY_CAP`, default 600); 20 notes/user/10 min.
-  Audio ≤ 60 s and ≤ 2 MB.
+  Audio ≤ 60 s (WAV, see decision 5).
 - No OpenRouter key → mic hidden; Settings says voice isn't set up on this server.
 
-**Builder must verify first (spike):** which recorded formats the configured model accepts
-via OpenRouter. iOS Safari records `audio/mp4` (AAC), Chrome/Android `audio/webm` (Opus).
-If one isn't accepted, convert on the server or pick a supported recorder `mimeType`.
-The plan's first voice task is this spike, with the result written into the plan.
+**Spike (first voice task):** a script the rider runs with their own key checks that the
+default model transcribes a WAV clip and makes tool calls through OpenRouter; the result
+is written into the plan. If it fails, set `NUXT_VOICE_MODEL` to a model that passes.
 
 ## Decisions taken after the builder check (my calls, not the rider's)
 
@@ -113,11 +112,13 @@ The plan's first voice task is this spike, with the result written into the plan
 4. **What counts as a use**: every request that reaches the model counts once (including
    a corrected-transcript resend); requests rejected before the model (bad audio, auth,
    size) don't. Voice caps are separate counters from the invoice caps.
-5. **Size**: the recorder asks for ~32 kbit/s, so 60 s is well under 1 MB; the server
-   still refuses > 2 MB with a 413-style 400 message. Queued notes that fail on
-   reconnect stay in the waiting list with the reason, Retry and Discard (like the
-   outbox). A processed queued note shows "Voice note ready" in the pending badge; the
-   review sheet opens only when the rider taps it.
+5. **Recording format and size**: the client records PCM through Web Audio and encodes
+   **WAV, 16 kHz mono, 16-bit** itself (same on iOS and Android; WAV is accepted as
+   OpenRouter `input_audio` by the default model), so no MediaRecorder formats and no
+   server conversion. 60 s ≈ 1.9 MB; the server refuses > 2.5 MB or > 62 s with a 400.
+   Queued notes that fail on reconnect stay in the waiting list with the reason, Retry
+   and Discard (like the outbox). A processed queued note shows "Voice note ready" in the
+   pending badge; the review sheet opens only when the rider taps it.
 6. **Saving cards**: the client gives each card a `clientId` when it builds it; Save
    writes cards one by one through `useApi().mutate` (queued where the route allows).
    Each card shows saved / failed; failed cards stay for Retry, and a retry is safe
