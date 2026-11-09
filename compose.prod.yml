@@ -21,6 +21,8 @@ x-app: &app
     # NPM sets X-Real-IP to the connecting address on every proxied request.
     AUTH_IP_HEADER: x-real-ip
     AUTH_TRUSTED_PROXIES: ''
+    # Inside the container it is always 3000; the host side is APP_PORT.
+    PORT: '3000'
   networks: [internal]
 
 services:
