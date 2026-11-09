@@ -89,6 +89,16 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   }
   cases.push(['post', '/api/expenses', exp({ bikeId: 123 }), 400])
 
+  // Bad push subscriptions (e2e build has VAPID keys, so push is configured).
+  const pushKeys = { p256dh: 'x', auth: 'y' }
+  for (const body of [
+    {},
+    { endpoint: 123, keys: pushKeys },
+    { endpoint: 'http://10.0.0.1/push', keys: pushKeys },
+    { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: 'nope' },
+  ]) cases.push(['post', '/api/push/subscribe', body, 400])
+  for (const body of [{}, { endpoint: 123 }]) cases.push(['post', '/api/push/unsubscribe', body, 400])
+
   // Bad numbers.
   for (const n of [HUGE, -1, 1.5, '12', null]) {
     cases.push(
