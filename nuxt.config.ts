@@ -69,6 +69,8 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/png', href: '/pwa-192x192.png' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        // In the static HTML, so browsers see the app as installable before any JS runs.
+        { rel: 'manifest', href: '/manifest.webmanifest' },
       ],
     },
   },

@@ -35,3 +35,15 @@ test('full reload offline renders the bike screen from the SW shell and the Dexi
   await context.setOffline(false)
   await expect(page.getByTestId('pending-badge')).toBeHidden()
 })
+
+test('the served HTML links the web app manifest, so phones offer to install it', async ({ request }) => {
+  // Raw HTML, before any JS: install prompts and Add to Home Screen read this.
+  const html = await (await request.get('/login')).text()
+  const href = html.match(/<link[^>]*rel="manifest"[^>]*href="([^"]+)"/)?.[1]
+  expect(href).toBe('/manifest.webmanifest')
+  const manifest = (await (await request.get(href!)).json()) as { display: string; start_url: string; icons: Array<{ sizes: string }> }
+  expect(manifest.display).toBe('standalone')
+  expect(manifest.start_url).toBe('/')
+  expect(manifest.icons.map((i) => i.sizes)).toEqual(expect.arrayContaining(['192x192', '512x512']))
+  expect((await request.get('/sw.js')).ok()).toBeTruthy()
+})
