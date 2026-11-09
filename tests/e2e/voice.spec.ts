@@ -103,6 +103,13 @@ test('review sheet: edit and save a card, remove one, sourced answer, honest "do
   await expect(card).toContainText('Mark maintenance done')
   await expect(card.getByLabel('Engine oil')).toBeChecked()
   await card.getByTestId('card-hours').fill('143,5')
+  // A follow-up question before saving keeps the unsaved card and its edits.
+  await page.getByTestId('voice-followup').click()
+  await page.waitForTimeout(400)
+  await page.getByTestId('voice-followup').click()
+  await expect(transcript).toHaveValue('mock transcript')
+  await expect(card).toHaveCount(1)
+  await expect(card.getByTestId('card-hours')).toHaveValue('143,5')
   await page.getByTestId('voice-save').click()
   await expect(card.getByTestId('card-status')).toHaveText('Saved')
   expect(services).toHaveLength(1)

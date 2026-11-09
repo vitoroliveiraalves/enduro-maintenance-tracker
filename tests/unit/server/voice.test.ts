@@ -33,6 +33,12 @@ describe('voice input', () => {
     expect(() => parseVoiceInput([{ name: 'audio', data: wav(90) }])).toThrow(expect.objectContaining({ statusCode: 400 }))
     expect(() => parseVoiceInput([{ name: 'audio', data: Buffer.from('ID3 not a wav at all, some mp3 bytes here....') }])).toThrow(expect.objectContaining({ statusCode: 400 }))
     expect(parseVoiceInput([{ name: 'audio', data: wav(60) }]).audio).not.toBeNull()
+    // A 'fmt ' chunk cut short by the end of the buffer is a 400, not a RangeError.
+    const cut = Buffer.alloc(44)
+    cut.write('RIFF', 0, 'ascii'); cut.write('WAVE', 8, 'ascii')
+    cut.write('JUNK', 12, 'ascii'); cut.writeUInt32LE(8, 16)
+    cut.write('fmt ', 28, 'ascii'); cut.writeUInt32LE(16, 32)
+    expect(() => wavSeconds(cut)).toThrow(expect.objectContaining({ statusCode: 400 }))
   })
   it('a transcript skips audio; bad history, long transcript, bad tz and nothing → 400', () => {
     expect(parseVoiceInput([{ name: 'transcript', data: Buffer.from(' oil done ') }])).toMatchObject({ audio: null, transcript: 'oil done', tz: 'UTC' })

@@ -32,11 +32,22 @@ async function loadItems(bikeId: string) {
   }
 }
 
+/**
+ * A follow-up adds its cards to the ones still on the sheet; "Send again" (a corrected
+ * transcript) replaces the unsaved ones it came from. Saved cards always stay, shown as Saved.
+ */
+let replaceUnsaved = false
+function resend() {
+  replaceUnsaved = true
+  void voice.sendTranscript(text.value.trim())
+}
+
 watch(result, async (r) => {
   if (!r) return
   text.value = r.transcript
-  cards.value = []
-  if (!r.proposals.length) return
+  const keep = replaceUnsaved ? cards.value.filter((c) => c.status === 'saved') : cards.value
+  replaceUnsaved = false
+  if (!r.proposals.length) return void (cards.value = keep)
   ctxError.value = ''
   try {
     const [bikes, parts, categories] = await Promise.all([
@@ -48,7 +59,7 @@ watch(result, async (r) => {
   } catch (e) {
     ctxError.value = errorMessage(e, "Couldn't load your bikes. Try again.")
   }
-  cards.value = r.proposals.map((p) => draftFrom(p, ctx.value))
+  cards.value = [...keep, ...r.proposals.map((p) => draftFrom(p, ctx.value))]
   await Promise.all(ctx.value.bikes.map((b) => loadItems(b.id)))
 }, { immediate: true })
 
@@ -105,7 +116,9 @@ rec.onAutoStop((wav) => {
   if (wav) void voice.sendAudio(wav)
 })
 watch(open, (v) => {
-  if (!v) rec.cancel()
+  if (v) return
+  rec.cancel()
+  cards.value = [] // a new note starts with a clean sheet
 })
 </script>
 
@@ -123,7 +136,8 @@ watch(open, (v) => {
         type="button"
         class="mt-1 min-h-11 rounded-lg border border-white/15 px-3 text-sm font-semibold text-white"
         data-testid="voice-resend"
-        @click="voice.sendTranscript(text.trim())"
+        :disabled="voice.sheet.value.status === 'listening'"
+        @click="resend"
       >
         Send again
       </button>
@@ -147,21 +161,6 @@ watch(open, (v) => {
         </template>
       </section>
 
-      <p v-if="ctxError" role="alert" class="mt-3 text-sm text-danger">{{ ctxError }}</p>
-      <ul v-if="cards.length" class="mt-3 space-y-2">
-        <VoiceProposalCard v-for="(c, i) in cards" :key="c.key" v-model="cards[i]!" :ctx="ctx" :items="items" @remove="cards.splice(i, 1)" />
-      </ul>
-      <button
-        v-if="toSave.length"
-        type="button"
-        :disabled="saving"
-        class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111] disabled:opacity-60"
-        data-testid="voice-save"
-        @click="saveAll"
-      >
-        {{ saving ? 'Saving…' : toSave.some((c) => c.status === 'failed') ? 'Retry' : toSave.length === 1 ? 'Save' : `Save ${toSave.length} changes` }}
-      </button>
-
       <button
         v-if="voice.available.value"
         type="button"
@@ -174,5 +173,22 @@ watch(open, (v) => {
       </button>
       <p v-if="rec.state.value === 'denied'" class="mt-2 text-sm text-muted">The microphone is blocked for this app. Allow it in your browser's site settings, then try again.</p>
     </template>
+
+    <!-- Cards outlive a follow-up: still visible while it is listening or if it fails. -->
+      <p v-if="ctxError" role="alert" class="mt-3 text-sm text-danger">{{ ctxError }}</p>
+      <ul v-if="cards.length" class="mt-3 space-y-2">
+        <VoiceProposalCard v-for="(c, i) in cards" :key="c.key" v-model="cards[i]!" :ctx="ctx" :items="items" @remove="cards.splice(i, 1)" />
+      </ul>
+      <button
+        v-if="toSave.length"
+        type="button"
+        :disabled="saving || voice.sheet.value.status === 'listening'"
+        class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111] disabled:opacity-60"
+        data-testid="voice-save"
+        @click="saveAll"
+      >
+        {{ saving ? 'Saving…' : toSave.some((c) => c.status === 'failed') ? 'Retry' : toSave.length === 1 ? 'Save' : `Save ${toSave.length} changes` }}
+      </button>
+
   </Sheet>
 </template>

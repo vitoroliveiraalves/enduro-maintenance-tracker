@@ -48,7 +48,15 @@ export function voiceForm(audio: ArrayBuffer, extra: Record<string, string> = {}
  * answer (not the audio) for the rider to open. Stops at the first network error or 401;
  * any other refusal is set aside with its reason (Retry / Discard).
  */
-export async function flushVoice(send: Send, uid: string): Promise<number> {
+let running: Promise<number> | null = null
+
+export function flushVoice(send: Send, uid: string): Promise<number> {
+  // One at a time: a note can take up to a minute and a half; a second trigger must not resend it.
+  if (!running) running = run(send, uid).finally(() => (running = null))
+  return running
+}
+
+async function run(send: Send, uid: string): Promise<number> {
   const db = getDb()
   const gen = offlineGeneration()
   let done = 0

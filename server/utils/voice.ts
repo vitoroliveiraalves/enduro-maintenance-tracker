@@ -48,7 +48,10 @@ export function wavSeconds(buf: Buffer): number {
   while (off + 8 <= buf.length) {
     const id = buf.toString('ascii', off, off + 4)
     const size = buf.readUInt32LE(off + 4)
-    if (id === 'fmt ' && off + 16 <= buf.length) byteRate = buf.readUInt32LE(off + 16)
+    if (id === 'fmt ') {
+      if (size < 16 || off + 24 > buf.length) break
+      byteRate = buf.readUInt32LE(off + 16)
+    }
     if (id === 'data') {
       if (!byteRate) break
       return size / byteRate
