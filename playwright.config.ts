@@ -27,6 +27,8 @@ export default defineConfig({
       AUTH_RATE_LIMIT_MAX: '200',
       // Canned invoice reader: 3 lines, or a failure for files carrying MOCK-FAIL (see server/utils/invoice-read.ts).
       NUXT_INVOICE_READER: 'mock',
+      // Canned voice reader: fixed rules on the transcript (see mockVoice in server/utils/voice.ts).
+      NUXT_VOICE_READER: 'mock',
       // Fresh throwaway key pair per run (push is never actually delivered in tests).
       NUXT_VAPID_PUBLIC_KEY: vapid.publicKey,
       NUXT_VAPID_PRIVATE_KEY: vapid.privateKey,

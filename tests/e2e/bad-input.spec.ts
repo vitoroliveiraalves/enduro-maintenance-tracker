@@ -215,5 +215,16 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
     const res = await request.fetch(url, { method, ...(data === null ? {} : { data }) })
     if (res.status() !== expected) failures.push(`${method.toUpperCase()} ${url} ${JSON.stringify(data)} → ${res.status()} (want ${expected})`)
   }
+  // Voice (multipart): nothing to hear, too long, broken history or zone, not a WAV.
+  const voiceBad: Array<Record<string, string | { name: string; mimeType: string; buffer: Buffer }>> = [
+    {}, { transcript: 'x'.repeat(3000) }, { transcript: 'ok', history: '{nope' }, { transcript: 'ok', history: '[1,2,3,4]' },
+    { transcript: 'ok', tz: 'Mars/Base' }, { audio: { name: 'a.wav', mimeType: 'audio/wav', buffer: Buffer.from('ID3 definitely not a wave file, just bytes') } },
+  ]
+  for (const multipart of voiceBad) {
+    const res = await request.post('/api/voice', { multipart: { pad: '-', ...multipart } })
+    if (res.status() !== 400) failures.push(`POST /api/voice ${Object.keys(multipart).join(',') || '(empty)'} → ${res.status()} (want 400)`)
+  }
+  const json = await request.post('/api/voice', { data: {} })
+  if (json.status() !== 400) failures.push(`POST /api/voice json → ${json.status()}`)
   expect(failures).toEqual([])
 })

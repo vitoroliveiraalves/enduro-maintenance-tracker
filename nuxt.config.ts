@@ -50,6 +50,11 @@ export default defineNuxtConfig({
     invoiceGlobalDailyCap: 300,
     // '' = OpenRouter; 'mock' / 'mock-fail' = canned reader for e2e (NUXT_INVOICE_READER)
     invoiceReader: '',
+    // Voice notes (NUXT_VOICE_*): model defaults to openrouterModel; 'mock' reader for e2e.
+    voiceModel: '',
+    voiceDailyCap: 60,
+    voiceGlobalDailyCap: 600,
+    voiceReader: '',
     // Web Push (NUXT_VAPID_*; `pnpm vapid:generate`). No keys → push disabled, Settings says so.
     vapidPublicKey: '',
     vapidPrivateKey: '',

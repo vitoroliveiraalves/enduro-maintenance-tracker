@@ -58,3 +58,29 @@ export function assertReadAllowed(userId: string, dailyCap: number, now = Date.n
   buckets.set(globalKey, [...all, now])
   gc(now)
 }
+
+export const VOICE_DAILY_COPY = 'Daily voice limit reached — you can still use the app as usual.'
+export const VOICE_GLOBAL_COPY = 'Voice is busy today — you can still use the app as usual.'
+export const VOICE_SHORT_MAX = 20
+export const VOICE_DAILY_CAP = 60
+export const VOICE_GLOBAL_DAILY_CAP = 600
+
+/** Same shape as `assertReadAllowed`, separate buckets: global/24 h, 20 / user / 10 min, `dailyCap` / user / 24 h. */
+export function assertVoiceAllowed(userId: string, dailyCap = VOICE_DAILY_CAP, now = Date.now(), globalCap = VOICE_GLOBAL_DAILY_CAP) {
+  const globalKey = 'voice-global'
+  const shortKey = `voice:${userId}`
+  const dayKey = `voice-day:${userId}`
+  const all = hitsIn(globalKey, DAY_MS, now)
+  if (all.length >= globalCap) throw createError({ statusCode: 429, statusMessage: VOICE_GLOBAL_COPY })
+  const day = hitsIn(dayKey, DAY_MS, now)
+  if (day.length >= dailyCap) throw createError({ statusCode: 429, statusMessage: VOICE_DAILY_COPY })
+  const short = hitsIn(shortKey, READS_WINDOW_MS, now)
+  if (short.length >= VOICE_SHORT_MAX) {
+    const wait = Math.ceil((READS_WINDOW_MS - (now - short[0]!)) / 60_000)
+    throw createError({ statusCode: 429, statusMessage: `Too many voice notes — try again in ${wait} min.` })
+  }
+  buckets.set(shortKey, [...short, now])
+  buckets.set(dayKey, [...day, now])
+  buckets.set(globalKey, [...all, now])
+  gc(now)
+}
