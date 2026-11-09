@@ -105,7 +105,7 @@ async function removeExpense(id: string) {
             {{ en.s.atUnknown ? 'Date unknown' : date(en.s.at) }}<template v-if="en.s.hoursTenths !== null"> · {{ hours(en.s.hoursTenths) }}</template>
             · {{ en.s.bikeName }} · {{ en.s.by === 'garage' ? (en.s.garageName ? `Garage: ${en.s.garageName}` : 'Garage') : 'DIY' }}
             <span v-if="en.s.notes === 'Initial'"> · from setup</span>
-            <span v-if="en.s.documentId" title="Invoice attached" data-testid="history-invoice"> · 🧾</span>
+            <span v-if="en.s.documentId"> · <NuxtLink :to="`/invoice/${en.s.documentId}`" class="-m-2 p-2" aria-label="Open invoice" data-testid="history-invoice">🧾</NuxtLink></span>
           </p>
           <p v-if="en.s.partsUsed?.length" class="mt-0.5 text-xs text-muted" data-testid="history-parts">{{ partsLine(en.s.partsUsed) }}</p>
           <p v-if="en.s.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">Pending sync</p>
@@ -124,7 +124,7 @@ async function removeExpense(id: string) {
             <span class="shrink-0 font-bold text-white" data-testid="history-amount">{{ money(en.e.amountCents) }}</span>
           </div>
           <p class="mt-0.5 text-xs text-muted">
-            {{ date(en.e.at) }}<span v-if="en.e.documentId" title="Invoice attached"> · 🧾</span>
+            {{ date(en.e.at) }}<span v-if="en.e.documentId"> · <NuxtLink :to="`/invoice/${en.e.documentId}`" class="-m-2 p-2" aria-label="Open invoice" data-testid="history-expense-invoice">🧾</NuxtLink></span>
           </p>
           <p v-if="en.e.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">Pending sync</p>
           <div v-else class="mt-1.5 text-xs">

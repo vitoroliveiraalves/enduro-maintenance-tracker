@@ -31,6 +31,7 @@ Loop fix and rerun until all pass; if one is N/A, say why in the commit body.
 - Invoice uploads: 30/user/24 h and at most 20 unconfirmed per user -> 429 (`server/utils/documents.ts`).
 - Every API row is scoped by `userId` through `server/utils/owned.ts`; never query bikes/items/expenses without it.
 - Invoice reading: QR first (Portaria 195/2020), AI only for lines; photos downscaled to 2400 px longest side, JPEG 0.85; <= 5 photos or one PDF <= 10 MB; never save without rider confirmation; image always kept; rate limit 60 reads/user/10 min. Env: `NUXT_OPENROUTER_API_KEY`, `NUXT_OPENROUTER_MODEL` (default `google/gemini-3.1-flash-lite`). No key -> calm notice, manual entry.
+- Saved invoices: listed on `/invoice` (`GET /api/documents`). Change = `confirm` with `replace: true`, which undoes what the invoice made (its expenses, its service and its `bought` shelf movements) and saves again in one transaction. `DELETE /api/documents/:id` undoes the same and also removes a part one of its saves created (`parts.createdByDocumentId`, migration 0007) that nothing else touched. Discard stays for unsaved ones only.
 - Port code from `~/encomentio` by copying and adapting; never import from it. Ignore `~/moto-tracker`.
 - Every create POST carries a `clientId` (uuid); server upserts on `(userId, clientId)`.
 - Commit after each task; messages end with the session attribution lines.

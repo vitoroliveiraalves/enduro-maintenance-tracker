@@ -432,6 +432,8 @@ export const parts = pgTable(
     qtyHundredths: integer('qty_hundredths').notNull().default(0),
     minHundredths: integer('min_hundredths'),
     notes: text('notes'),
+    /** The saved invoice whose line created this part; Delete of that invoice may remove it. */
+    createdByDocumentId: uuid('created_by_document_id').references(() => documents.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

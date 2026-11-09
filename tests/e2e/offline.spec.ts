@@ -23,7 +23,8 @@ async function primed(page: Page) {
   await expect(page.getByTestId('history-service').first()).toBeVisible()
   await page.getByTestId('tab-costs').click()
   await expect(page.getByTestId('costs-total')).toBeVisible()
-  await page.getByTestId('tab-bike').click()
+  await page.getByTestId('tab-garage').click()
+  await page.locator(`a[href="/bikes/${bikeId}"]`).click()
   await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
   return bikeId
 }
@@ -40,7 +41,9 @@ test('bike screen, history and costs open offline; a ride logged offline syncs e
   await expect(page.getByTestId('history-service').first()).toBeVisible()
   await page.getByTestId('tab-costs').click()
   await expect(page.getByTestId('costs-total')).toBeVisible()
-  await page.getByTestId('tab-bike').click()
+  await page.getByTestId('tab-garage').click()
+  await expect(page.getByTestId('bike-card')).toHaveCount(1) // the garage opens offline too
+  await page.locator(`a[href="/bikes/${bikeId}"]`).click()
   await expect(page).toHaveURL(new RegExp(`/bikes/${bikeId}$`))
   await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
 
@@ -126,7 +129,8 @@ test('offline service and expense show as pending, then sync', async ({ page, co
   } finally {
     await db.end()
   }
-  await page.getByTestId('tab-bike').click()
+  await page.getByTestId('tab-garage').click()
+  await page.getByTestId('bike-card').first().click()
   await expect(page.getByTestId('item-row').filter({ hasText: 'Air filter clean' }).getByTestId('item-pending')).toHaveCount(0)
 })
 

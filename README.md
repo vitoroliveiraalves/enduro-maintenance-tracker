@@ -2,7 +2,7 @@
 
 A phone-first PWA for enduro (and street) riders: log rides, see which maintenance
 items are due, record services and costs, and read garage invoices (QR code first,
-an AI model only for the lines). Works offline: screens come from the last sync and
+an AI model only for the lines; saved invoices can be listed, changed, moved to another bike or deleted). Works offline: screens come from the last sync and
 writes wait in an outbox until the phone is back online. Each bike counts hours & km,
 km only (street bikes) or hours only, and every screen asks for and shows just those.
 

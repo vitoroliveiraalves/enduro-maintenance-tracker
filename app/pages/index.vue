@@ -1,12 +1,8 @@
 <script setup lang="ts">
-import { isStandalone } from '~/lib/platform'
-
 const store = useBikesStore()
 const { hours, km } = useFormatters()
 const { syncTick } = useOffline()
 const error = ref('')
-// Launching the installed app opens the rider's last bike, not the garage (once per launch).
-const launch = useState('garage-launch', () => true)
 
 async function load() {
   try {
@@ -16,13 +12,8 @@ async function load() {
     error.value = 'Could not load your bikes.'
   }
 }
-onMounted(async () => {
-  const first = launch.value
-  launch.value = false
-  await load()
-  const last = store.lastBikeId
-  if (first && isStandalone() && last && store.bikes.some((b) => b.id === last)) await navigateTo(`/bikes/${last}`, { replace: true })
-})
+// The app always opens here: every bike with what's overdue or due soon.
+onMounted(load)
 watch(syncTick, load)
 </script>
 
