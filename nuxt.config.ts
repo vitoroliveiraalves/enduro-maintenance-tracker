@@ -31,8 +31,8 @@ export default defineNuxtConfig({
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        // Camera for invoice capture; nothing else.
-        'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), payment=()',
+        // Camera for invoice capture, microphone for voice notes; nothing else.
+        'Permissions-Policy': 'camera=(self), microphone=(self), geolocation=(), payment=()',
         'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
         // Browsers ignore HSTS over plain http, so this is safe in dev.
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
