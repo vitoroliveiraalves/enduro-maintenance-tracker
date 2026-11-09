@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
+import webpush from 'web-push'
+
+const vapid = webpush.generateVAPIDKeys()
 
 // E2E runs against the production build (`pnpm e2e` builds into .output-e2e) on 3210.
 const WEB = 'http://localhost:3210'
@@ -24,9 +27,9 @@ export default defineConfig({
       AUTH_RATE_LIMIT_MAX: '200',
       // Canned invoice reader: 3 lines, or a failure for files carrying MOCK-FAIL (see server/utils/invoice-read.ts).
       NUXT_INVOICE_READER: 'mock',
-      // Throwaway key pair for e2e only (push is never actually delivered in tests).
-      NUXT_VAPID_PUBLIC_KEY: 'BAYNtjNH_6cRB9XR5gtvVZwNa0dzYOQGcSvjPfBPvvRl4njiYmWxTJPJW49Fo6l5gaH-Z0XmSO3HvtgNkNmKXIM',
-      NUXT_VAPID_PRIVATE_KEY: 'cwpS4ETaBohb74bLt-vXOVJ2PoLpG8oohfPcdj3FzNI',
+      // Fresh throwaway key pair per run (push is never actually delivered in tests).
+      NUXT_VAPID_PUBLIC_KEY: vapid.publicKey,
+      NUXT_VAPID_PRIVATE_KEY: vapid.privateKey,
       NUXT_VAPID_SUBJECT: 'mailto:e2e@example.com',
     },
     reuseExistingServer: false,

@@ -15,14 +15,26 @@ const repeatYearly = ref(true)
 const error = ref('')
 const busy = ref(false)
 
+// "All bikes" until the rider picks; a lone bike is the default, even when
+// the bike list arrives after the sheet opened (slow network).
+const bikeTouched = ref(false)
+const defaultBike = () => (props.bikes.length === 1 ? props.bikes[0]!.id : '')
+
 watch(open, (v) => {
   if (!v) return
   title.value = ''
   dueOn.value = ''
-  bikeId.value = props.bikes.length === 1 ? props.bikes[0]!.id : ''
+  bikeTouched.value = false
+  bikeId.value = defaultBike()
   repeatYearly.value = true
   error.value = ''
 })
+watch(
+  () => props.bikes,
+  () => {
+    if (open.value && !bikeTouched.value) bikeId.value = defaultBike()
+  },
+)
 
 async function save() {
   if (busy.value) return
@@ -77,7 +89,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </label>
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Bike
-          <select v-model="bikeId" data-testid="rem-bike" :class="field">
+          <select v-model="bikeId" data-testid="rem-bike" :class="field" @change="bikeTouched = true">
             <option value="">All bikes</option>
             <option v-for="b in props.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
           </select>
