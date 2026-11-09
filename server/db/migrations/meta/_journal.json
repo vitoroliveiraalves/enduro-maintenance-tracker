@@ -43,6 +43,13 @@
       "when": 1794242219819,
       "tag": "0005_shelf",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794246643504,
+      "tag": "0006_bike_meters",
+      "breakpoints": true
     }
   ]
 }

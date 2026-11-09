@@ -1,8 +1,9 @@
+import { keepCounted } from '../../shared/utils/meters'
 import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, expenseItems, expenses, maintenanceItems, meterReadings, partMovements, parts, serviceItems, services } from '../db/schema'
 import type { Bike, Service } from '../db/schema'
-import { assertNotAboveMeters, bikeDetail, cleanDate, isObj, latestReading, optInt, str } from './bikes'
+import { assertNotAboveMeters, bikeDetail, cleanDate, countedMeters, hoursDesc, isObj, latestReading, str } from './bikes'
 import { bad, uuid } from './validate'
 import { applyMovement, qty } from './parts'
 import { amountCents, checkCategory, checkDocument, checkItemIds, description } from './expenses'
@@ -61,14 +62,14 @@ export async function assertNotAboveMetersOn(bike: Bike, at: string, done: { hou
     .select()
     .from(meterReadings)
     .where(and(eq(meterReadings.bikeId, bike.id), eq(meterReadings.userId, bike.userId), lt(meterReadings.at, endOfDay)))
-    .orderBy(desc(meterReadings.at), desc(meterReadings.hoursTenths))
+    .orderBy(desc(meterReadings.at), hoursDesc)
     .limit(1)
   if (!r) return
   const on = `On ${r.at.getUTCDate()} ${MONTHS[r.at.getUTCMonth()]}`
-  if (done.hoursTenths != null && done.hoursTenths > r.hoursTenths) {
+  if (done.hoursTenths != null && r.hoursTenths !== null && done.hoursTenths > r.hoursTenths) {
     throw bad(`${on} the bike had ${(r.hoursTenths / 10).toFixed(1)} h — the service can't be at ${(done.hoursTenths / 10).toFixed(1)} h`)
   }
-  if (done.km != null && done.km > r.km) throw bad(`${on} the bike had ${r.km} km — the service can't be at ${done.km} km`)
+  if (done.km != null && r.km !== null && done.km > r.km) throw bad(`${on} the bike had ${r.km} km — the service can't be at ${done.km} km`)
 }
 
 /**
@@ -84,8 +85,7 @@ export async function insertService(bike: Bike, raw: unknown, tx: Tx): Promise<s
   if (existing) return null
 
   const at = cleanDate(raw.at, 'service')
-  const hoursTenths = optInt(raw.hoursTenths, 'hoursTenths')
-  const km = optInt(raw.km, 'km')
+  const { hoursTenths, km } = countedMeters(bike.meters, raw)
   const current = await latestReading(bike.id, userId)
   if (current) assertNotAboveMeters('Service', { hoursTenths, km }, current)
   await assertNotAboveMetersOn(bike, at, { hoursTenths, km }, tx)
@@ -161,7 +161,7 @@ export async function deleteService(service: Service) {
 
 export async function listServices(userId: string, f: { bikeId?: string } = {}) {
   const rows = await db
-    .select({ s: services, bikeName: bikes.name })
+    .select({ s: services, bikeName: bikes.name, meters: bikes.meters })
     .from(services)
     .innerJoin(bikes, eq(services.bikeId, bikes.id))
     .where(and(eq(services.userId, userId), f.bikeId ? eq(services.bikeId, f.bikeId) : undefined))
@@ -179,14 +179,14 @@ export async function listServices(userId: string, f: { bikeId?: string } = {}) 
     .where(and(eq(expenses.userId, userId), inArray(expenses.serviceId, ids)))
     .groupBy(expenses.serviceId)
   const used = await partsUsedBy(userId, ids)
-  return rows.map(({ s, bikeName }) => ({
+  // Stored meters of a unit the bike no longer counts stay in the database, hidden here.
+  return rows.map(({ s, bikeName, meters }) => ({
     id: s.id,
     bikeId: s.bikeId,
     bikeName,
     at: s.at,
     atUnknown: s.atUnknown,
-    hoursTenths: s.hoursTenths,
-    km: s.km,
+    ...keepCounted(meters, s),
     by: s.by,
     garageName: s.garageName,
     notes: s.notes,

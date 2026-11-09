@@ -6,8 +6,8 @@ import { errorMessage } from '~/offline/outbox'
 import type { ItemRowJson } from '../../../../server/domain/item-row'
 
 type Detail = {
-  bike: { id: string; name: string; year: number }
-  latestReading: { id?: string; at: string; hoursTenths: number; km: number; pending?: boolean } | null
+  bike: { id: string; name: string; year: number; meters: BikeMeters }
+  latestReading: { id?: string; at: string; hoursTenths: number | null; km: number | null; pending?: boolean } | null
   items: Array<ItemRowJson & { pendingSync?: boolean }>
 }
 
@@ -56,6 +56,29 @@ async function removeBike() {
   await navigateTo('/')
 }
 
+// What the bike counts: online only (a queued switch could reorder against queued readings).
+const meters = computed<BikeMeters>(() => data.value?.bike.meters ?? 'hours_km')
+const hasHours = computed(() => countsHours(meters.value))
+const hasKm = computed(() => countsKm(meters.value))
+const metersDraft = ref<BikeMeters>('hours_km')
+watch(meters, (m) => (metersDraft.value = m), { immediate: true })
+const metersBusy = ref(false)
+const metersError = ref('')
+async function saveMeters() {
+  if (metersBusy.value || metersDraft.value === meters.value) return
+  metersBusy.value = true
+  metersError.value = ''
+  try {
+    await mutate(`/api/bikes/${id}`, { meters: metersDraft.value }, { method: 'PATCH' })
+    await load()
+    toast.show(`Counts ${METERS_LABEL[metersDraft.value].toLowerCase()}`)
+  } catch (e) {
+    metersError.value = errorMessage(e, 'Could not change what the bike counts. Try again.')
+  } finally {
+    metersBusy.value = false
+  }
+}
+
 const toast = useToast()
 async function onSaved(detail: Record<string, unknown>) {
   const before = data.value?.items ?? []
@@ -99,10 +122,10 @@ async function addItem() {
   if (adding.value) return
   addError.value = ''
   const num = (t: string) => (t.trim() ? parseDecimal(t) : undefined)
-  const [h, k, m] = [num(newHours.value), num(newKm.value), num(newMonths.value)]
+  const [h, k, m] = [hasHours.value ? num(newHours.value) : undefined, hasKm.value ? num(newKm.value) : undefined, num(newMonths.value)]
   if (!newName.value.trim()) return void (addError.value = 'Give the item a name.')
   if ([h, k, m].some((v) => v === null || (v !== undefined && v <= 0))) return void (addError.value = 'Enter intervals as numbers above zero.')
-  if (h === undefined && k === undefined && m === undefined) return void (addError.value = 'Set at least one interval (hours, km or months).')
+  if (h === undefined && k === undefined && m === undefined) return void (addError.value = `Set at least one interval (${[hasHours.value && 'hours', hasKm.value && 'km', 'months'].filter(Boolean).join(', ')}).`)
   adding.value = true
   addNote.value = ''
   try {
@@ -149,8 +172,8 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </NuxtLink>
       </div>
       <div v-if="data.latestReading" class="mb-3.5 mt-3 flex gap-2.5">
-        <MeterCard label="Hours" :value="hours(data.latestReading.hoursTenths)" testid="hours-value" />
-        <MeterCard label="Km" :value="km(data.latestReading.km).replace(/ km$/, '')" testid="km-value" />
+        <MeterCard v-if="hasHours" label="Hours" :value="data.latestReading.hoursTenths === null ? '—' : hours(data.latestReading.hoursTenths)" testid="hours-value" />
+        <MeterCard v-if="hasKm" label="Km" :value="data.latestReading.km === null ? '—' : km(data.latestReading.km).replace(/ km$/, '')" testid="km-value" />
       </div>
       <button
         type="button"
@@ -159,9 +182,9 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         data-testid="log-ride"
         @click="sheetOpen = true"
       >
-        + Log ride / update meters
+        + Log ride / update {{ hasHours && hasKm ? 'meters' : hasHours ? 'hours' : 'km' }}
       </button>
-      <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" @saved="onSaved" />
+      <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" :meters="meters" @saved="onSaved" />
 
       <template v-if="data.items.length">
         <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-[0.08em] text-muted">Maintenance · due soonest first</h2>
@@ -176,11 +199,11 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
             <input v-model="newName" autocomplete="off" maxlength="80" data-testid="new-item-name" :class="field">
           </label>
           <div class="mt-3 flex gap-2.5">
-            <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+            <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
               Every h
               <input v-model="newHours" inputmode="decimal" autocomplete="off" data-testid="new-item-hours" :class="field">
             </label>
-            <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+            <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
               Every km
               <input v-model="newKm" inputmode="decimal" autocomplete="off" data-testid="new-item-km" :class="field">
             </label>
@@ -196,6 +219,12 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       </section>
 
       <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted">Bike</h2>
+      <form class="mb-3 rounded-xl bg-surface p-3" data-testid="bike-meters" @submit.prevent="saveMeters">
+        <MetersChoice v-model="metersDraft" :disabled="metersBusy" />
+        <p class="mt-2 text-xs text-muted">Switching hides the other meter; nothing is deleted, and switching back brings it back.</p>
+        <p v-if="metersError" role="alert" class="mt-2 text-sm text-danger">{{ metersError }}</p>
+        <button type="submit" :disabled="metersBusy || metersDraft === meters" class="mt-2 min-h-11 w-full rounded-xl bg-bg text-sm font-semibold text-accent disabled:opacity-40" data-testid="bike-meters-save">Save counts</button>
+      </form>
       <ManagePanel what="bike" :name="data.bike.name" remove-note="It leaves the garage; its services and costs stay in History and Costs." :rename="renameBike" :remove="removeBike" />
     </template>
   </main>

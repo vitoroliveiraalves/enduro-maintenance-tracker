@@ -97,6 +97,13 @@ describe('notificationsDue — weekly nudge', () => {
     expect(out[0]!.url).toBe('/')
   })
 
+  it('nudge text names only the meters the rider\'s bikes count', () => {
+    const body = (meters?: { hours: boolean; km: boolean }) => notificationsDue(base({ now: MON_9, lastReadingAt: staleReading, meters }))[0]!.body
+    expect(body()).toBe('Update your hours and km so maintenance stays on track.')
+    expect(body({ hours: false, km: true })).toBe('Update your km so maintenance stays on track.')
+    expect(body({ hours: true, km: false })).toBe('Update your hours so maintenance stays on track.')
+  })
+
   it('no nudge when a reading exists from Friday on', () => {
     expect(keys(base({ now: MON_9, lastReadingAt: fridayReading }))).toEqual([])
   })

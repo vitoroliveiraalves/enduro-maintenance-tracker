@@ -9,9 +9,11 @@ type Costs = {
   perKmCents: number | null
   hoursTenths: number
   km: number
+  countsHours?: boolean
+  countsKm?: boolean
   byMonth?: Array<{ month: number; cents: number }>
   byCategory: Array<{ categoryId: string; name: string; cents: number }>
-  byBike: Array<{ bikeId: string | null; name: string; cents: number; hoursTenths: number; km: number }>
+  byBike: Array<{ bikeId: string | null; name: string; meters?: BikeMeters; cents: number; hoursTenths: number; km: number }>
   expenses?: Array<{ id: string; at: string; bikeName: string | null; categoryName: string; description: string; amountCents: number; documentId: string | null }>
   upcoming?: Array<{ itemId: string; name: string; state: 'overdue' | 'soon'; estimateCents: number | null }>
 }
@@ -99,7 +101,10 @@ const navLabel = computed(() => (period.value === 'year' ? String(year.value) : 
 const rideLine = computed(() => {
   const d = data.value
   if (!d) return ''
-  const parts = [d.hoursTenths ? `${hours(d.hoursTenths)} ridden` : '', d.perHourCents !== null ? `${money(d.perHourCents)}/h` : '']
+  // Hours when any bike in view counts them; otherwise (street bikes only) km.
+  const parts = d.countsHours !== false
+    ? [d.hoursTenths ? `${hours(d.hoursTenths)} ridden` : '', d.perHourCents !== null ? `${money(d.perHourCents)}/h` : '']
+    : [d.km ? `${km(d.km)} ridden` : '', d.perKmCents !== null ? `${money(d.perKmCents)}/km` : '']
   return parts.filter(Boolean).join(' · ')
 })
 const compareLine = computed(() => {
@@ -168,17 +173,21 @@ const SEG: Array<{ key: Period; label: string }> = [
       </section>
 
       <div class="mb-2.5 flex gap-2" data-testid="costs-kpis">
-        <div class="flex-1 rounded-xl bg-surface px-2.5 py-2">
+        <div v-if="data.countsHours !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
           <span class="text-[10px] uppercase tracking-wide text-muted">Per hour</span>
           <b class="block text-[17px] text-white" data-testid="kpi-hour">{{ data.perHourCents === null ? '—' : money(data.perHourCents) }}</b>
         </div>
-        <div class="flex-1 rounded-xl bg-surface px-2.5 py-2">
+        <div v-if="data.countsKm !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
           <span class="text-[10px] uppercase tracking-wide text-muted">Per km</span>
           <b class="block text-[17px] text-white" data-testid="kpi-km">{{ data.perKmCents === null ? '—' : money(data.perKmCents) }}</b>
         </div>
-        <div class="flex-1 rounded-xl bg-surface px-2.5 py-2">
+        <div v-if="data.countsHours !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
           <span class="text-[10px] uppercase tracking-wide text-muted">Hours</span>
           <b class="block text-[17px] text-white" data-testid="kpi-hours">{{ hours(data.hoursTenths) }}</b>
+        </div>
+        <div v-else class="flex-1 rounded-xl bg-surface px-2.5 py-2">
+          <span class="text-[10px] uppercase tracking-wide text-muted">Km</span>
+          <b class="block text-[17px] text-white" data-testid="kpi-km-total">{{ km(data.km) }}</b>
         </div>
       </div>
 
@@ -224,11 +233,12 @@ const SEG: Array<{ key: Period; label: string }> = [
           <li v-for="b in data.byBike" :key="b.bikeId ?? 'none'" class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]" data-testid="costs-bike-row">
             <span class="min-w-0">
               <span class="block truncate text-text">{{ b.name }}</span>
-              <small v-if="b.bikeId" class="block text-[11px] text-muted">{{ hours(b.hoursTenths) }} · {{ km(b.km) }}</small>
+              <small v-if="b.bikeId" class="block text-[11px] text-muted">{{ [countsHours(b.meters ?? 'hours_km') ? hours(b.hoursTenths) : '', countsKm(b.meters ?? 'hours_km') ? km(b.km) : ''].filter(Boolean).join(' · ') }}</small>
             </span>
             <span class="shrink-0 text-right">
               <b class="block text-white">{{ money(b.cents) }}</b>
-              <small v-if="b.hoursTenths > 0" class="block text-[11px] text-muted">{{ money(Math.round(b.cents / (b.hoursTenths / 10))) }}/h</small>
+              <small v-if="countsHours(b.meters ?? 'hours_km') && b.hoursTenths > 0" class="block text-[11px] text-muted">{{ money(Math.round(b.cents / (b.hoursTenths / 10))) }}/h</small>
+              <small v-else-if="!countsHours(b.meters ?? 'hours_km') && b.km > 0" class="block text-[11px] text-muted" data-testid="bike-per-km">{{ money(Math.round(b.cents / b.km)) }}/km</small>
             </span>
           </li>
         </ul>

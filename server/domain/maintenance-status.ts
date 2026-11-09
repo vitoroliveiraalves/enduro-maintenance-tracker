@@ -1,5 +1,5 @@
 export type Condition = 'normal' | 'mud' | 'sand' | 'dust' | 'race'
-export type Reading = { at: Date, hoursTenths: number, km: number, condition: Condition }
+export type Reading = { at: Date, hoursTenths: number | null, km: number | null, condition: Condition }
 export type ItemDef = {
   everyHoursTenths?: number
   everyKm?: number
@@ -28,21 +28,23 @@ export const OVERDUE_RATIO = 1
 const DAYS_PER_MONTH = 30.4375
 const MS_PER_DAY = 86_400_000
 
-const byTime = (a: Reading, b: Reading) => a.at.getTime() - b.at.getTime() || a.hoursTenths - b.hoursTenths
+const byTime = (a: Reading, b: Reading) => a.at.getTime() - b.at.getTime() || (a.hoursTenths ?? -1) - (b.hoursTenths ?? -1)
 
 /** Latest reading at or before `at`, by the given unit, as a baseline fallback. */
-function baselineFromReadings(sorted: Reading[], at: Date, pick: (r: Reading) => number): number | null {
-  let found: Reading | null = null
+function baselineFromReadings(sorted: Reading[], at: Date, pick: (r: Reading) => number | null): number | null {
+  let found: number | null = null
   for (const rd of sorted) {
-    if (rd.at.getTime() <= at.getTime()) found = rd
-    else break
+    if (rd.at.getTime() > at.getTime()) break
+    const v = pick(rd)
+    if (v !== null) found = v
   }
-  return found ? pick(found) : null
+  return found
 }
 
 export function computeStatus(def: ItemDef, last: LastDone, readings: Reading[], now: Date): Status {
   const sorted = [...readings].sort(byTime)
-  const latest = sorted.at(-1) ?? null
+  const latestH = sorted.findLast(rd => rd.hoursTenths !== null)?.hoursTenths ?? null
+  const latestKm = sorted.findLast(rd => rd.km !== null)?.km ?? null
 
   let sinceHours: number | null = null
   let effectiveHours: number | null = null
@@ -52,18 +54,19 @@ export function computeStatus(def: ItemDef, last: LastDone, readings: Reading[],
 
   if (last) {
     // No real date → no months, and no meter baseline borrowed from "that day's" reading.
-    const fromReadings = (pick: (r: Reading) => number) => (last.dateUnknown ? null : baselineFromReadings(sorted, last.at, pick))
+    const fromReadings = (pick: (r: Reading) => number | null) => (last.dateUnknown ? null : baselineFromReadings(sorted, last.at, pick))
     if (!last.dateUnknown) {
       daysSince = (now.getTime() - last.at.getTime()) / MS_PER_DAY
       sinceMonths = daysSince / DAYS_PER_MONTH
     }
 
     const baseH = last.hoursTenths ?? last.estHoursTenths ?? fromReadings(rd => rd.hoursTenths)
-    if (baseH !== null && latest) {
-      sinceHours = Math.max(0, latest.hoursTenths - baseH)
+    if (baseH !== null && latestH !== null) {
+      sinceHours = Math.max(0, latestH - baseH)
       let eff = 0
       let prev = baseH
       for (const rd of sorted) {
+        if (rd.hoursTenths === null) continue
         const delta = Math.max(0, rd.hoursTenths - Math.max(prev, baseH))
         eff += delta * (def.conditionMultipliers[rd.condition] ?? 1)
         prev = rd.hoursTenths
@@ -72,7 +75,7 @@ export function computeStatus(def: ItemDef, last: LastDone, readings: Reading[],
     }
 
     const baseKm = last.km ?? last.estKm ?? fromReadings(rd => rd.km)
-    if (baseKm !== null && latest) sinceKm = Math.max(0, latest.km - baseKm)
+    if (baseKm !== null && latestKm !== null) sinceKm = Math.max(0, latestKm - baseKm)
   }
 
   const ratios: Array<['hours' | 'km' | 'months', number]> = []
@@ -113,17 +116,21 @@ type Service = { at: Date, hoursTenths?: number, km?: number, dateUnknown?: bool
 export function pickLastDone(services: Service[], readings: Reading[] = []): LastDone {
   if (services.length === 0) return null
   const sorted = [...readings].sort(byTime)
-  const estimate = (s: Service, pick: (r: Reading) => number): number | undefined => {
+  const estimate = (s: Service, pick: (r: Reading) => number | null): number | undefined => {
     if (s.dateUnknown || !sorted.length) return undefined
     // Same calendar day counts as "on or before" (a service is a day, a reading a moment).
     const endOfDay = s.at.getTime() + 86_400_000 - 1
-    let found: Reading | undefined
+    let found: number | undefined
     for (const rd of sorted) {
-      if (rd.at.getTime() <= endOfDay) found = rd
-      else break
+      if (rd.at.getTime() > endOfDay) break
+      found = pick(rd) ?? found
     }
-    found ??= sorted.find((rd) => rd.at.getTime() > endOfDay)
-    return found ? pick(found) : undefined
+    if (found !== undefined) return found
+    for (const rd of sorted) {
+      if (rd.at.getTime() > endOfDay) found = pick(rd) ?? undefined
+      if (found !== undefined) return found
+    }
+    return undefined
   }
   const keyed = services.map((s) => ({
     s,

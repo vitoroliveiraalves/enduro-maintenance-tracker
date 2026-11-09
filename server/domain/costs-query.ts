@@ -1,9 +1,11 @@
-import { and, asc, desc, eq, gte, lte, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte, inArray, sql } from 'drizzle-orm'
 import { createError } from 'h3'
 import { db } from '../db/client'
 import { bikes, categories, documents, expenseItems, expenses, meterReadings, serviceItems, services } from '../db/schema'
 import { itemRows } from '../utils/bikes'
 import { bad, isDay, isUuid } from '../utils/validate'
+import { countsHours, countsKm } from '../../shared/utils/meters'
+import type { BikeMeters } from '../../shared/utils/meters'
 
 export type Period = 'month' | 'year' | 'all'
 export type CostsParams = { period: Period; date: string; bikeId?: string | null }
@@ -61,17 +63,20 @@ export const MIN_KM = 100
 export const perUnitCents = (totalCents: number, tenthsOrKm: number, tenths: boolean): number | null =>
   tenthsOrKm < (tenths ? MIN_HOURS_TENTHS : MIN_KM) ? null : Math.round(totalCents / (tenths ? tenthsOrKm / 10 : tenthsOrKm))
 
-type Rd = { day: string; hoursTenths: number; km: number }
+type Rd = { day: string; hoursTenths: number | null; km: number | null }
 
-/** Meter delta inside a period for one bike's readings (sorted ascending). */
+/** Meter delta inside a period for one bike's readings (sorted ascending), each unit from the readings that have it. */
 export function readingsDelta(rs: Rd[], range: Range): { hoursTenths: number; km: number } {
-  const inEnd = rs.filter((r) => range.to === null || r.day <= range.to)
-  const end = inEnd[inEnd.length - 1]
-  if (!end) return { hoursTenths: 0, km: 0 }
-  const before = range.from === null ? [] : rs.filter((r) => r.day < range.from!)
-  const start = before[before.length - 1] ?? inEnd.find((r) => range.from === null || r.day >= range.from)
-  if (!start) return { hoursTenths: 0, km: 0 }
-  return { hoursTenths: Math.max(0, end.hoursTenths - start.hoursTenths), km: Math.max(0, end.km - start.km) }
+  const one = (pick: (r: Rd) => number | null): number => {
+    const has = rs.filter((r) => pick(r) !== null)
+    const inEnd = has.filter((r) => range.to === null || r.day <= range.to)
+    const end = inEnd[inEnd.length - 1]
+    if (!end) return 0
+    const before = range.from === null ? [] : has.filter((r) => r.day < range.from!)
+    const start = before[before.length - 1] ?? inEnd.find((r) => range.from === null || r.day >= range.from)
+    return start ? Math.max(0, pick(end)! - pick(start)!) : 0
+  }
+  return { hoursTenths: one((r) => r.hoursTenths), km: one((r) => r.km) }
 }
 
 async function checkedBike(userId: string, bikeId: string | null | undefined) {
@@ -185,20 +190,29 @@ export async function costsOverview(userId: string, p: CostsParams, now = new Da
     .select()
     .from(meterReadings)
     .where(and(eq(meterReadings.userId, userId), bikeId ? eq(meterReadings.bikeId, bikeId) : undefined))
-    .orderBy(asc(meterReadings.at), asc(meterReadings.hoursTenths))
+    .orderBy(asc(meterReadings.at), sql`${meterReadings.hoursTenths} asc nulls last`)
   const perBike = userBikes.map((b) => {
     const delta = readingsDelta(
       rds.filter((r) => r.bikeId === b.id).map((r) => ({ day: r.at.toISOString().slice(0, 10), hoursTenths: r.hoursTenths, km: r.km })),
       range,
     )
     const cents = rows.filter((r) => r.bikeId === b.id).reduce((s, r) => s + r.amountCents, 0)
-    return { bikeId: b.id as string | null, name: b.name, cents, ...delta }
+    // Only the units the bike counts now (switched-off history stays stored, not summed).
+    return {
+      bikeId: b.id as string | null, name: b.name, meters: b.meters, cents,
+      hoursTenths: countsHours(b.meters) ? delta.hoursTenths : 0,
+      km: countsKm(b.meters) ? delta.km : 0,
+    }
   })
   const hoursTenths = perBike.reduce((s, b) => s + b.hoursTenths, 0)
   const km = perBike.reduce((s, b) => s + b.km, 0)
+  const anyHours = userBikes.some((b) => countsHours(b.meters))
+  const anyKm = userBikes.some((b) => countsKm(b.meters))
+  // Per-unit spend leaves out the bikes that don't count that unit (a street bike's costs aren't "per hour").
+  const centsNot = (counts: (m: BikeMeters) => boolean) => perBike.filter((b) => !counts(b.meters)).reduce((s, b) => s + b.cents, 0)
   const noBike = rows.filter((r) => r.bikeId === null).reduce((s, r) => s + r.amountCents, 0)
   const byBike = perBike.filter((b) => b.cents > 0 || b.hoursTenths > 0 || b.km > 0)
-  if (!bikeId && noBike > 0) byBike.push({ bikeId: null, name: 'No bike', cents: noBike, hoursTenths: 0, km: 0 })
+  if (!bikeId && noBike > 0) byBike.push({ bikeId: null, name: 'No bike', meters: 'hours_km', cents: noBike, hoursTenths: 0, km: 0 })
   byBike.sort((a, b) => b.cents - a.cents)
 
   const catMap = new Map<string, { categoryId: string; name: string; cents: number }>()
@@ -219,10 +233,12 @@ export async function costsOverview(userId: string, p: CostsParams, now = new Da
   return {
     totalCents,
     compare,
-    perHourCents: perUnitCents(totalCents, hoursTenths, true),
-    perKmCents: perUnitCents(totalCents, km, false),
+    perHourCents: perUnitCents(totalCents - centsNot(countsHours), hoursTenths, true),
+    perKmCents: perUnitCents(totalCents - centsNot(countsKm), km, false),
     hoursTenths,
     km,
+    countsHours: anyHours,
+    countsKm: anyKm,
     ...(byMonth ? { byMonth } : {}),
     byCategory: [...catMap.values()].sort((a, b) => b.cents - a.cents),
     byBike,

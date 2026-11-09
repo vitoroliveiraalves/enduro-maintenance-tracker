@@ -32,6 +32,10 @@ describe('stateText (right-hand text, driver unit)', () => {
 })
 
 describe('subline', () => {
+  it('no interval in a unit the bike counts: says so, never "(every )"', () => {
+    const r = { def: {}, last: null, status: { state: 'unknown', driver: null } }
+    expect(subline(r as never)).toBe('No interval for what this bike counts')
+  })
   const last = { at: '2026-09-12T00:00:00.000Z', by: 'diy' as const }
   it('hours driver with date', () => {
     const r = { def: { everyHoursTenths: 200 }, last, status: { state: 'overdue', driver: 'hours', effectiveHoursTenths: 205 } }

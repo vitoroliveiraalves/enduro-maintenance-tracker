@@ -1,9 +1,10 @@
 # Enduro Tracker
 
-A phone-first PWA for enduro riders: log rides (hours and km), see which maintenance
+A phone-first PWA for enduro (and street) riders: log rides, see which maintenance
 items are due, record services and costs, and read garage invoices (QR code first,
 an AI model only for the lines). Works offline: screens come from the last sync and
-writes wait in an outbox until the phone is back online.
+writes wait in an outbox until the phone is back online. Each bike counts hours & km,
+km only (street bikes) or hours only, and every screen asks for and shows just those.
 
 Nuxt 4 SPA (`ssr: false`) with a Nitro server, Postgres + drizzle, better-auth
 (email + password, open registration).

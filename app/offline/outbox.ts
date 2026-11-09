@@ -39,7 +39,7 @@ export function errorMessage(err: unknown, fallback: string, fallbackOnly = fals
   return e?.data?.statusMessage ?? e?.statusMessage ?? fallback
 }
 
-type ErrData = { error?: string; warn?: string; statusMessage?: string; last?: { hoursTenths: number; km: number } | null }
+type ErrData = { error?: string; warn?: string; statusMessage?: string; last?: { hoursTenths: number | null; km: number | null } | null }
 
 /** Why the server refused a queued write, in the words the forms use. */
 export function describeError(err: unknown): string {
@@ -47,11 +47,13 @@ export function describeError(err: unknown): string {
   const d = ((err as { data?: ErrData } | null)?.data ?? {}) as ErrData
   const last = d.last
   if (last) {
-    if (d.error === 'hours-decreased') return `Hours can't go down (last: ${formatHours(last.hoursTenths)})`
-    if (d.error === 'km-decreased') return `Km can't go down (last: ${formatKm(last.km)})`
-    if (d.error === 'hours-exceed-later') return `Hours can't be above a later reading (${formatHours(last.hoursTenths)})`
-    if (d.error === 'km-exceed-later') return `Km can't be above a later reading (${formatKm(last.km)})`
-    if (d.warn === 'big-jump') return `Big jump since the last reading (${formatHours(last.hoursTenths)}) — log it again to confirm`
+    const h = last.hoursTenths !== null ? formatHours(last.hoursTenths) : null
+    const k = last.km !== null ? formatKm(last.km) : null
+    if (d.error === 'hours-decreased' && h) return `Hours can't go down (last: ${h})`
+    if (d.error === 'km-decreased' && k) return `Km can't go down (last: ${k})`
+    if (d.error === 'hours-exceed-later' && h) return `Hours can't be above a later reading (${h})`
+    if (d.error === 'km-exceed-later' && k) return `Km can't be above a later reading (${k})`
+    if (d.warn === 'big-jump' && (h || k)) return `Big jump since the last reading (${h ?? k}) — log it again to confirm`
   }
   if (d.statusMessage) return d.statusMessage
   if (status === 404) return 'It no longer exists (deleted on another device?)'

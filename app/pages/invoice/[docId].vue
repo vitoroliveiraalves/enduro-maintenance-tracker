@@ -22,7 +22,7 @@ type Doc = {
 }
 type Category = { id: string; name: string; kind: string }
 type Item = { id: string; name: string }
-type Reading = { at: string; hoursTenths: number; km: number }
+type Reading = { at: string; hoursTenths: number | null; km: number | null }
 type Part = { id: string; name: string; unit: string; qtyHundredths: number; pending?: boolean }
 type Line = {
   key: number
@@ -78,6 +78,9 @@ const nif = ref('')
 const number = ref('')
 const at = ref(todayLocal())
 const bikeId = ref('')
+const bikeMeters = computed<BikeMeters>(() => bikes.value.find((b) => b.id === bikeId.value)?.meters ?? 'hours_km')
+const hasHours = computed(() => countsHours(bikeMeters.value))
+const hasKm = computed(() => countsKm(bikeMeters.value))
 const hoursText = ref('')
 const kmText = ref('')
 const metersTouched = ref(false)
@@ -175,8 +178,8 @@ function defaultMeters() {
     const t = new Date(r.at).getTime()
     if (t <= endOfDay && (!best || t > new Date(best.at).getTime())) best = r
   }
-  hoursText.value = best ? (best.hoursTenths / 10).toFixed(1) : ''
-  kmText.value = best ? String(best.km) : ''
+  hoursText.value = hasHours.value && best?.hoursTenths != null ? (best.hoursTenths / 10).toFixed(1) : ''
+  kmText.value = hasKm.value && best?.km != null ? String(best.km) : ''
 }
 
 watch(bikeId, loadBike)
@@ -287,8 +290,9 @@ async function confirm(force = false) {
     }
     out.push({ description: l.description.trim(), amountCents: cents, categoryId: l.categoryId, itemIds: l.shelf ? [] : l.itemIds, ...(shelf ? { shelf } : {}) })
   }
-  const h = hoursText.value.trim() ? parseDecimal(hoursText.value) : undefined
-  const k = kmText.value.trim() ? parseDecimal(kmText.value) : undefined
+  // Only the meters the chosen bike counts are sent.
+  const h = hasHours.value && hoursText.value.trim() ? parseDecimal(hoursText.value) : undefined
+  const k = hasKm.value && kmText.value.trim() ? parseDecimal(kmText.value) : undefined
   if (h === null || (h != null && h < 0)) return void (error.value = 'Enter the hours as a number, like 142,5.')
   if (k === null || (k != null && k < 0)) return void (error.value = 'Enter the km as a whole number.')
   busy.value = true
@@ -447,19 +451,19 @@ async function discard() {
                 <option v-for="b in bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
               </select>
             </label>
-            <div class="mt-3 grid grid-cols-2 gap-2.5">
-              <label :class="label">
+            <div class="mt-3 grid gap-2.5" :class="hasHours && hasKm ? 'grid-cols-2' : 'grid-cols-1'">
+              <label v-if="hasHours" :class="label">
                 Hours at the time
                 <input v-model="hoursText" inputmode="decimal" autocomplete="off" data-testid="inv-hours" :class="field" @input="metersTouched = true">
               </label>
-              <label :class="label">
+              <label v-if="hasKm" :class="label">
                 Km at the time
                 <input v-model="kmText" inputmode="numeric" autocomplete="off" data-testid="inv-km" :class="field" @input="metersTouched = true">
               </label>
             </div>
-            <p v-if="hoursText && !metersTouched" class="mt-1.5 text-xs text-muted" data-testid="meters-hint">From your last reading before {{ date(at) }}</p>
+            <p v-if="(hoursText || kmText) && !metersTouched" class="mt-1.5 text-xs text-muted" data-testid="meters-hint">From your last reading before {{ date(at) }}</p>
             <p v-else-if="!hoursText && !kmText && !metersTouched && readings.length" class="mt-1.5 text-xs text-muted" data-testid="meters-missing">
-              No reading on or before {{ date(at) }}: the hours will be taken from your next reading. Enter them if you know them.
+              No reading on or before {{ date(at) }}: the {{ hasHours ? 'hours' : 'km' }} will be taken from your next reading. Enter them if you know them.
             </p>
           </template>
         </section>

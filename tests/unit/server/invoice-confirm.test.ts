@@ -84,6 +84,22 @@ describe('confirmInvoice', () => {
     expect(await reload(doc.id)).toMatchObject({ status: 'confirmed', supplierName: 'Moto Garage Braga', issuedAt: day(3) })
   })
 
+  it('km bike: the invoice service stores hours null', async () => {
+    const kmBike = await createBike(uid, {
+      clientId: crypto.randomUUID(), name: 'Street', make: 'Honda', model: 'CB', year: 2020, stroke: '4T', meters: 'km', km: 9000,
+      items: [{ name: 'Chain', everyKm: 5000 }],
+    })
+    const [chain] = await itemRows(kmBike.id, uid)
+    const doc = await makeDoc()
+    const res = await confirmInvoice(doc, kmBike, body({
+      bikeId: kmBike.id, hoursTenths: 50, km: 8900,
+      lines: [{ description: 'Chain', amountCents: 5000, categoryId: cat.maintenance, itemIds: [chain!.id] }],
+    }))
+    expect(res.status).toBe(200)
+    const [svc] = await db.select().from(services).where(eq(services.documentId, doc.id))
+    expect(svc).toMatchObject({ hoursTenths: null, km: 8900 })
+  })
+
   it('the service links the union of every line’s items', async () => {
     const doc = await makeDoc()
     await confirmInvoice(doc, bike, body({

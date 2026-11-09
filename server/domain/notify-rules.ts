@@ -9,6 +9,8 @@ export type NotifyInput = {
   /** Open (not done) reminders; `dueOn` is the calendar day at 00:00 UTC. */
   reminders: Array<{ id: string; title: string; dueOn: Date }>
   lastReadingAt: Date | null
+  /** Which meters the rider's bikes count (any bike); absent → both. */
+  meters?: { hours: boolean; km: boolean }
   /** IANA zone of the subscription; unknown/empty → Europe/Lisbon. */
   timezone?: string | null
 }
@@ -61,6 +63,9 @@ export function isoWeek(day: string): string {
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 
 /** Everything that should be pushed right now; the caller dedupes by `key` via notificationsSent. */
+const meterWords = (m?: { hours: boolean; km: boolean }) =>
+  !m || (m.hours && m.km) ? 'hours and km' : m.hours ? 'hours' : 'km'
+
 export function notificationsDue(input: NotifyInput): DueNotification[] {
   const tz = validTimezone(input.timezone) ?? DEFAULT_TIMEZONE
   const local = localParts(input.now, tz)
@@ -89,7 +94,7 @@ export function notificationsDue(input: NotifyInput): DueNotification[] {
   if (local.weekday === 1 && local.hour >= 9 && input.lastReadingAt) {
     const friday = addDays(local.day, -3)
     if (localParts(input.lastReadingAt, tz).day < friday) {
-      out.push({ key: `nudge:${isoWeek(local.day)}`, title: 'Ride this weekend?', body: 'Update your hours and km so maintenance stays on track.', url: '/' })
+      out.push({ key: `nudge:${isoWeek(local.day)}`, title: 'Ride this weekend?', body: `Update your ${meterWords(input.meters)} so maintenance stays on track.`, url: '/' })
     }
   }
   return out

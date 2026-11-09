@@ -25,6 +25,7 @@ const form = reactive({
   model: '',
   year: String(new Date().getFullYear()),
   stroke: '2T' as '2T' | '4T',
+  meters: 'hours_km' as BikeMeters,
   hours: '',
   km: '',
 })
@@ -32,6 +33,10 @@ const drafts = ref<Draft[]>([])
 const error = ref('')
 const busy = ref(false)
 let seq = 0
+
+const hasHours = computed(() => countsHours(form.meters))
+const hasKm = computed(() => countsKm(form.meters))
+const metersNeeded = computed(() => (hasHours.value && hasKm.value ? 'hours and km' : hasHours.value ? 'hours' : 'km'))
 
 const tenthsToText = (t?: number) => (t ? String(t / 10) : '')
 function blank(over: Partial<Draft> = {}): Draft {
@@ -43,10 +48,12 @@ async function next() {
   if (!form.name.trim() || !form.make.trim() || !form.model.trim()) return void (error.value = 'Fill in name, make and model.')
   const year = parseDecimal(form.year)
   if (year === null || !Number.isInteger(year) || year < 1950 || year > 2100) return void (error.value = 'Enter a valid year.')
-  if (parseDecimal(form.hours) === null || parseDecimal(form.km) === null) return void (error.value = 'Enter the current hours and km.')
+  if ((hasHours.value && parseDecimal(form.hours) === null) || (hasKm.value && parseDecimal(form.km) === null)) {
+    return void (error.value = `Enter the current ${metersNeeded.value}.`)
+  }
   busy.value = true
   try {
-    const tpl = await get<Template[]>(`/api/templates/${form.stroke}`)
+    const tpl = await get<Template[]>(`/api/templates/${form.stroke}?meters=${form.meters}`)
     drafts.value = tpl.map((t) =>
       blank({
         name: t.name,
@@ -80,21 +87,23 @@ const clientId = crypto.randomUUID()
 async function save() {
   if (busy.value) return
   error.value = ''
-  const hoursTenths = Math.round(parseDecimal(form.hours)! * 10)
   const items = []
   for (const d of drafts.value) {
     const label = d.name || 'item'
-    const everyHoursTenths = optional(d.hours, `hours interval for ${label}`, 10)
-    const everyKm = optional(d.km, `km interval for ${label}`)
+    // Only the units the bike counts are sent (hidden fields never leak a stale value).
+    const everyHoursTenths = hasHours.value ? optional(d.hours, `hours interval for ${label}`, 10) : null
+    const everyKm = hasKm.value ? optional(d.km, `km interval for ${label}`) : null
     const everyMonths = optional(d.months, `months interval for ${label}`)
     if (everyHoursTenths === undefined || everyKm === undefined || everyMonths === undefined) return
     if (!d.name.trim()) return void (error.value = 'Every item needs a name.')
     if (!everyHoursTenths && !everyKm && !everyMonths) return void (error.value = `${d.name}: set at least one interval.`)
     let lastDone: { at?: string; hoursTenths?: number; km?: number } | undefined
     // Whatever was typed counts, even if the section was folded again afterwards.
-    if (d.lastHours.trim() || d.lastKm.trim() || d.lastAt.trim()) {
-      const lh = optional(d.lastHours, `last done hours for ${label}`, 10)
-      const lk = optional(d.lastKm, `last done km for ${label}`)
+    const lastHours = hasHours.value ? d.lastHours : ''
+    const lastKm = hasKm.value ? d.lastKm : ''
+    if (lastHours.trim() || lastKm.trim() || d.lastAt.trim()) {
+      const lh = optional(lastHours, `last done hours for ${label}`, 10)
+      const lk = optional(lastKm, `last done km for ${label}`)
       if (lh === undefined || lk === undefined) return
       // No date given → none sent: the server records "date unknown", never a made-up today.
       lastDone = { ...(d.lastAt ? { at: d.lastAt } : {}), ...(lh !== null ? { hoursTenths: lh } : {}), ...(lk !== null ? { km: lk } : {}) }
@@ -117,8 +126,9 @@ async function save() {
       model: form.model.trim(),
       year: Math.round(parseDecimal(form.year)!),
       stroke: form.stroke,
-      hoursTenths,
-      km: Math.round(parseDecimal(form.km)!),
+      meters: form.meters,
+      ...(hasHours.value ? { hoursTenths: Math.round(parseDecimal(form.hours)! * 10) } : {}),
+      ...(hasKm.value ? { km: Math.round(parseDecimal(form.km)!) } : {}),
       items,
     }, { queue: true })
     if (isQueued(bike)) return void (await navigateTo('/')) // shown in the garage as waiting to sync
@@ -163,10 +173,11 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
           </div>
         </fieldset>
       </div>
-      <div class="grid grid-cols-2 gap-3">
-        <label class="block"><span class="text-sm text-muted">Current hours</span>
+      <MetersChoice v-model="form.meters" />
+      <div class="grid gap-3" :class="hasHours && hasKm ? 'grid-cols-2' : 'grid-cols-1'">
+        <label v-if="hasHours" class="block"><span class="text-sm text-muted">Current hours</span>
           <input v-model="form.hours" inputmode="decimal" placeholder="e.g. 142,5" :class="field"></label>
-        <label class="block"><span class="text-sm text-muted">Current km</span>
+        <label v-if="hasKm" class="block"><span class="text-sm text-muted">Current km</span>
           <input v-model="form.km" inputmode="decimal" placeholder="e.g. 3812" :class="field"></label>
       </div>
       <p v-if="error" role="alert" class="text-sm text-danger">{{ error }}</p>
@@ -181,18 +192,18 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
             <input v-model="d.name" aria-label="Item name" class="min-w-0 flex-1 rounded-lg border border-white/10 bg-bg px-2 py-2 font-semibold text-white outline-none focus:border-accent">
             <button type="button" class="size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" :aria-label="`Remove ${d.name}`" @click="drafts = drafts.filter((x) => x.key !== d.key)">×</button>
           </div>
-          <div class="mt-2 grid grid-cols-3 gap-2 text-xs text-muted">
-            <label>Every … hours<input v-model="d.hours" inputmode="decimal" :aria-label="`${d.name} every hours`" :class="small"></label>
-            <label>… or km<input v-model="d.km" inputmode="numeric" :aria-label="`${d.name} every km`" :class="small"></label>
+          <div class="mt-2 grid gap-2 text-xs text-muted" :class="hasHours && hasKm ? 'grid-cols-3' : 'grid-cols-2'">
+            <label v-if="hasHours">Every … hours<input v-model="d.hours" inputmode="decimal" :aria-label="`${d.name} every hours`" :class="small"></label>
+            <label v-if="hasKm">{{ hasHours ? '… or km' : 'Every … km' }}<input v-model="d.km" inputmode="numeric" :aria-label="`${d.name} every km`" :class="small"></label>
             <label>… or months<input v-model="d.months" inputmode="numeric" :aria-label="`${d.name} every months`" :class="small"></label>
           </div>
           <details class="mt-2">
             <summary class="cursor-pointer text-sm text-accent">Last done at</summary>
             <div class="mt-2 grid gap-2 text-xs text-muted">
               <label>Date <span class="normal-case">(leave empty if you don't know)</span><input v-model="d.lastAt" type="date" :aria-label="`${d.name} last done date`" :class="small"></label>
-              <div class="grid grid-cols-2 gap-2">
-                <label>Hours<input v-model="d.lastHours" inputmode="decimal" :aria-label="`${d.name} last done hours`" :class="small"></label>
-                <label>Km<input v-model="d.lastKm" inputmode="numeric" :aria-label="`${d.name} last done km`" :class="small"></label>
+              <div class="grid gap-2" :class="hasHours && hasKm ? 'grid-cols-2' : 'grid-cols-1'">
+                <label v-if="hasHours">Hours<input v-model="d.lastHours" inputmode="decimal" :aria-label="`${d.name} last done hours`" :class="small"></label>
+                <label v-if="hasKm">Km<input v-model="d.lastKm" inputmode="numeric" :aria-label="`${d.name} last done km`" :class="small"></label>
               </div>
             </div>
           </details>

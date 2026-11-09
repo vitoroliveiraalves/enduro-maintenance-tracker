@@ -1,3 +1,4 @@
+import { countsHours, countsKm } from '../../shared/utils/meters'
 import { and, eq, inArray, isNull, max } from 'drizzle-orm'
 import webpush from 'web-push'
 import { db } from '../db/client'
@@ -83,6 +84,7 @@ async function inputFor(userId: string, now: Date): Promise<Omit<NotifyInput, 't
     items,
     reminders: open.map((r) => ({ id: r.id, title: r.title, dueOn: new Date(`${r.dueOn}T00:00:00Z`) })),
     lastReadingAt: last?.at ?? null,
+    meters: { hours: list.some((b) => countsHours(b.meters)), km: list.some((b) => countsKm(b.meters)) },
   }
 }
 
