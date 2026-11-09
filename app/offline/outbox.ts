@@ -1,4 +1,4 @@
-import { formatHours, formatKm, formatMoney } from '~/lib/format'
+import { formatHours, formatKm, formatMoney, formatQty } from '~/lib/format'
 import { getDb, notifyOutbox, type OutboxRow } from './db'
 
 export const OFFLINE_MESSAGE = "You're offline — try again when you're back online."
@@ -79,6 +79,13 @@ export function labelFor(url: string, method: string, body: Record<string, unkno
     if (path.endsWith('/done')) return 'Reminder done'
     return `Reminder · ${s(body.title)}`
   }
+  if (path === '/api/parts') return `New part · ${s(body.name)}`
+  if (path.endsWith('/movements')) {
+    const q = n(body.qtyHundredths)
+    return `Shelf count${q !== null ? ` · ${formatQty(q)}` : ''}`
+  }
+  if (path.startsWith('/api/parts/')) return 'Part changes'
+  if (path.startsWith('/api/shopping')) return 'To buy change'
   if (path === '/api/bikes') return `New bike · ${s(body.name)}`
   if (path.startsWith('/api/bikes/')) return 'Bike changes'
   if (path === '/api/items') return `New item · ${s(body.name)}`

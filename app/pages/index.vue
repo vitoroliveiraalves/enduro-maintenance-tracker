@@ -66,9 +66,14 @@ watch(syncTick, load)
       </li>
     </ul>
 
+    <NuxtLink to="/shelf" class="mt-5 flex min-h-14 items-center justify-between rounded-xl bg-surface px-4 py-3" data-testid="garage-shelf">
+      <span class="font-semibold text-white">Shelf</span>
+      <span class="text-sm text-muted">Spare parts and what to buy ›</span>
+    </NuxtLink>
+
     <NuxtLink
       to="/bikes/new"
-      class="mt-5 block rounded-xl bg-accent py-3 text-center font-bold text-black"
+      class="mt-3 block rounded-xl bg-accent py-3 text-center font-bold text-black"
       data-testid="add-bike"
     >
       + Add bike

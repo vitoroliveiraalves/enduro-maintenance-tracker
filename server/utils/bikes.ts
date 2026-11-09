@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
-import { bikes, maintenanceItems, meterReadings, serviceItems, services } from '../db/schema'
+import { bikes, maintenanceItems, meterReadings, partItems, parts, serviceItems, services } from '../db/schema'
 import type { Bike, ConditionMultipliers, MaintenanceItem } from '../db/schema'
 import { computeStatus, pickLastDone, sortByUrgency } from '../domain/maintenance-status'
 import type { ItemDef, Reading } from '../domain/maintenance-status'
@@ -212,6 +212,17 @@ export async function itemRows(bikeId: string, userId: string, now = new Date())
     await db.select().from(meterReadings).where(and(eq(meterReadings.bikeId, bikeId), eq(meterReadings.userId, userId)))
   ).map((r) => ({ at: r.at, hoursTenths: r.hoursTenths, km: r.km, condition: r.condition }))
 
+  const links = await db
+    .select({ itemId: partItems.itemId, qty: parts.qtyHundredths })
+    .from(partItems)
+    .innerJoin(parts, eq(partItems.partId, parts.id))
+    .innerJoin(maintenanceItems, eq(partItems.itemId, maintenanceItems.id))
+    .where(and(eq(parts.userId, userId), eq(maintenanceItems.bikeId, bikeId), eq(maintenanceItems.userId, userId)))
+  const stockOf = (itemId: string): ItemRow['stock'] => {
+    const mine = links.filter((l) => l.itemId === itemId)
+    return !mine.length ? null : mine.some((l) => l.qty <= 0) ? 'none' : 'in'
+  }
+
   const rows = items.map((item): ItemRow => {
     const list = svcRows
       .filter((x) => x.itemId === item.id)
@@ -228,7 +239,7 @@ export async function itemRows(bikeId: string, userId: string, now = new Date())
     const src = picked && list.find((s) => s.at.getTime() === picked.at.getTime() && s.hoursTenths === picked.hoursTenths && s.km === picked.km)
     const last = picked && src ? { ...picked, serviceId: src.id, by: src.by, ...(src.garageName ? { garageName: src.garageName } : {}) } : null
     const def = defOf(item)
-    return { id: item.id, name: item.name, def, last, status: computeStatus(def, picked, readings, now) }
+    return { id: item.id, name: item.name, def, last, status: computeStatus(def, picked, readings, now), stock: stockOf(item.id) }
   })
   return sortByUrgency(rows)
 }

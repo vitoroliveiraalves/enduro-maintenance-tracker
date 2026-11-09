@@ -8,7 +8,8 @@ export type MutateOpts = {
   /**
    * Opt in to the offline outbox: offline (or on a network error / 5xx) the
    * write is queued and replayed later with the same clientId. Only for
-   * readings, services, expenses, reminders and bike/item create/patch.
+   * readings, services, expenses, reminders, bike/item create/patch,
+   * shelf parts (create, patch, count movements) and shopping entries (create, patch).
    * Default: online-only, throws OfflineError without a connection.
    */
   queue?: boolean

@@ -49,3 +49,12 @@ export function formatWeekdayDay(value: Date | string): string {
   const d = typeof value === 'string' ? new Date(value) : value
   return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`
 }
+
+/** Hundredths of a unit -> "2", "1.5 L", "−1" ('pcs' shows no unit). */
+export function formatQty(hundredths: number, unit = 'pcs'): string {
+  const abs = Math.abs(Math.round(hundredths))
+  const whole = groupThousands(String(Math.floor(abs / 100)), THIN_SPACE)
+  const frac = String(abs % 100).padStart(2, '0').replace(/0+$/, '')
+  const n = `${hundredths < 0 && abs > 0 ? '−' : ''}${whole}${frac ? `.${frac}` : ''}`
+  return unit && unit !== 'pcs' ? `${n} ${unit}` : n
+}

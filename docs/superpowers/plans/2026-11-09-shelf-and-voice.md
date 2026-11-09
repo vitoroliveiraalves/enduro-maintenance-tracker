@@ -192,7 +192,7 @@
 **Interfaces:**
 - Produces: a script that reads `NUXT_OPENROUTER_API_KEY` and optional `NUXT_VOICE_MODEL` from the process environment (never a file it opens itself), sends (1) a transcription request with the WAV as `input_audio` `{ data: base64, format: 'wav' }` and (2) a text request with one dummy tool, and prints PASS/FAIL per step with the transcript. The implementer does not run it with a key; the controller asks the rider to run `! node --env-file=.env scripts/voice-spike.mjs` and records the output here:
 
-> Spike result: _(filled in by the controller)_. If FAIL, Task 11 sets the default `NUXT_VOICE_MODEL` to a model that passes.
+> Spike result (2026-11-09, rider's key): `google/gemini-3.1-flash-lite` PASSES both. WAV transcription 1.6 s → "Trocar e o óleo e o filtro da KTM às 143 horas." (synthetic voice; "troquei" heard as "trocar e", so prompts must not depend on exact verb forms); tool call 0.8 s → `item_status({"bikeName":"KTM"})`. No separate default voice model needed: `NUXT_VOICE_MODEL` stays optional, defaulting to `NUXT_OPENROUTER_MODEL`. Task 9 is done (commit 5ef5dd4).
 
 - [ ] **Step 1:** Create fixtures and script; `node scripts/voice-spike.mjs` without a key prints "NUXT_OPENROUTER_API_KEY not set" and exits 1.
 - [ ] **Step 2: Commit** `chore(voice): model spike script and fixtures`.

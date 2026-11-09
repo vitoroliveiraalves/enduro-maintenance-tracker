@@ -16,7 +16,7 @@ Nuxt 4 SPA (`ssr: false`) PWA for enduro bike maintenance and costs. Postgres + 
 Loop fix and rerun until all pass; if one is N/A, say why in the commit body.
 
 ## Code rules
-- **API calls from UI code go through `useApi()`** (`app/composables/useApi.ts`): `get(url)` (network first, cached screens fall back to the last synced copy after 4 s) and `mutate(url, body, opts)`. Never `$fetch` from pages/components. Writes are online-only by default; queueing in the offline outbox is opt-in with `{ queue: true }`, and only for readings, services, expenses, reminders and bike/item create/patch.
+- **API calls from UI code go through `useApi()`** (`app/composables/useApi.ts`): `get(url)` (network first, cached screens fall back to the last synced copy after 4 s) and `mutate(url, body, opts)`. Never `$fetch` from pages/components. Writes are online-only by default; queueing in the offline outbox is opt-in with `{ queue: true }`, and only for readings, services, expenses, reminders, bike/item create/patch, shelf parts (create, patch, movements) and shopping entries (create, patch).
 - **Server input validation uses `server/utils/validate.ts`** (`day`, `timestamp`, `uuid`, `int` and their `is*` forms). Bad input is a 400 (bad id in the path: 404), never a 500; `tests/e2e/bad-input.spec.ts` covers every route — add new routes to it.
 - **Env**: every variable is listed with a comment in `.env.example` (placeholders only). Never read or create a real `.env`. Deploy notes in `README.md`.
 

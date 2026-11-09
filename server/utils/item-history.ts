@@ -3,6 +3,7 @@ import { createError } from 'h3'
 import { db } from '../db/client'
 import { expenses, maintenanceItems, serviceItems, services } from '../db/schema'
 import { itemRows } from './bikes'
+import { partsUsedBy } from './services'
 import { isUuid } from './validate'
 
 /** One item's status plus every service that reset it, highest hours first. `userId` scopes everything. */
@@ -29,6 +30,7 @@ export async function itemHistory(itemId: string, userId: string) {
         .where(and(eq(expenses.userId, userId), inArray(expenses.serviceId, ids)))
         .groupBy(expenses.serviceId)
     : []
+  const used = await partsUsedBy(userId, ids)
   return {
     item: { ...row, bikeId: found.bikeId },
     status: row.status,
@@ -42,6 +44,7 @@ export async function itemHistory(itemId: string, userId: string) {
       garageName: s.garageName,
       costCents: totals.find((t) => t.serviceId === s.id)?.total ?? 0,
       documentId: s.documentId,
+      partsUsed: used.get(s.id) ?? [],
     })),
   }
 }

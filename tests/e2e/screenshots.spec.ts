@@ -32,6 +32,24 @@ test('invoice review', async ({ page }) => {
   await page.screenshot({ path: 'tests/e2e/__screenshots__/invoice-review.png' })
 })
 
+test('invoice review with a shelf line', async ({ page }) => {
+  await signUpFresh(page)
+  const bike = await page.request.post('/api/bikes', { data: bikeBody("KTM 300 EXC '23", [{ name: 'Wheel bearings', everyHoursTenths: 500, everyMonths: 12 }]) })
+  if (!bike.ok()) throw new Error('seed failed')
+  const part = await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name: 'Rolamentos 6004', qtyHundredths: 200, startClientId: crypto.randomUUID() } })
+  if (!part.ok()) throw new Error('seed failed')
+  await page.goto('/invoice')
+  await page.getByTestId('file-input').setInputFiles('tests/e2e/fixtures/invoice-garage.jpg')
+  await page.waitForURL(/\/invoice\/[0-9a-f-]{36}/, { timeout: 30_000 })
+  const line = page.getByTestId('inv-line').nth(2)
+  await line.waitFor({ timeout: 15_000 })
+  await line.getByTestId('line-shelf').click()
+  await line.getByTestId('line-shelf-pick').fill('rolam')
+  await line.getByTestId('line-shelf-option').waitFor()
+  await line.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/invoice-shelf-line.png' })
+})
+
 test('settings', async ({ page }) => {
   // Headless Chromium reports notifications as 'denied' and has no SW here: show a fresh phone's state.
   await page.addInitScript(() => {
@@ -149,4 +167,80 @@ test('install popup (Chrome/Android)', async ({ page }) => {
   })
   await page.getByTestId('install-popup').waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/install-popup-android.png' })
+})
+
+test('shelf and part sheet', async ({ page }) => {
+  await signUpFresh(page)
+  const bike = await page.request.post('/api/bikes', { data: bikeBody("KTM 300 EXC '23", [{ name: 'Gearbox oil', everyHoursTenths: 150 }, { name: 'Air filter clean', everyHoursTenths: 50 }]) })
+  if (!bike.ok()) throw new Error('seed failed')
+  const bikeId = ((await bike.json()) as { id: string }).id
+  const mk = async (name: string, qty: number, extra: object = {}) => {
+    const r = await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name, qtyHundredths: qty, startClientId: crypto.randomUUID(), ...extra } })
+    if (!r.ok()) throw new Error('seed failed')
+  }
+  await mk('Junta escape', 200, { bikeId, minHundredths: 100 })
+  await mk('Vela NGK BR8ES', 100, { bikeId, minHundredths: 300 })
+  await mk('Óleo motor', 150, { unit: 'L' })
+  await mk('Cabo de embraiagem', 0, { bikeId })
+  await page.goto('/shelf')
+  await page.getByTestId('part-row').nth(3).waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/shelf.png' })
+  await page.getByTestId('part-row').filter({ hasText: 'Vela' }).click()
+  await page.getByTestId('part-minus').click()
+  await page.getByTestId('part-plus').click()
+  await page.getByTestId('part-item').first().waitFor()
+  await page.getByTestId('part-history').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/part-sheet.png' })
+})
+
+test('mark done with parts and the bike stock mark', async ({ page }) => {
+  await signUpFresh(page)
+  const day = new Date().toISOString().slice(0, 10)
+  const bike = (await (await page.request.post('/api/bikes', {
+    data: bikeBody("KTM 300 EXC '23", [
+      { name: 'Engine oil', everyHoursTenths: 200, lastDone: { at: day, hoursTenths: 1250, km: 3000 } },
+      { name: 'Air filter clean', everyHoursTenths: 50, lastDone: { at: day, hoursTenths: 1400, km: 3700 } },
+      { name: 'Chain & sprockets', everyKm: 1500, lastDone: { at: day, hoursTenths: 1100, km: 2900 } },
+    ]),
+  })).json()) as { id: string }
+  const detail = (await (await page.request.get(`/api/bikes/${bike.id}`)).json()) as { items: Array<{ id: string; name: string }> }
+  const idOf = (n: string) => detail.items.find((i) => i.name === n)!.id
+  const mk = async (name: string, qty: number, extra: object = {}) => {
+    const r = await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name, qtyHundredths: qty, startClientId: crypto.randomUUID(), bikeId: bike.id, ...extra } })
+    if (!r.ok()) throw new Error('seed failed')
+  }
+  await mk('Oil filter', 100, { itemIds: [idOf('Engine oil')] })
+  await mk('Air filter', 0, { itemIds: [idOf('Air filter clean')] })
+  await mk('Motorex 10W-50', 150, { unit: 'L' })
+  await page.goto(`/bikes/${bike.id}`)
+  await page.getByTestId('item-stock').first().waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/bike-stock.png' })
+  await page.getByTestId('item-row').filter({ hasText: 'Engine oil' }).click()
+  await page.getByTestId('mark-done').click()
+  await page.getByTestId('parts-used-row').first().waitFor()
+  await page.getByTestId('parts-add-open').click()
+  await page.getByTestId('parts-add').fill('motorex')
+  await page.getByTestId('parts-add-option').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/mark-done-parts.png' })
+})
+
+test('shopping list', async ({ page }) => {
+  await signUpFresh(page)
+  const bike = await page.request.post('/api/bikes', { data: bikeBody("KTM 300 EXC '23", [{ name: 'Gearbox oil', everyHoursTenths: 150 }, { name: 'Wheel bearings', everyHoursTenths: 500 }]) })
+  if (!bike.ok()) throw new Error('seed failed')
+  const { id } = (await bike.json()) as { id: string }
+  const detail = (await (await page.request.get(`/api/bikes/${id}`)).json()) as { items: Array<{ id: string; name: string }> }
+  const mk = (name: string, extra: object) => page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name, startClientId: crypto.randomUUID(), ...extra } })
+  await mk('Two-stroke oil', { unit: 'L', qtyHundredths: 150, minHundredths: 200, bikeId: id })
+  await mk('Spark plug NGK', { qtyHundredths: 100, minHundredths: 200, bikeId: id })
+  await mk('Rolamentos 6004', { qtyHundredths: 0, bikeId: id, itemIds: [detail.items[1]!.id] })
+  const entry = (text: string, extra: object = {}) => page.request.post('/api/shopping', { data: { clientId: crypto.randomUUID(), text, ...extra } })
+  await entry('Chain lube', { bikeId: id })
+  await entry('Zip ties')
+  const done = (await (await entry('Brake fluid DOT 4')).json()) as { id: string }
+  await page.request.patch(`/api/shopping/${done.id}`, { data: { done: true } })
+  await page.goto('/shelf')
+  await page.getByTestId('shelf-tab-buy').click()
+  await page.getByTestId('buy-manual').nth(2).waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/shopping.png' })
 })

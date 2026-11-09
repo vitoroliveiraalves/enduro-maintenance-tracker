@@ -51,7 +51,7 @@ export async function requestFlush(force = false) {
   if (res.sent) {
     // Refresh the cached views the replayed writes touched, then let screens reload.
     const { get } = useApi()
-    await Promise.all([get('/api/bikes'), ...res.bikeIds.map((id) => get(`/api/bikes/${id}`))].map((p) => p.catch(() => null)))
+    await Promise.all([get('/api/bikes'), get('/api/parts'), ...res.bikeIds.map((id) => get(`/api/bikes/${id}`))].map((p) => p.catch(() => null)))
     syncTick.value++
   }
   if (res.retryAt) {
@@ -79,7 +79,7 @@ export async function warmCacheOnce() {
   } catch {
     // no storage
   }
-  const urls = ['/api/bikes', '/api/categories', '/api/services', '/api/expenses', `/api/costs?${new URLSearchParams({ period: 'month', date: today })}`]
+  const urls = ['/api/bikes', '/api/categories', '/api/services', '/api/expenses', '/api/parts', '/api/shopping', `/api/costs?${new URLSearchParams({ period: 'month', date: today })}`]
   if (lastBike) urls.push(`/api/bikes/${lastBike}`)
   await Promise.all(urls.map((u) => get(u).catch(() => null)))
 }
