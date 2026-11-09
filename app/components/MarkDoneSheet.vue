@@ -141,7 +141,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <div class="mt-3 flex gap-2.5">
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Cost (optional)
-          <input v-model="costText" inputmode="decimal" autocomplete="off" placeholder="24,90" data-testid="md-cost" :class="field">
+          <input v-model="costText" inputmode="decimal" autocomplete="off" placeholder="e.g. 24,90" data-testid="md-cost" :class="field">
         </label>
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Category

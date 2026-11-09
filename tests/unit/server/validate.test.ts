@@ -25,8 +25,9 @@ describe('validate', () => {
 
   it('timestamp: parseable, same year bounds', () => {
     expect(isTimestamp('2026-11-08T10:00:00.000Z')).toBe(true)
+    expect(isTimestamp('2026-03-01T00:30:00+02:00')).toBe(true)
     expect(timestamp('2026-11-08T10:00:00Z').toISOString()).toBe('2026-11-08T10:00:00.000Z')
-    for (const bad of ['0000-01-01T00:00:00Z', '+275760-09-13T00:00:00Z', 'yesterday', '2026-13-45T00:00:00Z', 123]) {
+    for (const bad of ['0000-01-01T00:00:00Z', '+275760-09-13T00:00:00Z', 'yesterday', '2026-13-45T00:00:00Z', '2026-02-30T10:00:00Z', '2026-04-31', 123]) {
       expect(isTimestamp(bad), String(bad)).toBe(false)
     }
     expect(status(() => timestamp('0000-01-01'))).toBe(400)

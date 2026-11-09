@@ -43,7 +43,7 @@ const UPGRADE = /protec|carter|bash\s*plate|skid\s*plate|handguard|guarda.?maos|
 export function defaultCategory(kind: LineKind, description: string): CategoryKind {
   if (kind === 'tyre') return 'tyres'
   if (kind === 'labour') return 'labour'
-  if (kind === 'fluid') return 'maintenance'
+  if (kind === 'fluid') return 'oil'
   if (kind === 'part') return UPGRADE.test(norm(description)) ? 'upgrades' : 'maintenance'
   return 'other'
 }

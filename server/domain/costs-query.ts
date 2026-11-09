@@ -54,8 +54,12 @@ export function compareRanges(date: string, now = new Date()): { current: Range;
 export const comparePct = (current: number, previous: number): number | null =>
   previous === 0 ? null : Math.round(((current - previous) / previous) * 100)
 
+/** Below this much riding a per-hour/per-km figure is noise (2.5 h → "485 €/h"), so none is shown. */
+export const MIN_HOURS_TENTHS = 100
+export const MIN_KM = 100
+
 export const perUnitCents = (totalCents: number, tenthsOrKm: number, tenths: boolean): number | null =>
-  tenthsOrKm === 0 ? null : Math.round(totalCents / (tenths ? tenthsOrKm / 10 : tenthsOrKm))
+  tenthsOrKm < (tenths ? MIN_HOURS_TENTHS : MIN_KM) ? null : Math.round(totalCents / (tenths ? tenthsOrKm / 10 : tenthsOrKm))
 
 type Rd = { day: string; hoursTenths: number; km: number }
 

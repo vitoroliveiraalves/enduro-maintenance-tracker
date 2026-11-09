@@ -8,10 +8,10 @@ const hoursShort = (tenths: number): string => `${Number((tenths / 10).toFixed(1
 const plural = (n: number, unit: string): string => `${n} ${unit}${n === 1 ? '' : 's'}`
 const DAYS_PER_MONTH = 30.4375
 
-/** Right-hand row text in the driver's unit: "overdue 0.5h", "220 km left", "3 months left", "Set last done". */
+/** Right-hand row text in the driver's unit: "overdue 0.5h", "220 km left", "3 months left", "Unknown". */
 export function stateText(row: RowLike): string {
   const { state, driver, remaining } = row.status
-  if (state === 'unknown') return 'Set last done'
+  if (state === 'unknown') return 'Unknown'
   const overdue = state === 'overdue'
   const left = driver === 'hours' ? remaining.hoursTenths : driver === 'km' ? remaining.km : remaining.days
   if (overdue && !left) return 'due now'
@@ -26,7 +26,7 @@ export function stateText(row: RowLike): string {
 
 type SubRow = Pick<ItemRowJson, 'status' | 'def' | 'last'>
 
-/** Second line: "20.5h since change (every 20h) · 12 Sep · garage". */
+/** Second line: "20.5h since last done (every 20h) · 12 Sep · garage". */
 export function subline(row: SubRow): string {
   const { def, status, last } = row
   const every: Record<'hours' | 'km' | 'months', string | null> = {
@@ -39,14 +39,17 @@ export function subline(row: SubRow): string {
   const list = [lead, ...order.filter((u) => u !== lead)].filter((u): u is 'hours' | 'km' | 'months' => !!u)
   const intervals = list.map((u) => every[u]).join(' or ')
   if (status.state === 'unknown' || !status.driver) return `Not logged yet (every ${intervals})`
+  // Plain hours ridden first; multiplied (mud/sand/race) hours only when they differ.
+  const plain = status.sinceHoursTenths ?? status.effectiveHoursTenths ?? 0
+  const counted = status.effectiveHoursTenths ?? plain
   const since =
     status.driver === 'hours'
-      ? hoursShort(status.effectiveHoursTenths ?? 0)
+      ? hoursShort(plain) + ' since last done' + (Math.round(counted) !== plain ? `, counts as ${hoursShort(Math.round(counted))} with conditions` : '')
       : status.driver === 'km'
-        ? formatKm(status.sinceKm ?? 0)
-        : `${Number((status.sinceMonths ?? 0).toFixed(1))} months`
-  let out = `${since} since change (every ${intervals})`
-  if (last) out += ` · ${formatDayMonth(last.at)}`
+        ? `${formatKm(status.sinceKm ?? 0)} since last done`
+        : `${Number((status.sinceMonths ?? 0).toFixed(1))} months since last done`
+  let out = `${since} (every ${intervals})`
+  if (last) out += ` · ${last.dateUnknown ? 'date unknown' : formatDayMonth(last.at)}`
   if (last?.by === 'garage') out += ' · garage'
   return out
 }

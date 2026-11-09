@@ -52,7 +52,7 @@ describe('defaultCategory', () => {
   it('maps by kind', () => {
     expect(defaultCategory('tyre', 'Pneu')).toBe('tyres')
     expect(defaultCategory('labour', 'Mão de obra')).toBe('labour')
-    expect(defaultCategory('fluid', 'Óleo')).toBe('maintenance')
+    expect(defaultCategory('fluid', 'Óleo')).toBe('oil')
     expect(defaultCategory('part', 'Rolamentos roda traseira')).toBe('maintenance')
     expect(defaultCategory('other', 'Taxa ambiental')).toBe('other')
   })

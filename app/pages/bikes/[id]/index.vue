@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { parseDecimal } from '~/lib/parse-number'
 import { dueChips, type DueChip } from '~/lib/reminders'
+import { rideToast } from '~/lib/save-toast'
 import { errorMessage } from '~/offline/outbox'
 import type { ItemRowJson } from '../../../../server/domain/item-row'
 
 type Detail = {
   bike: { id: string; name: string; year: number }
-  latestReading: { at: string; hoursTenths: number; km: number; pending?: boolean } | null
+  latestReading: { id?: string; at: string; hoursTenths: number; km: number; pending?: boolean } | null
   items: Array<ItemRowJson & { pendingSync?: boolean }>
 }
 
@@ -42,9 +43,41 @@ onMounted(async () => {
 // A flush sent queued writes: show the server's view (status recomputed there).
 watch(syncTick, load)
 
+async function renameBike(name: string) {
+  await mutate(`/api/bikes/${id}`, { name }, { method: 'PATCH', queue: true })
+  await load()
+  toast.show(`Renamed to ${name}`)
+}
+async function removeBike() {
+  const name = data.value?.bike.name ?? 'Bike'
+  await mutate(`/api/bikes/${id}`, { archived: true }, { method: 'PATCH', queue: true })
+  store.setLast(null)
+  toast.show(`${name} removed from the garage`)
+  await navigateTo('/')
+}
+
+const toast = useToast()
 async function onSaved(detail: Record<string, unknown>) {
-  if (isQueued(detail)) await load() // cached detail + the queued reading on top
+  const before = data.value?.items ?? []
+  const queued = isQueued(detail)
+  if (queued) await load() // cached detail + the queued reading on top
   else data.value = detail as unknown as Detail
+  const r = data.value?.latestReading
+  if (!r) return
+  const text = rideToast(before, r, data.value?.items ?? [], queued)
+  // A typo is easy to take back while the toast is up (online only: the server checks it's still the latest).
+  if (queued || r.pending || !r.id) return toast.show(text)
+  const readingId = r.id
+  toast.show(text, { action: { label: 'Undo', run: () => undoReading(readingId) } })
+}
+
+async function undoReading(readingId: string) {
+  try {
+    data.value = await mutate<Detail>(`/api/bikes/${id}/latest-reading`, { readingId }, { method: 'DELETE' })
+    toast.show('Reading undone')
+  } catch (e) {
+    toast.show(errorMessage(e, "Couldn't undo the reading. Try again."))
+  }
 }
 
 const lastRide = computed(() => {
@@ -98,7 +131,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
     <p v-if="error" role="alert" class="text-danger">{{ error }}</p>
     <div class="flex items-center justify-between text-[13px] text-muted">
       <NuxtLink to="/" class="-m-2 p-2">‹ Garage</NuxtLink>
-      <NuxtLink to="/settings" class="-m-2 p-2 text-base" aria-label="Settings" data-testid="settings-link">⚙︎</NuxtLink>
+      <NuxtLink to="/settings" class="-m-2 flex size-11 items-center justify-center text-lg" aria-label="Settings" data-testid="settings-link">⚙︎</NuxtLink>
     </div>
     <template v-if="data">
       <h1 class="mb-0.5 mt-1.5 text-xl font-bold text-white" data-testid="bike-name">{{ data.bike.name }}</h1>
@@ -128,7 +161,6 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       >
         + Log ride / update meters
       </button>
-      <InstallPrompt variant="banner" />
       <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" @saved="onSaved" />
 
       <template v-if="data.items.length">
@@ -162,6 +194,11 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           <button type="submit" :disabled="adding" class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111] disabled:opacity-60" data-testid="new-item-save">Add item</button>
         </form>
       </section>
+
+      <div class="mt-4"><InstallPrompt variant="banner" /></div>
+
+      <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted">Bike</h2>
+      <ManagePanel what="bike" :name="data.bike.name" remove-note="It leaves the garage; its services and costs stay in History and Costs." :rename="renameBike" :remove="removeBike" />
     </template>
   </main>
 </template>

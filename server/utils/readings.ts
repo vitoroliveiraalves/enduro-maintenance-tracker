@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, gt, lte } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, lte } from 'drizzle-orm'
 import { db } from '../db/client'
 import { meterReadings } from '../db/schema'
 import type { Bike } from '../db/schema'
 import { validateBeforeLater, validateReading } from '../domain/reading-validation'
-import { bikeDetail } from './bikes'
+import { bikeDetail, latestReading } from './bikes'
+import { createError } from 'h3'
 import { bad, int, timestamp, uuid } from './validate'
 
 const CONDITIONS = ['normal', 'mud', 'sand', 'dust', 'race'] as const
@@ -83,4 +84,22 @@ export async function listReadings(bike: Bike) {
     .from(meterReadings)
     .where(and(eq(meterReadings.bikeId, bike.id), eq(meterReadings.userId, bike.userId)))
     .orderBy(desc(meterReadings.at), desc(meterReadings.hoursTenths))
+}
+
+/**
+ * Undo a typo: delete the bike's latest reading, named by id so a replay (or a
+ * stale screen) never removes the one before it. The first reading stays: it
+ * is the bike's starting point. A reading already gone is a no-op.
+ */
+export async function undoLatestReading(bike: Bike, raw: unknown) {
+  const readingId = uuid((raw as { readingId?: unknown } | null)?.readingId, 'readingId')
+  const scope = and(eq(meterReadings.bikeId, bike.id), eq(meterReadings.userId, bike.userId))
+  const [target] = await db.select().from(meterReadings).where(and(scope, eq(meterReadings.id, readingId)))
+  if (!target) return bikeDetail(bike)
+  const latest = await latestReading(bike.id, bike.userId)
+  if (latest?.id !== target.id) throw createError({ statusCode: 409, statusMessage: 'Only the latest reading can be undone.' })
+  const [{ n } = { n: 0 }] = await db.select({ n: count() }).from(meterReadings).where(scope)
+  if (n <= 1) throw createError({ statusCode: 409, statusMessage: "The bike's first reading can't be undone." })
+  await db.delete(meterReadings).where(and(scope, eq(meterReadings.id, target.id)))
+  return bikeDetail(bike)
 }

@@ -17,7 +17,7 @@ test('rows follow urgency, show driver text, bars and open the item history', as
   const names = await rows.evaluateAll((els) => els.map((e) => e.querySelector('span')?.textContent))
   expect(names).toEqual(['Engine/gear oil', 'Chain & sprockets', 'Air filter clean', 'Piston & rings', 'Wheel bearings'])
   await expect(rows.nth(0).getByTestId('item-state')).toHaveText('overdue 0.5h')
-  await expect(rows.nth(0).getByTestId('item-subline')).toHaveText(/^20\.5h since change \(every 20h\) · \d{1,2} \w{3}$/)
+  await expect(rows.nth(0).getByTestId('item-subline')).toHaveText(/^20\.5h since last done \(every 20h\) · \d{1,2} \w{3}$/)
   await expect(rows.nth(1).getByTestId('item-state')).toHaveText(/^220.km left$/)
   await expect(rows.nth(2).getByTestId('item-state')).toHaveText('1h left')
   await expect(rows.nth(4).getByTestId('item-subline')).toHaveText(/\(every 50h or 12 months\) · \d{1,2} \w{3} · garage$/)
@@ -73,6 +73,17 @@ test('empty bike offers an inline add-item form', async ({ page }) => {
   const row = page.getByTestId('item-row')
   await expect(row).toHaveCount(1)
   await expect(row).toContainText('Fork oil')
-  await expect(row.getByTestId('item-state')).toHaveText('Set last done')
+  await expect(row.getByTestId('item-state')).toHaveText('Unknown')
   await expect(page.getByTestId('empty-items')).toHaveCount(0)
+})
+
+test('an item link under the wrong bike goes to the right one', async ({ page }) => {
+  await loginAs(page)
+  const a = await seedMockupBike(page.request, `Deep A ${Date.now()}`)
+  const b = await seedMockupBike(page.request, `Deep B ${Date.now()}`)
+  const detail = (await (await page.request.get(`/api/bikes/${b}`)).json()) as { items: Array<{ id: string; name: string }> }
+  const chain = detail.items.find((i) => i.name === 'Chain & sprockets')!
+  await page.goto(`/bikes/${a}/items/${chain.id}`)
+  await expect(page).toHaveURL(new RegExp(`/bikes/${b}/items/${chain.id}$`))
+  await expect(page.getByRole('heading', { name: 'Chain & sprockets' })).toBeVisible()
 })

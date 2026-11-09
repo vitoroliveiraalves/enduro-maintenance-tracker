@@ -35,6 +35,7 @@ export async function itemHistory(itemId: string, userId: string) {
     services: list.map(({ s }) => ({
       id: s.id,
       at: s.at,
+      atUnknown: s.atUnknown,
       hoursTenths: s.hoursTenths,
       km: s.km,
       by: s.by,

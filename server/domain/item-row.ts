@@ -17,6 +17,8 @@ export type ItemRowJson = Json<ItemRow>
 export type BikeSummary = {
   id: string
   name: string
+  make: string
+  model: string
   year: number
   latestReading: { at: string; hoursTenths: number; km: number } | null
   counts: { overdue: number; soon: number }

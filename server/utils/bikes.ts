@@ -13,7 +13,7 @@ export type ItemInput = {
   everyKm?: number | null
   everyMonths?: number | null
   conditionMultipliers?: ConditionMultipliers
-  lastDone?: { at: string; hoursTenths?: number | null; km?: number | null } | null
+  lastDone?: { at?: string | null; hoursTenths?: number | null; km?: number | null } | null
 }
 
 export type BikeInput = {
@@ -94,16 +94,23 @@ function intervals(o: Obj): Intervals {
   return r
 }
 
-type CleanItem = { name: string; conditionMultipliers: ConditionMultipliers; lastDone: { at: string; hoursTenths: number | null; km: number | null } | null } & Intervals
+type CleanItem = { name: string; conditionMultipliers: ConditionMultipliers; lastDone: { at: string; atUnknown: boolean; hoursTenths: number | null; km: number | null } | null } & Intervals
 
 function cleanItem(raw: unknown): CleanItem {
   if (!isObj(raw)) throw bad('Invalid item')
   let lastDone: CleanItem['lastDone'] = null
   if (raw.lastDone !== undefined && raw.lastDone !== null) {
     const l = raw.lastDone
-    if (!isObj(l) || typeof l.at !== 'string') throw bad('Invalid lastDone')
-    const at = cleanDate(l.at, 'lastDone')
-    lastDone = { at, hoursTenths: optInt(l.hoursTenths, 'lastDone hours'), km: optInt(l.km, 'lastDone km') }
+    if (!isObj(l)) throw bad('Invalid lastDone')
+    const hoursTenths = optInt(l.hoursTenths, 'lastDone hours')
+    const km = optInt(l.km, 'lastDone km')
+    if (l.at === undefined || l.at === null || l.at === '') {
+      // Meters known, date not: keep the set-up day as a placeholder, flagged, never shown as a date.
+      if (hoursTenths === null && km === null) throw bad('Invalid lastDone')
+      lastDone = { at: new Date().toISOString().slice(0, 10), atUnknown: true, hoursTenths, km }
+    } else {
+      lastDone = { at: cleanDate(l.at, 'lastDone'), atUnknown: false, hoursTenths, km }
+    }
   }
   return { name: str(raw.name, 'item name'), conditionMultipliers: multipliers(raw.conditionMultipliers), ...intervals(raw), lastDone }
 }
@@ -163,7 +170,7 @@ export async function createBike(userId: string, raw: unknown): Promise<Bike> {
       if (it.lastDone) {
         const [svc] = await tx
           .insert(services)
-          .values({ bikeId: bike.id, userId, at: it.lastDone.at, hoursTenths: it.lastDone.hoursTenths, km: it.lastDone.km, by: 'diy', notes: 'Initial' })
+          .values({ bikeId: bike.id, userId, at: it.lastDone.at, atUnknown: it.lastDone.atUnknown, hoursTenths: it.lastDone.hoursTenths, km: it.lastDone.km, by: 'diy', notes: 'Initial' })
           .returning({ id: services.id })
         await tx.insert(serviceItems).values({ serviceId: svc!.id, itemId: item!.id })
       }
@@ -211,12 +218,13 @@ export async function itemRows(bikeId: string, userId: string, now = new Date())
       .map(({ s }) => ({
         id: s.id,
         at: new Date(s.at),
+        ...(s.atUnknown ? { dateUnknown: true } : {}),
         ...(s.hoursTenths !== null ? { hoursTenths: s.hoursTenths } : {}),
         ...(s.km !== null ? { km: s.km } : {}),
         by: s.by,
         garageName: s.garageName ?? undefined,
       }))
-    const picked = pickLastDone(list)
+    const picked = pickLastDone(list, readings)
     const src = picked && list.find((s) => s.at.getTime() === picked.at.getTime() && s.hoursTenths === picked.hoursTenths && s.km === picked.km)
     const last = picked && src ? { ...picked, serviceId: src.id, by: src.by, ...(src.garageName ? { garageName: src.garageName } : {}) } : null
     const def = defOf(item)
@@ -241,6 +249,8 @@ export async function listBikes(userId: string): Promise<BikeSummary[]> {
       return {
         id: b.id,
         name: b.name,
+        make: b.make,
+        model: b.model,
         year: b.year,
         latestReading: rd ? { at: rd.at.toISOString(), hoursTenths: rd.hoursTenths, km: rd.km } : null,
         counts: {

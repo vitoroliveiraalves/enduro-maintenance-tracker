@@ -15,6 +15,20 @@
       "when": 1794162761424,
       "tag": "0001_push_timezone",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794212607212,
+      "tag": "0002_split_fuel_oil",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794212738247,
+      "tag": "0003_service_date_unknown",
+      "breakpoints": true
     }
   ]
 }

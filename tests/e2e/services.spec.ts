@@ -60,7 +60,7 @@ test('mark done with a comma cost, standalone expense, history, delete', async (
   await page.getByTestId('ex-save').click()
   await expect(page.getByTestId('expense-sheet')).toHaveCount(0)
   const fuel = page.getByTestId('history-expense').filter({ hasText: 'Fuel for the e2e' })
-  await expect(fuel).toContainText('Fuel & 2T oil')
+  await expect(fuel).toContainText('Fuel')
   await expect(fuel.getByTestId('history-amount')).toHaveText('41,60 €')
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'tests/e2e/__screenshots__/history.png' })
 

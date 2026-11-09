@@ -3,7 +3,7 @@ import { errorMessage } from '~/offline/outbox'
 
 type Bike = { id: string; name: string }
 type Svc = {
-  id: string; bikeId: string; bikeName: string; at: string; notes: string | null; hoursTenths: number | null; km: number | null
+  id: string; bikeId: string; bikeName: string; at: string; atUnknown?: boolean; notes: string | null; hoursTenths: number | null; km: number | null
   by: 'diy' | 'garage'; garageName: string | null; documentId: string | null; itemNames: string[]; totalCents: number
   pending?: boolean
 }
@@ -79,7 +79,7 @@ async function removeExpense(id: string) {
 <template>
   <main class="mx-auto max-w-md p-4 pb-24">
     <div class="flex items-center justify-between gap-2">
-      <h1 class="text-2xl font-bold text-accent">History</h1>
+      <h1 class="text-xl font-bold text-white">History</h1>
       <button type="button" class="rounded-full bg-accent px-4 py-2 text-sm font-bold text-black" data-testid="add-expense" @click="expenseOpen = true">+ Expense</button>
     </div>
     <label v-if="bikes.length > 1" class="mt-3 block text-[11px] uppercase tracking-wider text-muted">
@@ -100,9 +100,9 @@ async function removeExpense(id: string) {
             <span v-if="en.s.totalCents" class="shrink-0 font-bold text-white" data-testid="history-amount">{{ money(en.s.totalCents) }}</span>
           </div>
           <p class="mt-0.5 text-xs text-muted">
-            {{ date(en.s.at) }}<template v-if="en.s.hoursTenths !== null"> · {{ hours(en.s.hoursTenths) }}</template>
+            {{ en.s.atUnknown ? 'Date unknown' : date(en.s.at) }}<template v-if="en.s.hoursTenths !== null"> · {{ hours(en.s.hoursTenths) }}</template>
             · {{ en.s.bikeName }} · {{ en.s.by === 'garage' ? (en.s.garageName ? `Garage: ${en.s.garageName}` : 'Garage') : 'DIY' }}
-            <span v-if="en.s.notes === 'Initial'"> · set up</span>
+            <span v-if="en.s.notes === 'Initial'"> · from setup</span>
             <span v-if="en.s.documentId" title="Invoice attached" data-testid="history-invoice"> · 🧾</span>
           </p>
           <p v-if="en.s.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">Pending sync</p>
@@ -112,7 +112,7 @@ async function removeExpense(id: string) {
               <button type="button" class="ml-2 font-bold text-danger" data-testid="confirm-delete" @click="removeService(en.s.id)">Yes, delete</button>
               <button type="button" class="ml-3 text-muted" @click="confirmId = null">Keep</button>
             </template>
-            <button v-else type="button" class="text-muted" data-testid="delete-service" @click="confirmId = en.key">Delete</button>
+            <button v-else type="button" class="-my-2 min-h-11 px-2 text-muted" data-testid="delete-service" @click="confirmId = en.key">Delete</button>
           </div>
         </template>
         <template v-else>
@@ -130,7 +130,7 @@ async function removeExpense(id: string) {
               <button type="button" class="ml-2 font-bold text-danger" data-testid="confirm-delete" @click="removeExpense(en.e.id)">Yes, delete</button>
               <button type="button" class="ml-3 text-muted" @click="confirmId = null">Keep</button>
             </template>
-            <button v-else type="button" class="text-muted" data-testid="delete-expense" @click="confirmId = en.key">Delete</button>
+            <button v-else type="button" class="-my-2 min-h-11 px-2 text-muted" data-testid="delete-expense" @click="confirmId = en.key">Delete</button>
           </div>
         </template>
       </li>

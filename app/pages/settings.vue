@@ -39,6 +39,8 @@ function when(r: Reminder) {
 }
 
 const acting = ref(false)
+const askRemove = ref<string | null>(null) // reminder id waiting for "Remove?" confirmation
+const toast = useToast()
 async function act(r: Reminder, kind: 'done' | 'remove') {
   if (acting.value) return // a double tap must not mark a yearly reminder done twice
   acting.value = true
@@ -46,7 +48,10 @@ async function act(r: Reminder, kind: 'done' | 'remove') {
   try {
     if (kind === 'done') await mutate(`/api/reminders/${r.id}/done`, { dueOn: r.dueOn }, { queue: true })
     else await mutate(`/api/reminders/${r.id}`, {}, { method: 'DELETE', queue: true })
+    askRemove.value = null
     await loadReminders()
+    const next = reminders.value.find((x) => x.id === r.id)
+    toast.show(kind === 'remove' ? `${r.title} reminder removed` : next ? `${r.title} done · next due ${formatDate(next.dueOn)}` : `${r.title} done`)
   } catch (e) {
     remError.value = errorMessage(e, "Couldn't update the reminder. Try again.", true)
   } finally {
@@ -144,8 +149,15 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
         </div>
         <div class="mt-0.5 text-xs" :class="when(r).tone" data-testid="reminder-when">{{ when(r).text }}</div>
         <div v-if="!r.pending" class="mt-2 flex gap-2">
-          <button type="button" class="rounded-lg bg-bg px-3 py-1.5 text-[13px] font-semibold text-ok-text" data-testid="reminder-done" :disabled="acting" @click="act(r, 'done')">✓ Done</button>
-          <button type="button" class="rounded-lg px-3 py-1.5 text-[13px] text-muted" data-testid="reminder-remove" :disabled="acting" @click="act(r, 'remove')">Remove</button>
+          <template v-if="askRemove !== r.id">
+            <button type="button" class="min-h-11 rounded-lg bg-bg px-4 text-[13px] font-semibold text-ok-text" data-testid="reminder-done" :disabled="acting" @click="act(r, 'done')">✓ Done</button>
+            <button type="button" class="min-h-11 rounded-lg px-4 text-[13px] text-muted" data-testid="reminder-remove" :disabled="acting" @click="askRemove = r.id">Remove</button>
+          </template>
+          <template v-else>
+            <span class="self-center text-[13px] text-text">Remove {{ r.title }}?</span>
+            <button type="button" class="min-h-11 rounded-lg bg-danger px-4 text-[13px] font-bold text-[#111]" data-testid="reminder-remove-confirm" :disabled="acting" @click="act(r, 'remove')">Remove</button>
+            <button type="button" class="min-h-11 rounded-lg px-4 text-[13px] text-muted" @click="askRemove = null">Keep</button>
+          </template>
         </div>
       </div>
       <p v-if="remError" role="alert" class="mt-2 text-sm text-danger">{{ remError }}</p>

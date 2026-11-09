@@ -103,6 +103,56 @@ describe('computeStatus', () => {
   })
 })
 
+describe('computeStatus with an unknown last-done date', () => {
+  it('judges hours from the given meter but ignores months (no made-up date)', () => {
+    const def: ItemDef = { everyHoursTenths: 200, everyMonths: 12, conditionMultipliers: {} }
+    // Set up today with "last done at 139.0 h", date unknown; bike at 142.5 h.
+    const s = computeStatus(def, { at: d('2026-11-08T00:00:00Z'), hoursTenths: 1390, dateUnknown: true }, [r('2026-11-08T09:00:00Z', 1425)], now)
+    expect(s.sinceHoursTenths).toBe(35)
+    expect(s.driver).toBe('hours')
+    expect(s.sinceMonths).toBeNull()
+    expect(s.remaining.days).toBeUndefined()
+  })
+
+  it('km-only with unknown date does not invent an hours baseline from that day\'s reading', () => {
+    const def: ItemDef = { everyHoursTenths: 200, everyKm: 1500, conditionMultipliers: {} }
+    const s = computeStatus(def, { at: d('2026-11-08T00:00:00Z'), km: 3000, dateUnknown: true }, [r('2026-11-08T09:00:00Z', 1425, 3812)], now)
+    expect(s.sinceKm).toBe(812)
+    expect(s.sinceHoursTenths).toBeNull()
+    expect(s.driver).toBe('km')
+  })
+
+  it('only a months interval and an unknown date → unknown, never overdue', () => {
+    const def: ItemDef = { everyMonths: 12, conditionMultipliers: {} }
+    expect(computeStatus(def, { at: d('2026-11-08T00:00:00Z'), hoursTenths: 1390, dateUnknown: true }, [r('2026-11-08T09:00:00Z', 1425)], now).state).toBe('unknown')
+  })
+})
+
+describe('services without meters (mark done / invoice with blank hours and km)', () => {
+  const def: ItemDef = { everyHoursTenths: 200, conditionMultipliers: {} }
+
+  it('a newer service with no meters wins: its hours come from the reading on or before its day', () => {
+    const readings = [r('2026-08-11T10:00:00Z', 700), r('2026-11-08T09:00:00Z', 1000)]
+    const last = pickLastDone([{ at: d('2026-08-11T00:00:00Z'), hoursTenths: 700 }, { at: d('2026-11-08T00:00:00Z') }], readings)
+    expect(last).toMatchObject({ at: d('2026-11-08T00:00:00Z'), estHoursTenths: 1000 })
+    expect(last!.hoursTenths).toBeUndefined() // never presented as a known meter
+    expect(computeStatus(def, last, readings, now)).toMatchObject({ state: 'ok', sinceHoursTenths: 0 })
+  })
+
+  it('a garage invoice dated before the first reading still resets the item (first reading after is the bound)', () => {
+    const readings = [r('2026-11-08T09:00:00Z', 1425)]
+    const last = pickLastDone([{ at: d('2026-01-13T00:00:00Z'), hoursTenths: 400 }, { at: d('2026-11-02T00:00:00Z') }], readings)
+    expect(last).toMatchObject({ at: d('2026-11-02T00:00:00Z'), estHoursTenths: 1425 })
+    expect(computeStatus(def, last, readings, now).state).toBe('ok')
+  })
+
+  it('a backdated service without meters still never looks fresher (Review Focus 2)', () => {
+    const readings = [r('2026-09-01T10:00:00Z', 1000), r('2026-10-01T10:00:00Z', 1300)]
+    const last = pickLastDone([{ at: d('2026-10-01T00:00:00Z'), hoursTenths: 1300 }, { at: d('2026-09-02T00:00:00Z') }], readings)
+    expect(last).toMatchObject({ at: d('2026-10-01T00:00:00Z'), hoursTenths: 1300 })
+  })
+})
+
 describe('pickLastDone', () => {
   it('prefers the highest hours over creation order', () => {
     const r1 = pickLastDone([

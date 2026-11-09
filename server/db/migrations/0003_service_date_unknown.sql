@@ -1,0 +1,1 @@
+ALTER TABLE "services" ADD COLUMN "at_unknown" boolean DEFAULT false NOT NULL;

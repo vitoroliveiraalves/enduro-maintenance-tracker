@@ -71,7 +71,7 @@ describe('markReminderDone', () => {
   it('repeatYearly rolls dueOn forward and re-arms its notifications', async () => {
     const r = await rem({ dueOn: '2028-02-29' })
     await db.insert(notificationsSent).values([{ userId: uid, key: `reminder:${r.id}:7d` }, { userId: uid, key: `reminder:${r.id}:0d` }])
-    const done = await markReminderDone(uid, r, {})
+    const done = await markReminderDone(uid, r, { dueOn: '2028-02-29' })
     expect(done).toMatchObject({ dueOn: '2029-02-28', doneAt: null })
     expect(await db.select().from(notificationsSent)).toHaveLength(0)
   })
@@ -83,9 +83,15 @@ describe('markReminderDone', () => {
     expect(twice.dueOn).toBe('2028-03-15')
   })
 
+  it('without the dueOn the rider saw it is a 400 and nothing rolls', async () => {
+    const r = await rem({ dueOn: '2027-03-15' })
+    await expect(markReminderDone(uid, r, {})).rejects.toMatchObject({ statusCode: 400 })
+    expect((await listReminders(uid))[0]!.dueOn).toBe('2027-03-15')
+  })
+
   it('one-off reminders get doneAt and leave the open list', async () => {
     const r = await rem({ repeatYearly: false })
-    const done = await markReminderDone(uid, r, {})
+    const done = await markReminderDone(uid, r, { dueOn: r.dueOn })
     expect(done.doneAt).not.toBeNull()
     expect(await listReminders(uid)).toHaveLength(0)
   })

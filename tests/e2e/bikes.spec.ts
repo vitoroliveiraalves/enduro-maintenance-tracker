@@ -18,6 +18,7 @@ test('add a 2T bike with Gearbox oil last done, see overdue and unknown rows', a
   await expect(draft).toBeVisible()
   await draft.locator('summary').click()
   await page.getByLabel('Gearbox oil last done hours').fill('122')
+  await draft.locator('summary').click() // folded again: what was typed still counts
   await page.getByRole('button', { name: 'Remove Coolant' }).click()
   await page.getByRole('button', { name: 'Save bike' }).click()
 
@@ -26,7 +27,7 @@ test('add a 2T bike with Gearbox oil last done, see overdue and unknown rows', a
   await expect(gearbox).toBeVisible()
   await expect(gearbox.getByTestId('item-state')).toHaveText(/overdue/)
   await expect(page.getByTestId('item-row').first()).toContainText('Gearbox oil')
-  await expect(page.getByText('Set last done').first()).toBeVisible()
+  await expect(page.getByTestId('item-state').filter({ hasText: /^Unknown$/ }).first()).toBeVisible()
   await expect(page.getByTestId('item-row').filter({ hasText: 'Coolant' })).toHaveCount(0)
 
   // Garage lists it with an overdue count; Bike tab returns to the last bike
@@ -35,7 +36,7 @@ test('add a 2T bike with Gearbox oil last done, see overdue and unknown rows', a
   await page.getByTestId('tab-bike').click()
   await expect(page).toHaveURL(/\/bikes\/[0-9a-f-]{36}$/)
   await page.goto('/')
-  const card = page.getByTestId('bike-card').filter({ hasText: 'KTM 300 EXC' })
+  const card = page.getByTestId('bike-card').filter({ has: page.getByText('KTM 300 EXC', { exact: true }) })
   await expect(card.getByTestId('count-overdue')).toContainText('1')
   await expect(card).toContainText('142.5 h')
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'tests/e2e/__screenshots__/garage.png' })

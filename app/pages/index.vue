@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { errorMessage } from '~/offline/outbox'
+import { isStandalone } from '~/lib/platform'
 
 const store = useBikesStore()
 const { hours, km } = useFormatters()
 const { syncTick } = useOffline()
 const error = ref('')
-const signOutError = ref('')
+// Launching the installed app opens the rider's last bike, not the garage (once per launch).
+const launch = useState('garage-launch', () => true)
 
 async function load() {
   try {
@@ -15,22 +16,22 @@ async function load() {
     error.value = 'Could not load your bikes.'
   }
 }
-onMounted(load)
+onMounted(async () => {
+  const first = launch.value
+  launch.value = false
+  await load()
+  const last = store.lastBikeId
+  if (first && isStandalone() && last && store.bikes.some((b) => b.id === last)) await navigateTo(`/bikes/${last}`, { replace: true })
+})
 watch(syncTick, load)
-
-async function signOut() {
-  signOutError.value = ''
-  try {
-    await signOutEverywhere()
-  } catch (e) {
-    signOutError.value = errorMessage(e, "Couldn't sign out. Try again.")
-  }
-}
 </script>
 
 <template>
   <main class="mx-auto max-w-md p-4">
-    <h1 class="text-2xl font-bold text-accent">Garage</h1>
+    <div class="flex items-center justify-between">
+      <h1 class="text-xl font-bold text-white">Garage</h1>
+      <NuxtLink to="/settings" class="-mr-2 flex size-11 items-center justify-center text-lg text-muted" aria-label="Settings" data-testid="settings-link">⚙︎</NuxtLink>
+    </div>
     <p v-if="error" role="alert" class="mt-3 text-danger">{{ error }}</p>
 
     <ul v-if="store.bikes.length" class="mt-4 space-y-3" data-testid="bike-list">
@@ -39,13 +40,13 @@ async function signOut() {
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="truncate text-lg font-bold text-white">{{ b.name }}</div>
-              <div class="text-xs text-muted">{{ b.year }}</div>
+              <div class="truncate text-xs text-muted">{{ [b.make, b.model].filter(Boolean).join(' ') }} · {{ b.year }}</div>
             </div>
             <div class="flex shrink-0 gap-1.5">
-              <span v-if="b.counts.overdue" class="rounded-full bg-danger/20 px-2 py-0.5 text-xs font-bold text-danger" data-testid="count-overdue">
+              <span v-if="b.counts.overdue" class="rounded-full bg-danger/20 px-2 py-0.5 text-xs font-bold text-danger-text" data-testid="count-overdue">
                 {{ b.counts.overdue }} overdue
               </span>
-              <span v-if="b.counts.soon" class="rounded-full bg-warn/20 px-2 py-0.5 text-xs font-bold text-warn" data-testid="count-soon">
+              <span v-if="b.counts.soon" class="rounded-full bg-warn/20 px-2 py-0.5 text-xs font-bold text-warn-text" data-testid="count-soon">
                 {{ b.counts.soon }} soon
               </span>
             </div>
@@ -72,7 +73,5 @@ async function signOut() {
     >
       + Add bike
     </NuxtLink>
-    <button class="mt-8 text-sm text-muted underline" @click="signOut">Sign out</button>
-    <p v-if="signOutError" role="alert" class="mt-2 text-sm text-danger">{{ signOutError }}</p>
   </main>
 </template>

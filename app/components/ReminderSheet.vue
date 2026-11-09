@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { errorMessage } from '~/offline/outbox'
 import { todayLocal } from '~/lib/parse-number'
 
 const PRESETS = ['Insurance', 'IUC', 'Inspection', 'Licence'] as const
@@ -7,6 +8,7 @@ const props = defineProps<{ bikes: Array<{ id: string; name: string }> }>()
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ saved: [] }>()
 const { mutate } = useApi()
+const toast = useToast()
 
 const title = ref('')
 const dueOn = ref('')
@@ -41,18 +43,21 @@ async function save() {
   error.value = ''
   if (!title.value.trim()) return void (error.value = 'Give the reminder a name, or pick one above.')
   if (!dueOn.value) return void (error.value = 'Pick the due date.')
+  const year = Number(dueOn.value.slice(0, 4))
+  if (!(year >= 1900 && year <= 2100)) return void (error.value = 'Pick a date before 2101.')
   busy.value = true
   try {
-    await mutate(
+    const res = await mutate(
       '/api/reminders',
       { title: title.value.trim(), dueOn: dueOn.value, repeatYearly: repeatYearly.value, ...(bikeId.value ? { bikeId: bikeId.value } : {}) },
       { queue: true },
     )
     open.value = false
+    toast.show(isQueued(res) ? `${title.value.trim()} reminder saved on this phone · syncs when online` : `${title.value.trim()} reminder added`)
     emit('saved')
   } catch (e) {
     const { data } = e as { data?: { statusMessage?: string } }
-    error.value = data?.statusMessage === 'Invalid dueOn date' ? 'That date doesn’t exist.' : "Couldn't save the reminder. Try again."
+    error.value = data?.statusMessage === 'Invalid dueOn date' ? 'That date doesn’t exist.' : errorMessage(e, "Couldn't save the reminder. Try again.", true)
   } finally {
     busy.value = false
   }

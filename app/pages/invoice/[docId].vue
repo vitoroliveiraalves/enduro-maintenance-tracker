@@ -3,7 +3,7 @@ import { defaultCategory, matchLineToItems } from '../../../server/domain/invoic
 import type { LineKind } from '../../../server/domain/invoice-match'
 import type { BikeSummary } from '../../../server/domain/item-row'
 import { parseCents, parseDecimal, todayLocal } from '~/lib/parse-number'
-import { errorMessage } from '~/offline/outbox'
+import { errorMessage, statusOf } from '~/offline/outbox'
 
 type Doc = {
   id: string
@@ -178,6 +178,11 @@ function toggleItem(l: Line, itemId: string) {
   l.itemIds = l.itemIds.includes(itemId) ? l.itemIds.filter((x) => x !== itemId) : [...l.itemIds, itemId]
 }
 
+const confirmLabel = computed(() => {
+  const n = lines.value.length
+  return n ? `Save ${n} line${n === 1 ? '' : 's'} · ${money(linesCents.value)}` : 'Save'
+})
+
 const linesCents = computed(() => lines.value.reduce((s, l) => s + (parseCents(l.amountText) ?? 0), 0))
 const totals = computed(() => {
   const total = doc.value?.totalCents
@@ -188,6 +193,7 @@ const totals = computed(() => {
 })
 
 async function retryRead() {
+  if (busy.value) return
   error.value = ''
   busy.value = true
   try {
@@ -238,12 +244,18 @@ async function confirm(force = false) {
       forceTotals: force,
     })
     confirmClientId = crypto.randomUUID()
+    useToast().show(`Invoice saved · ${out.length} line${out.length === 1 ? '' : 's'} · ${money(out.reduce((t, l) => t + l.amountCents, 0))}`)
     store.setLast(bikeId.value)
     await navigateTo(`/bikes/${bikeId.value}`)
   } catch (e) {
     const { data } = e as { data?: { error?: string; diffCents?: number; statusMessage?: string } }
     if (data?.error === 'totals-mismatch') mismatch.value = data.diffCents ?? 0
-    else error.value = errorMessage(e, 'Could not save. Try again.')
+    else if (statusOf(e) === 409) {
+      // Saved already (a retry after a lost answer, or another tab): that is what the rider wanted.
+      useToast().show('Invoice already saved')
+      store.setLast(bikeId.value)
+      await navigateTo(`/bikes/${bikeId.value}`)
+    } else error.value = errorMessage(e, 'Could not save. Try again.')
   } finally {
     busy.value = false
   }
@@ -265,8 +277,8 @@ async function discard() {
 
 <template>
   <main class="mx-auto max-w-md p-4 pb-28">
-    <NuxtLink to="/invoice" class="text-sm text-muted underline">Add another</NuxtLink>
-    <h1 class="mt-2 text-2xl font-bold text-accent">{{ doc?.status === 'confirmed' ? 'Invoice' : 'Review invoice' }}</h1>
+    <NuxtLink to="/invoice" class="-m-2 inline-block p-2 text-[13px] text-muted">‹ Invoices</NuxtLink>
+    <h1 class="mt-1.5 text-xl font-bold text-white">{{ doc?.status === 'confirmed' ? 'Invoice' : 'Review invoice' }}</h1>
 
     <p v-if="notFound" role="alert" class="mt-4 text-danger">Invoice not found.</p>
     <template v-else-if="doc">
@@ -321,7 +333,7 @@ async function discard() {
         <div v-else class="mt-3 grid gap-3">
           <label :class="label">
             Garage name
-            <input v-model="garageName" autocomplete="off" maxlength="80" placeholder="Moto Garage Braga" data-testid="inv-garage" :class="field">
+            <input v-model="garageName" autocomplete="off" maxlength="80" data-testid="inv-garage" :class="field">
           </label>
           <div class="grid grid-cols-2 gap-2.5">
             <label :class="label">
@@ -377,14 +389,17 @@ async function discard() {
             <div class="mt-3 grid grid-cols-2 gap-2.5">
               <label :class="label">
                 Hours at the time
-                <input v-model="hoursText" inputmode="decimal" autocomplete="off" placeholder="142,5" data-testid="inv-hours" :class="field" @input="metersTouched = true">
+                <input v-model="hoursText" inputmode="decimal" autocomplete="off" data-testid="inv-hours" :class="field" @input="metersTouched = true">
               </label>
               <label :class="label">
                 Km at the time
-                <input v-model="kmText" inputmode="numeric" autocomplete="off" placeholder="3812" data-testid="inv-km" :class="field" @input="metersTouched = true">
+                <input v-model="kmText" inputmode="numeric" autocomplete="off" data-testid="inv-km" :class="field" @input="metersTouched = true">
               </label>
             </div>
             <p v-if="hoursText && !metersTouched" class="mt-1.5 text-xs text-muted" data-testid="meters-hint">From your last reading before {{ date(at) }}</p>
+            <p v-else-if="!hoursText && !kmText && !metersTouched && readings.length" class="mt-1.5 text-xs text-muted" data-testid="meters-missing">
+              No reading on or before {{ date(at) }}: the hours will be taken from your next reading. Enter them if you know them.
+            </p>
           </template>
         </section>
 
@@ -404,7 +419,7 @@ async function discard() {
               <div class="mt-2 grid grid-cols-[7.5rem_1fr] gap-2">
                 <label :class="label">
                   Amount (€)
-                  <input v-model="l.amountText" inputmode="decimal" autocomplete="off" placeholder="24,90" data-testid="line-amount" :class="field">
+                  <input v-model="l.amountText" inputmode="decimal" autocomplete="off" data-testid="line-amount" :class="field">
                 </label>
                 <label :class="label">
                   Category
@@ -479,7 +494,7 @@ async function discard() {
           data-testid="confirm"
           @click="confirm(false)"
         >
-          {{ busy ? 'Saving…' : 'Confirm' }}
+          {{ busy ? 'Saving…' : confirmLabel }}
         </button>
       </template>
 

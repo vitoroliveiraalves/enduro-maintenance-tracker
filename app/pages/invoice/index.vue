@@ -118,7 +118,7 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
 
 <template>
   <main class="mx-auto max-w-md p-4">
-    <h1 class="text-2xl font-bold text-accent">Add invoice</h1>
+    <h1 class="text-xl font-bold text-white">Add invoice</h1>
     <p class="mt-1 text-sm text-muted">Photograph the invoice or choose a file. The QR code is read on your phone.</p>
 
     <p v-if="!online" role="status" data-testid="offline-banner" class="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn">

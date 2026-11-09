@@ -6,7 +6,12 @@ export type ItemDef = {
   everyMonths?: number
   conditionMultipliers: Partial<Record<Condition, number>>
 }
-export type LastDone = { at: Date, hoursTenths?: number, km?: number } | null
+/** `dateUnknown`: only the meters are known (set-up without a date); months can't be judged. */
+export type LastDone = {
+  at: Date, hoursTenths?: number, km?: number, dateUnknown?: boolean
+  /** Meters estimated from readings for a service logged without them (never shown as known). */
+  estHoursTenths?: number, estKm?: number
+} | null
 export type Status = {
   state: 'overdue' | 'soon' | 'ok' | 'unknown'
   ratio: number | null
@@ -46,10 +51,14 @@ export function computeStatus(def: ItemDef, last: LastDone, readings: Reading[],
   let daysSince: number | null = null
 
   if (last) {
-    daysSince = (now.getTime() - last.at.getTime()) / MS_PER_DAY
-    sinceMonths = daysSince / DAYS_PER_MONTH
+    // No real date → no months, and no meter baseline borrowed from "that day's" reading.
+    const fromReadings = (pick: (r: Reading) => number) => (last.dateUnknown ? null : baselineFromReadings(sorted, last.at, pick))
+    if (!last.dateUnknown) {
+      daysSince = (now.getTime() - last.at.getTime()) / MS_PER_DAY
+      sinceMonths = daysSince / DAYS_PER_MONTH
+    }
 
-    const baseH = last.hoursTenths ?? baselineFromReadings(sorted, last.at, rd => rd.hoursTenths)
+    const baseH = last.hoursTenths ?? last.estHoursTenths ?? fromReadings(rd => rd.hoursTenths)
     if (baseH !== null && latest) {
       sinceHours = Math.max(0, latest.hoursTenths - baseH)
       let eff = 0
@@ -62,7 +71,7 @@ export function computeStatus(def: ItemDef, last: LastDone, readings: Reading[],
       effectiveHours = Math.round(eff * 1000) / 1000
     }
 
-    const baseKm = last.km ?? baselineFromReadings(sorted, last.at, rd => rd.km)
+    const baseKm = last.km ?? last.estKm ?? fromReadings(rd => rd.km)
     if (baseKm !== null && latest) sinceKm = Math.max(0, latest.km - baseKm)
   }
 
@@ -92,18 +101,43 @@ export function computeStatus(def: ItemDef, last: LastDone, readings: Reading[],
   return { state, ratio, driver, ...base }
 }
 
-type Service = { at: Date, hoursTenths?: number, km?: number }
+type Service = { at: Date, hoursTenths?: number, km?: number, dateUnknown?: boolean }
 
-/** Highest hours, then km, then date — not the most recently created row. */
-export function pickLastDone(services: Service[]): LastDone {
+/**
+ * The service that counts: highest hours, then km, then date — not the most
+ * recently created row. A service logged without meters (mark done or invoice
+ * with blank hours/km) gets them from the latest reading on or before its day,
+ * or else the first reading after it, so it ranks where it really happened:
+ * a newer one still resets the item, a backdated one never looks fresher.
+ */
+export function pickLastDone(services: Service[], readings: Reading[] = []): LastDone {
   if (services.length === 0) return null
+  const sorted = [...readings].sort(byTime)
+  const estimate = (s: Service, pick: (r: Reading) => number): number | undefined => {
+    if (s.dateUnknown || !sorted.length) return undefined
+    // Same calendar day counts as "on or before" (a service is a day, a reading a moment).
+    const endOfDay = s.at.getTime() + 86_400_000 - 1
+    let found: Reading | undefined
+    for (const rd of sorted) {
+      if (rd.at.getTime() <= endOfDay) found = rd
+      else break
+    }
+    found ??= sorted.find((rd) => rd.at.getTime() > endOfDay)
+    return found ? pick(found) : undefined
+  }
+  const keyed = services.map((s) => ({
+    s,
+    h: s.hoursTenths ?? estimate(s, (r) => r.hoursTenths),
+    k: s.km ?? estimate(s, (r) => r.km),
+  }))
   const n = (v: number | undefined) => v ?? Number.NEGATIVE_INFINITY
-  const best = [...services].sort((a, b) =>
-    n(b.hoursTenths) - n(a.hoursTenths) || n(b.km) - n(a.km) || b.at.getTime() - a.at.getTime()
-  )[0]!
-  const out: NonNullable<LastDone> = { at: best.at }
-  if (best.hoursTenths !== undefined) out.hoursTenths = best.hoursTenths
-  if (best.km !== undefined) out.km = best.km
+  const best = keyed.sort((a, b) => n(b.h) - n(a.h) || n(b.k) - n(a.k) || b.s.at.getTime() - a.s.at.getTime())[0]!
+  const out: NonNullable<LastDone> = { at: best.s.at }
+  if (best.s.hoursTenths !== undefined) out.hoursTenths = best.s.hoursTenths
+  else if (best.h !== undefined) out.estHoursTenths = best.h
+  if (best.s.km !== undefined) out.km = best.s.km
+  else if (best.k !== undefined) out.estKm = best.k
+  if (best.s.dateUnknown) out.dateUnknown = true
   return out
 }
 

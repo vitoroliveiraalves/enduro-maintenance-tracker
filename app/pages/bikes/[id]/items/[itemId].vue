@@ -7,6 +7,7 @@ import type { ItemRowJson } from '../../../../../server/domain/item-row'
 type Service = {
   id: string
   at: string
+  atUnknown?: boolean
   hoursTenths: number | null
   km: number | null
   by: 'diy' | 'garage'
@@ -49,12 +50,20 @@ function fillEditor(item: ItemRowJson) {
 }
 
 async function load() {
-  const [h, d] = await Promise.all([get<History>(`/api/items/${itemId}/history`).catch((e) => e as unknown), get<Detail>(`/api/bikes/${bikeId}`)])
-  detail.value = d
+  const [h, d] = await Promise.all([
+    get<History>(`/api/items/${itemId}/history`).catch((e) => e as unknown),
+    get<Detail>(`/api/bikes/${bikeId}`).catch((e) => e as unknown),
+  ])
+  // A link with the item under another of the rider's bikes: go to the right one.
+  if (!(h instanceof Error) && (h as History).item.bikeId !== bikeId) {
+    return void (await navigateTo(`/bikes/${(h as History).item.bikeId}/items/${itemId}`, { replace: true }))
+  }
+  if (d instanceof Error) throw d
+  detail.value = d as Detail
   if (!(h instanceof Error)) return void (hist.value = h as History)
   // Offline and this item was never opened here: the bike screen's copy of the
   // item still gives its status and lets the rider mark it done.
-  const row = d.items.find((i) => i.id === itemId)
+  const row = (d as Detail).items.find((i) => i.id === itemId)
   if (!(h instanceof OfflineError) || !row) throw h
   hist.value = { item: { ...row, bikeId }, status: row.status, services: [], pendingSync: row.pendingSync, notCached: true }
 }
@@ -62,7 +71,7 @@ async function load() {
 onMounted(async () => {
   try {
     await load()
-    fillEditor(hist.value!.item)
+    if (hist.value) fillEditor(hist.value.item)
   } catch (e) {
     error.value = errorMessage(e, 'Item not found.', true)
   }
@@ -73,7 +82,22 @@ watch(syncTick, async () => {
   savedQueued.value = false
 })
 
-async function onDone() {
+async function renameItem(name: string) {
+  await mutate(`/api/items/${itemId}`, { name }, { method: 'PATCH', queue: true })
+  await load().catch(() => {})
+  toast.show(`Renamed to ${name}`)
+}
+async function removeItem() {
+  const name = hist.value?.item.name ?? 'Item'
+  await mutate(`/api/items/${itemId}`, { archived: true }, { method: 'PATCH', queue: true })
+  toast.show(`${name} removed`)
+  await navigateTo(`/bikes/${bikeId}`)
+}
+
+const toast = useToast()
+async function onDone(detail?: unknown) {
+  const name = hist.value?.item.name
+  if (name) toast.show(isQueued(detail) ? `${name} marked done on this phone · syncs when online` : `${name} marked done`)
   await load()
   fillEditor(hist.value!.item)
 }
@@ -140,7 +164,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         data-testid="mark-done"
         @click="doneOpen = true"
       >
-        Mark done
+        {{ hist.status.state === 'unknown' ? 'Set last done' : 'Mark done' }}
       </button>
       <MarkDoneSheet
         v-model:open="doneOpen"
@@ -178,7 +202,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <ul v-else class="space-y-[7px]">
         <li v-for="s in hist.services" :key="s.id" class="rounded-xl bg-surface px-3 py-2.5" data-testid="service-entry">
           <div class="flex justify-between gap-2 text-sm font-semibold text-white">
-            <span>{{ date(s.at) }}<span v-if="s.pending" class="ml-1.5 text-xs font-normal text-warn-text" data-testid="service-pending">pending sync</span></span>
+            <span>{{ s.atUnknown ? 'Date unknown' : date(s.at) }}<span v-if="s.pending" class="ml-1.5 text-xs font-normal text-warn-text" data-testid="service-pending">pending sync</span></span>
             <span class="flex shrink-0 items-center gap-2">
               <span v-if="s.costCents" data-testid="service-cost">{{ money(s.costCents) }}</span>
               <NuxtLink v-if="s.documentId" :to="`/invoice/${s.documentId}`" class="-m-2 p-2" aria-label="Open invoice" data-testid="service-invoice">🧾</NuxtLink>
@@ -189,6 +213,9 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           </div>
         </li>
       </ul>
+
+      <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted">Item</h2>
+      <ManagePanel what="item" :name="hist.item.name" remove-note="Its service history and costs stay in History." :rename="renameItem" :remove="removeItem" />
     </template>
   </main>
 </template>

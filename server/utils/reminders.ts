@@ -111,14 +111,14 @@ export async function patchReminder(userId: string, r: Reminder, bike: Bike | nu
 
 /**
  * Yearly reminders roll to the same day next year; one-offs get `doneAt`.
- * When the body carries the `dueOn` the rider saw, a replay (double tap,
+ * The body must carry the `dueOn` the rider saw: a replay (double tap,
  * offline retry) whose dueOn no longer matches changes nothing.
  */
 export async function markReminderDone(userId: string, r: Reminder | ReminderRow, raw: unknown): Promise<ReminderRow> {
-  const seen = isObj(raw) && raw.dueOn !== undefined ? dueOn(raw.dueOn) : null
+  const seen = dueOn(isObj(raw) ? raw.dueOn : undefined)
   const [cur] = await db.select().from(reminders).where(and(eq(reminders.id, r.id), eq(reminders.userId, userId)))
   if (!cur) throw bad('Invalid reminder')
-  if ((seen && seen !== cur.dueOn) || cur.doneAt) return rowOf(userId, cur.id)
+  if (seen !== cur.dueOn || cur.doneAt) return rowOf(userId, cur.id)
   const set = cur.repeatYearly ? { dueOn: rollYear(cur.dueOn) } : { doneAt: new Date() }
   // Guard on the old dueOn so two concurrent taps roll only once.
   await db.update(reminders).set(set).where(and(eq(reminders.id, cur.id), eq(reminders.userId, userId), eq(reminders.dueOn, cur.dueOn), isNull(reminders.doneAt)))

@@ -9,6 +9,7 @@ const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ saved: [] }>()
 
 const { get, mutate } = useApi()
+const toast = useToast()
 
 const at = ref(todayLocal())
 const amountText = ref('')
@@ -47,7 +48,7 @@ async function save() {
   if (!categoryId.value) return void (error.value = 'Pick a category.')
   busy.value = true
   try {
-    await mutate('/api/expenses', {
+    const res = await mutate('/api/expenses', {
       clientId,
       at: at.value,
       amountCents: cents,
@@ -57,6 +58,7 @@ async function save() {
     }, { queue: true })
     clientId = crypto.randomUUID()
     open.value = false
+    toast.show(isQueued(res) ? 'Cost saved on this phone · syncs when online' : 'Cost saved')
     emit('saved')
   } catch (e) {
     error.value = errorMessage(e, 'Could not save. Try again.')
@@ -74,7 +76,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <div class="flex gap-2.5">
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Amount (€)
-          <input v-model="amountText" inputmode="decimal" autocomplete="off" placeholder="41,60" data-testid="ex-amount" :class="field">
+          <input v-model="amountText" inputmode="decimal" autocomplete="off" placeholder="e.g. 41,60" data-testid="ex-amount" :class="field">
         </label>
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Date
@@ -96,7 +98,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       </label>
       <label class="mt-3 block text-[11px] uppercase tracking-wider text-muted">
         Description
-        <input v-model="description" autocomplete="off" maxlength="200" placeholder="Fuel at the track" data-testid="ex-description" :class="field">
+        <input v-model="description" autocomplete="off" maxlength="200" placeholder="e.g. fuel at the track" data-testid="ex-description" :class="field">
       </label>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="ex-error">{{ error }}</p>
       <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60" data-testid="ex-save">Save</button>

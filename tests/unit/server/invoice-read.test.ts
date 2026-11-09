@@ -42,6 +42,23 @@ beforeEach(async () => {
 })
 
 describe('requestRead', () => {
+  it('a repeat request while a read is running joins it: one paid model call, one cap hit', async () => {
+    const doc = await makeDoc()
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const fetchImpl = vi.fn(async () => {
+      await gate
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(modelJson) } }] }), { status: 200 })
+    })
+    const first = await requestRead(doc, cfg, { fetchImpl: fetchImpl as unknown as typeof fetch })
+    const again = await Promise.all([1, 2].map(() => requestRead(doc, cfg, { fetchImpl: fetchImpl as unknown as typeof fetch })))
+    expect(again.map((r) => r.status)).toEqual(['reading', 'reading'])
+    release()
+    await Promise.all([first.done, ...again.map((r) => r.done)])
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect((await reload(doc.id)).status).toBe('review')
+  })
+
   it('reads in the background: status reading, then review with lines in cents and usage kept', async () => {
     const doc = await makeDoc()
     const fetchImpl = okFetch()

@@ -85,6 +85,15 @@ describe('costsOverview', () => {
     expect((await costsOverview(uid, { period: 'year', date: '2026-01-01' }, NOW)).compare).toEqual({ previousToDateCents: 0, pct: null })
     expect((await costsOverview(uid, { period: 'month', date: '2026-03-01' }, NOW)).compare).toBeNull()
   })
+  it('per-hour/per-km stay empty until there is enough riding to mean something (10 h / 100 km)', async () => {
+    await exp('2026-10-05', 61_200)
+    await reading('2026-09-28', 1000, 3000)
+    await reading('2026-10-31', 1025, 3080) // 2.5 h, 80 km
+    const r = await costsOverview(uid, { period: 'month', date: '2026-10-15' }, NOW)
+    expect(r.hoursTenths).toBe(25)
+    expect(r.perHourCents).toBeNull()
+    expect(r.perKmCents).toBeNull()
+  })
   it('per-hour is null with no hours; computed from reading deltas otherwise', async () => {
     await exp('2026-10-05', 61_200)
     let r = await costsOverview(uid, { period: 'month', date: '2026-10-15' }, NOW)

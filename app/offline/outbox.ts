@@ -2,6 +2,7 @@ import { formatHours, formatKm, formatMoney } from '~/lib/format'
 import { getDb, notifyOutbox, type OutboxRow } from './db'
 
 export const OFFLINE_MESSAGE = "You're offline — try again when you're back online."
+export const SIGNED_OUT_MESSAGE = 'You were signed out. Sign in again, then save.'
 
 /** A write that only makes sense online (auth, uploads, account, push…) was tried without a connection. */
 export class OfflineError extends Error {
@@ -32,6 +33,7 @@ export function retryable(status: number): boolean {
  */
 export function errorMessage(err: unknown, fallback: string, fallbackOnly = false): string {
   if (err instanceof OfflineError) return OFFLINE_MESSAGE
+  if (statusOf(err) === 401) return SIGNED_OUT_MESSAGE
   if (fallbackOnly) return fallback
   const e = err as { statusMessage?: string; data?: { statusMessage?: string } } | null
   return e?.data?.statusMessage ?? e?.statusMessage ?? fallback

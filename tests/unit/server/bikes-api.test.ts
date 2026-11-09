@@ -113,6 +113,15 @@ describe('bikes api logic', () => {
       await reject({ at: '2026-13-45' }, /Invalid lastDone date/)
       await reject({ at: '2026-00-10' }, /Invalid lastDone date/)
     })
+    it('hours without a date: stored as date unknown, never as a made-up today', async () => {
+      const bike = await createBike(uid, withLast({ hoursTenths: 1390 }))
+      const [svc] = await db.select().from(services).where(eq(services.bikeId, bike.id))
+      expect(svc).toMatchObject({ hoursTenths: 1390, atUnknown: true })
+      const [row] = await itemRows(bike.id, uid)
+      expect(row!.last).toMatchObject({ hoursTenths: 1390, dateUnknown: true })
+      expect(row!.status.sinceHoursTenths).toBe(35)
+    })
+    it('no date and no meters is not a last-done record', () => reject({}, /Invalid lastDone/))
     it('accepts values equal to current and today', async () => {
       const today = new Date().toISOString().slice(0, 10)
       await expect(createBike(uid, withLast({ at: today, hoursTenths: 1425, km: 3812 }))).resolves.toBeTruthy()

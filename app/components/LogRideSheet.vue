@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatHoursLong } from '~/lib/format'
 import { parseDecimal } from '~/lib/parse-number'
-import { OFFLINE_MESSAGE, OfflineError } from '~/offline/outbox'
+import { errorMessage } from '~/offline/outbox'
 
 type Detail = Record<string, unknown>
 type Meters = { hoursTenths: number; km: number }
@@ -58,6 +58,10 @@ async function save(confirmBigJump = false) {
     return void (error.value = 'Enter hours and km as numbers.')
   }
   const next = { hoursTenths: Math.round(h * 10), km: Math.round(k) }
+  if (next.hoursTenths > 10_000_000 || next.km > 10_000_000) {
+    jump.value = ''
+    return void (error.value = 'That is more than any bike has done. Check the number.')
+  }
   // Offline the server can't check it now: run the same checks against the last
   // synced reading, so the rider fixes a typo here rather than after it syncs.
   const last = props.current
@@ -96,7 +100,7 @@ async function save(confirmBigJump = false) {
       jump.value = ''
       error.value = `Km can't be above a later reading (${km(last.km)})`
     } else {
-      error.value = e instanceof OfflineError ? OFFLINE_MESSAGE : 'Could not save the reading. Try again.'
+      error.value = errorMessage(e, 'Could not save the reading. Try again.', true)
     }
   } finally {
     busy.value = false

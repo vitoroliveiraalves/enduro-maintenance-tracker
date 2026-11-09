@@ -24,6 +24,55 @@ watch(
   { flush: 'post' },
 )
 
+// On-screen keyboard: lift the sheet above it (iOS Safari doesn't resize the layout viewport).
+const keyboard = ref(0)
+const viewH = ref(0)
+function onViewport() {
+  const vv = window.visualViewport
+  if (!vv) return
+  keyboard.value = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+  viewH.value = vv.height
+}
+function onFocusIn(e: FocusEvent) {
+  const t = e.target as HTMLElement | null
+  if (t?.matches('input, select, textarea')) setTimeout(() => t.scrollIntoView({ block: 'nearest' }), 250)
+}
+watch(open, (isOpen) => {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  if (!vv) return
+  if (isOpen) {
+    onViewport()
+    vv.addEventListener('resize', onViewport)
+    vv.addEventListener('scroll', onViewport)
+  } else {
+    vv.removeEventListener('resize', onViewport)
+    vv.removeEventListener('scroll', onViewport)
+    keyboard.value = 0
+  }
+})
+onBeforeUnmount(() => {
+  window.visualViewport?.removeEventListener('resize', onViewport)
+  window.visualViewport?.removeEventListener('scroll', onViewport)
+})
+
+// Android back (or a back swipe) closes the sheet instead of leaving the screen.
+// Only history moves are caught: during a back/forward the history entry has
+// already changed when the guard runs; a push from a link or after a save hasn't.
+const router = useRouter()
+let removeGuard: (() => void) | null = null
+watch(open, (isOpen) => {
+  removeGuard?.()
+  removeGuard = null
+  if (!isOpen) return
+  const at = (window.history.state as { position?: number } | null)?.position
+  removeGuard = router.beforeEach(() => {
+    if (!open.value || (window.history.state as { position?: number } | null)?.position === at) return true
+    open.value = false
+    return false
+  })
+})
+onBeforeUnmount(() => removeGuard?.())
+
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     e.stopPropagation()
@@ -46,18 +95,26 @@ function onKey(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-40 flex items-end bg-black/60" :data-testid="props.testid ? `${props.testid}-backdrop` : undefined" @click.self="open = false">
+  <div v-if="open" class="fixed inset-0 z-40 flex items-end bg-black/60" :style="keyboard ? { paddingBottom: `${keyboard}px` } : undefined" :data-testid="props.testid ? `${props.testid}-backdrop` : undefined" @click.self="open = false">
     <div
       ref="panel"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"
       tabindex="-1"
-      class="mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 pb-6 outline-none"
+      class="mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 outline-none"
+      :style="{
+        paddingBottom: keyboard ? '1rem' : 'calc(1.5rem + env(safe-area-inset-bottom))',
+        ...(keyboard && viewH ? { maxHeight: `${Math.round(viewH * 0.92)}px` } : {}),
+      }"
       :data-testid="props.testid"
       @keydown="onKey"
+      @focusin="onFocusIn"
     >
-      <h2 :id="titleId" class="mb-3 text-base font-bold text-white">{{ props.title }}</h2>
+      <div class="mb-3 flex items-start justify-between gap-2">
+        <h2 :id="titleId" class="pt-2.5 text-base font-bold text-white">{{ props.title }}</h2>
+        <button type="button" class="-mr-2 -mt-1 size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" aria-label="Close" data-testid="sheet-close" @click="open = false">×</button>
+      </div>
       <slot />
     </div>
   </div>

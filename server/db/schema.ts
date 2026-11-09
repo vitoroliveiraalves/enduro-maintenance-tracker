@@ -229,6 +229,8 @@ export const services = pgTable(
     userId: userRef(),
     clientId: clientId(),
     at: date('at', { mode: 'string' }).notNull(),
+    /** Set-up record where the rider knew the meters but not the date: `at` is the set-up day, not a real date. */
+    atUnknown: boolean('at_unknown').notNull().default(false),
     hoursTenths: integer('hours_tenths'),
     km: integer('km'),
     by: text('by', { enum: ['diy', 'garage'] }).notNull().default('diy'),
@@ -265,6 +267,7 @@ export const categoryKinds = [
   'parts',
   'tyres',
   'fuel',
+  'oil',
   'race',
   'insurance',
   'upgrades',

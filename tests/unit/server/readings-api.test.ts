@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../../server/db/client'
 import { meterReadings, user } from '../../../server/db/schema'
 import { createBike } from '../../../server/utils/bikes'
-import { logReading } from '../../../server/utils/readings'
+import { logReading, undoLatestReading } from '../../../server/utils/readings'
 import { truncateUsers } from '../../support/truncate'
 
 let uid: string
@@ -70,5 +70,35 @@ describe('logReading', () => {
     for (const over of [{ hoursTenths: -1 }, { hoursTenths: 1.5 }, { km: 'x' }, { condition: 'ice' }, { clientId: 'nope' }, { at: 'garbage' }, { at: new Date(Date.now() + 3 * 86_400_000).toISOString() }]) {
       await expect(post(over)).rejects.toMatchObject({ statusCode: 400 })
     }
+  })
+})
+
+describe('undoLatestReading (a confirmed typo can be taken back)', () => {
+  it('removes the latest reading and returns the detail with the one before', async () => {
+    const r = await post({ hoursTenths: 15_000, confirmBigJump: true })
+    const id = (r.body as { latestReading: { id: string } }).latestReading.id
+    const detail = await undoLatestReading(bike, { readingId: id })
+    expect(detail.latestReading).toMatchObject({ hoursTenths: 1440, km: 3812 })
+    expect(await count()).toBe(1)
+  })
+  it('a replay of the same undo changes nothing more', async () => {
+    await post()
+    const r = await post({ hoursTenths: 1600, km: 4000 })
+    const id = (r.body as { latestReading: { id: string } }).latestReading.id
+    await undoLatestReading(bike, { readingId: id })
+    const again = await undoLatestReading(bike, { readingId: id })
+    expect(again.latestReading).toMatchObject({ hoursTenths: 1500 })
+    expect(await count()).toBe(2)
+  })
+  it('only the latest can go; the first reading of a bike stays', async () => {
+    const first = (await db.select().from(meterReadings))[0]!
+    await expect(undoLatestReading(bike, { readingId: first.id })).rejects.toMatchObject({ statusCode: 409 })
+    await post()
+    await expect(undoLatestReading(bike, { readingId: first.id })).rejects.toMatchObject({ statusCode: 409 })
+    expect(await count()).toBe(2)
+  })
+  it('a bad id is a 400', async () => {
+    await expect(undoLatestReading(bike, { readingId: 'nope' })).rejects.toMatchObject({ statusCode: 400 })
+    await expect(undoLatestReading(bike, {})).rejects.toMatchObject({ statusCode: 400 })
   })
 })

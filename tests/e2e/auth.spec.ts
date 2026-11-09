@@ -26,7 +26,7 @@ test('register lands on an empty garage with default categories; duplicate email
   const rows = await db`select c.name from categories c join "user" u on u.id = c.user_id where u.email = ${email} order by c.name`
   await db.end()
   expect(rows.map((r) => r.name).sort()).toEqual(
-    ['Maintenance', 'Parts', 'Tyres & mousse', 'Fuel & 2T oil', 'Race entries', 'Insurance / IUC / inspection', 'Upgrades', 'Gear', 'Labour', 'Other'].sort(),
+    ['Maintenance', 'Parts', 'Tyres & mousse', 'Fuel', 'Oil & fluids', 'Race entries', 'Insurance / IUC / inspection', 'Upgrades', 'Gear', 'Labour', 'Other'].sort(),
   )
 
   await context.clearCookies()

@@ -101,12 +101,17 @@ async function runRead(id: string, userId: string, cfg: ReaderCfg, fetchImpl?: t
  * being awaited by the caller; `done` settles when the read has ended — only
  * tests wait on it. Never leaves a document in `reading` because of an error.
  */
+/** Reads running in this process, by document id: a repeat /read (double tap, retry) joins it instead of paying twice. */
+const inFlight = new Map<string, Promise<void>>()
+
 export async function requestRead(
   doc: Document,
   cfg: ReaderCfg,
   deps: { fetchImpl?: typeof fetch } = {},
 ): Promise<{ status: 'reading' | 'manual'; error: string | null; done: Promise<void> }> {
   if (doc.status === 'confirmed') throw createError({ statusCode: 409, statusMessage: 'This invoice is already saved.' })
+  const running = inFlight.get(doc.id)
+  if (running) return { status: 'reading', error: null, done: running }
   const notConfirmed = and(own(doc.id, doc.userId), ne(documents.status, 'confirmed'))
   if (!readingAvailable(cfg)) {
     const error = readErrorMessage('no_key')
@@ -119,11 +124,19 @@ export async function requestRead(
     await db.update(documents).set({ status: 'manual', error: (err as { statusMessage?: string }).statusMessage ?? 'Too many reads.' }).where(notConfirmed)
     throw err
   }
-  await db.update(documents).set({ status: 'reading', error: null, updatedAt: new Date() }).where(notConfirmed)
-  const done = runRead(doc.id, doc.userId, cfg, deps.fetchImpl).catch(async (err) => {
-    console.error('[invoice-read] crashed', { id: doc.id, err })
-    await endInManual(doc.id, doc.userId, readErrorMessage('crash')).catch(() => {})
-  })
+  // No await between the in-flight check above and this set: two parallel requests cannot both start.
+  const marked = Promise.resolve(db.update(documents).set({ status: 'reading', error: null, updatedAt: new Date() }).where(notConfirmed))
+  const done = (async () => {
+    await marked
+    await runRead(doc.id, doc.userId, cfg, deps.fetchImpl)
+  })()
+    .catch(async (err) => {
+      console.error('[invoice-read] crashed', { id: doc.id, err })
+      await endInManual(doc.id, doc.userId, readErrorMessage('crash')).catch(() => {})
+    })
+    .finally(() => inFlight.delete(doc.id))
+  inFlight.set(doc.id, done)
+  await marked.catch(() => {})
   return { status: 'reading', error: null, done }
 }
 

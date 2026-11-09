@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { loginAs, sql } from './helpers/login'
+import { seedMockupBike } from './helpers/seed'
 
 test('log ride: comma decimal, condition, typo guards, replay-safe', async ({ page }) => {
   await loginAs(page)
@@ -72,4 +73,35 @@ test('log ride: comma decimal, condition, typo guards, replay-safe', async ({ pa
   const [{ n }] = await db`select count(*)::int as n from meter_readings where client_id = ${clientId}`
   expect(n).toBe(1)
   await db.end()
+})
+
+test('a saved typo can be undone from the toast; Back closes the sheet, not the screen', async ({ page }) => {
+  await loginAs(page)
+  const name = `Undo Bike ${Date.now()}`
+  const bikeId = await seedMockupBike(page.request, name)
+  await page.goto('/')
+  await page.getByTestId('bike-card').filter({ has: page.getByText(name, { exact: true }) }).click()
+  await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
+
+  // Back with the sheet open closes it and stays on the bike
+  await page.getByTestId('log-ride').click()
+  await expect(page.getByTestId('log-sheet')).toBeVisible()
+  await page.goBack()
+  await expect(page.getByTestId('log-sheet')).toHaveCount(0)
+  await expect(page).toHaveURL(new RegExp(`/bikes/${bikeId}$`))
+
+  // Confirmed typo, then Undo
+  await page.getByTestId('log-ride').click()
+  await page.getByTestId('hours-input').fill('1450')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('button', { name: 'Save anyway' }).click()
+  await expect(page.getByTestId('hours-value')).toHaveText('1450.0 h')
+  await page.getByTestId('toast-action').click()
+  await expect(page.getByTestId('toast')).toContainText('Reading undone')
+  await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
+
+  // The bike's first reading can't be undone
+  const detail = (await (await page.request.get(`/api/bikes/${bikeId}`)).json()) as { latestReading: { id: string } }
+  const res = await page.request.delete(`/api/bikes/${bikeId}/latest-reading`, { data: { readingId: detail.latestReading.id } })
+  expect(res.status()).toBe(409)
 })

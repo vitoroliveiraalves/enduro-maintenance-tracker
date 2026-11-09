@@ -21,9 +21,11 @@ export function isDay(s: unknown): s is string {
   return inYears(d) && d.toISOString().slice(0, 10) === s
 }
 
-/** A parseable date-time, year 1900–2100. */
+/** A parseable date-time, year 1900–2100, whose calendar day exists (no 2026-02-30T…, which Date would roll over). */
 export function isTimestamp(s: unknown): s is string {
-  return typeof s === 'string' && s.length <= 40 && inYears(new Date(s))
+  if (typeof s !== 'string' || s.length > 40 || !inYears(new Date(s))) return false
+  const lead = /^(\d{4}-\d{2}-\d{2})(?:[T ]|$)/.exec(s)
+  return !lead || isDay(lead[1])
 }
 
 export const isUuid = (s: unknown): s is string => typeof s === 'string' && UUID_RE.test(s)

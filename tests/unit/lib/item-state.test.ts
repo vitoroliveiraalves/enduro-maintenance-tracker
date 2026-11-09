@@ -28,14 +28,14 @@ describe('stateText (right-hand text, driver unit)', () => {
     expect(stateText(row('overdue', 'km', { km: 0 }))).toBe('due now')
     expect(stateText(row('overdue', 'months', { days: 0 }))).toBe('due now')
   })
-  it('unknown', () => expect(stateText(row('unknown', null, {}))).toBe('Set last done'))
+  it('unknown is a status, not an action', () => expect(stateText(row('unknown', null, {}))).toBe('Unknown'))
 })
 
 describe('subline', () => {
   const last = { at: '2026-09-12T00:00:00.000Z', by: 'diy' as const }
   it('hours driver with date', () => {
     const r = { def: { everyHoursTenths: 200 }, last, status: { state: 'overdue', driver: 'hours', effectiveHoursTenths: 205 } }
-    expect(subline(r as never)).toBe('20.5h since change (every 20h) · 12 Sep')
+    expect(subline(r as never)).toBe('20.5h since last done (every 20h) · 12 Sep')
   })
   it('appends garage and lists other intervals', () => {
     const r = {
@@ -43,12 +43,20 @@ describe('subline', () => {
       last: { ...last, by: 'garage' as const, garageName: 'Moto Garage' },
       status: { state: 'ok', driver: 'hours', effectiveHoursTenths: 120 },
     }
-    expect(subline(r as never)).toBe('12h since change (every 50h or 12 months) · 12 Sep · garage')
+    expect(subline(r as never)).toBe('12h since last done (every 50h or 12 months) · 12 Sep · garage')
   })
   it('km driver', () => {
     const T = String.fromCharCode(0x202f)
     const r = { def: { everyKm: 1500 }, last: { at: '2026-09-12T00:00:00.000Z', by: 'diy' }, status: { state: 'soon', driver: 'km', sinceKm: 1280 } }
-    expect(subline(r as never)).toBe(`1${T}280 km since change (every 1${T}500 km) · 12 Sep`)
+    expect(subline(r as never)).toBe(`1${T}280 km since last done (every 1${T}500 km) · 12 Sep`)
+  })
+  it('mud/sand/race multipliers: plain hours first, counted hours after', () => {
+    const r = { def: { everyHoursTenths: 50 }, last, status: { state: 'overdue', driver: 'hours', sinceHoursTenths: 55, effectiveHoursTenths: 73 } }
+    expect(subline(r as never)).toBe('5.5h since last done, counts as 7.3h with conditions (every 5h) · 12 Sep')
+  })
+  it('a set-up record without a date says so', () => {
+    const r = { def: { everyHoursTenths: 200 }, last: { ...last, dateUnknown: true }, status: { state: 'ok', driver: 'hours', sinceHoursTenths: 35, effectiveHoursTenths: 35 } }
+    expect(subline(r as never)).toBe('3.5h since last done (every 20h) · date unknown')
   })
   it('unknown', () => {
     const r = { def: { everyHoursTenths: 200 }, last: null, status: { state: 'unknown', driver: null } }

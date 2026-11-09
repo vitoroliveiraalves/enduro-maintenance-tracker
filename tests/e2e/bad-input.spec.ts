@@ -7,7 +7,7 @@ import { bikeBody } from './helpers/seed'
  * 400 (or 404 for an id in the path), never a 500 from Postgres or toISOString.
  */
 const BAD_DAYS = ['2026-13-45', '0000-01-01', '2026-02-30', 'yesterday']
-const BAD_TIMES = ['0000-01-01T00:00:00Z', '2026-13-45T00:00:00Z', '+275760-09-13T00:00:00Z', 'nope']
+const BAD_TIMES = ['0000-01-01T00:00:00Z', '2026-13-45T00:00:00Z', '+275760-09-13T00:00:00Z', '2026-02-30T10:00:00Z', 'nope']
 const HUGE = 99_999_999_999
 const today = () => new Date().toISOString().slice(0, 10)
 const uuid = () => crypto.randomUUID()
@@ -64,6 +64,7 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
       ['get', `/api/bikes/${id}`, null, 404],
       ['patch', `/api/bikes/${id}`, { name: 'x' }, 404],
       ['get', `/api/readings/${id}`, null, 404],
+      ['delete', `/api/bikes/${id}/latest-reading`, { readingId: uuid() }, 404],
       ['patch', `/api/items/${id}`, { name: 'x' }, 404],
       ['get', `/api/items/${id}/history`, null, 404],
       ['delete', `/api/services/${id}`, null, 404],
@@ -78,6 +79,7 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
       ['post', '/api/readings', rd({ bikeId: id }), 404],
       ['post', '/api/bikes', { ...bikeBody('X', []), clientId: id }, 400],
       ['post', '/api/readings', rd({ clientId: id }), 400],
+      ['delete', `/api/bikes/${bike.id}/latest-reading`, { readingId: id }, 400],
       ['post', '/api/services', svc({ itemIds: [id] }), 400],
       ['post', '/api/expenses', exp({ categoryId: id }), 400],
       ['post', '/api/reminders', { clientId: id, title: 'IUC', dueOn: '2027-03-15' }, 400],
@@ -88,6 +90,7 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
     cases.push(['patch', `/api/reminders/${reminder.id}`, { bikeId }, 400], ['post', '/api/reminders', { clientId: uuid(), title: 'IUC', dueOn: '2027-03-15', bikeId }, 400])
   }
   cases.push(['post', '/api/expenses', exp({ bikeId: 123 }), 400])
+  cases.push(['post', `/api/reminders/${reminder.id}/done`, {}, 400]) // no dueOn: a blind replay could roll it twice
 
   // Bad push subscriptions (e2e build has VAPID keys, so push is configured).
   const pushKeys = { p256dh: 'x', auth: 'y' }
