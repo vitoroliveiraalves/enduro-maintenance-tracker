@@ -90,7 +90,7 @@ async function submit() {
     </form>
 
     <p class="mt-5 rounded-lg bg-surface p-3 text-xs leading-relaxed text-muted">
-      Your bikes, costs and invoice photos are stored on our server. Invoice photos are sent to an AI service (via OpenRouter) to read them.
+      Your bikes, costs and invoice photos are stored on our server. Invoice photos and voice notes are sent to an AI service (via OpenRouter) to read them; voice notes aren't kept.
     </p>
 
     <p class="mt-6 text-center text-sm text-muted">

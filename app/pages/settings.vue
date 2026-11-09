@@ -9,6 +9,7 @@ type Reminder = { id: string; bikeId: string | null; bikeName: string | null; ti
 const { get, mutate } = useApi()
 const store = useBikesStore()
 const push = usePush()
+const voice = useVoice()
 const { pending, syncTick } = useOffline()
 
 const email = ref('')
@@ -26,6 +27,7 @@ async function loadReminders() {
 
 onMounted(async () => {
   push.init()
+  void voice.checkAvailable()
   loadReminders()
   store.fetchBikes().catch(() => {})
   // The auth middleware just checked (or, offline, trusted) this session.
@@ -138,6 +140,13 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
     <template v-if="push.state.value !== 'ios-not-installed'">
       <InstallPrompt class="mt-3" />
     </template>
+
+    <h2 :class="h2">Voice notes</h2>
+    <section class="rounded-xl bg-surface p-3 text-sm" data-testid="voice-section">
+      <p v-if="voice.available.value" class="text-white" data-testid="voice-on">Hold the round mic button to log a ride, a service or a cost, or to ask about your bike.</p>
+      <p v-else class="text-muted" data-testid="voice-off">Voice isn't set up on this server.</p>
+      <p class="mt-2 text-xs leading-relaxed text-muted">Invoice photos and voice notes are sent to an AI service (via OpenRouter) to read them; voice notes aren't kept.</p>
+    </section>
 
     <h2 id="reminders" :class="h2" class="scroll-mt-4">Reminders</h2>
     <section data-testid="reminders-section">

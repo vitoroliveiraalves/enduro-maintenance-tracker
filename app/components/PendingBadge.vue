@@ -6,7 +6,8 @@
 import type { PendingItem } from '~/composables/useOffline'
 
 const route = useRoute()
-const { online, pending, waiting, failed, flush, remove, retry } = useOffline()
+const { online, pending, waiting, failed, voiceWaiting, voiceReady, flush, remove, retry } = useOffline()
+const voice = useVoice()
 
 const HIDDEN = ['/login', '/register']
 const open = ref(false)
@@ -14,10 +15,26 @@ const syncing = ref(false)
 const confirmKey = ref<string | null>(null)
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`)
 
-const visible = computed(() => !HIDDEN.includes(route.path) && (pending.value > 0 || failed.value.length > 0))
-const label = computed(() =>
-  failed.value.length ? `${plural(failed.value.length, 'change', 'changes')} couldn't be saved` : `${plural(pending.value, 'change', 'changes')} waiting`,
-)
+const visible = computed(() => !HIDDEN.includes(route.path) && (pending.value > 0 || failed.value.length > 0 || voiceWaiting.value > 0 || voiceReady.value.length > 0))
+const label = computed(() => {
+  if (failed.value.length) return `${plural(failed.value.length, 'change', 'changes')} couldn't be saved`
+  if (voiceReady.value.length) return voiceReady.value.length === 1 ? 'Voice note ready' : `${voiceReady.value.length} voice notes ready`
+  const parts = [
+    ...(pending.value ? [plural(pending.value, 'change', 'changes')] : []),
+    ...(voiceWaiting.value ? [plural(voiceWaiting.value, 'voice note', 'voice notes')] : []),
+  ]
+  return `${parts.join(', ')} waiting`
+})
+
+/** A ready voice note and nothing else to show: the tap opens it straight away. */
+function tap() {
+  if (voiceReady.value.length && !failed.value.length && !pending.value && !voiceWaiting.value) return void openVoice(voiceReady.value[0]!)
+  open.value = true
+}
+function openVoice(v: (typeof voiceReady.value)[number]) {
+  open.value = false
+  void voice.openReady(v)
+}
 
 async function syncNow() {
   syncing.value = true
@@ -47,7 +64,7 @@ watch(open, () => (confirmKey.value = null))
       class="fixed right-3 z-30 rounded-full px-3.5 py-2 text-xs font-bold shadow-lg shadow-black/40"
       :class="failed.length ? 'bg-danger text-[#111]' : 'bg-warn text-[#111]'"
       style="bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem)"
-      @click="open = true"
+      @click="tap"
     >
       {{ label }}
     </button>
@@ -75,7 +92,16 @@ watch(open, () => (confirmKey.value = null))
           </li>
         </ul>
       </section>
-      <section v-if="pending" :class="failed.length ? 'mt-4' : ''" data-testid="pending-waiting">
+      <section v-if="voiceReady.length || voiceWaiting" :class="failed.length ? 'mt-4' : ''" data-testid="pending-voice">
+        <ul class="space-y-2">
+          <li v-for="v in voiceReady" :key="v.id" class="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2">
+            <span class="text-sm text-white">Voice note ready</span>
+            <button type="button" class="min-h-11 shrink-0 rounded-lg bg-accent px-3 text-[13px] font-semibold text-[#111]" data-testid="pending-voice-open" @click="openVoice(v)">Open</button>
+          </li>
+        </ul>
+        <p v-if="voiceWaiting" class="mt-2 text-xs text-muted">{{ plural(voiceWaiting, 'voice note', 'voice notes') }} kept on this phone, answered when you're back online with the app open.</p>
+      </section>
+      <section v-if="pending" :class="failed.length || voiceReady.length || voiceWaiting ? 'mt-4' : ''" data-testid="pending-waiting">
         <p class="text-sm font-semibold text-warn-text">{{ plural(pending, 'change', 'changes') }} waiting to sync</p>
         <p class="mt-1 text-xs text-muted">
           Saved on this phone. {{ online ? 'Sending now — keep the app open for a moment.' : "They're sent when you're back online with the app open." }}

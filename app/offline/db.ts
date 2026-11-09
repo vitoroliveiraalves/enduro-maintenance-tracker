@@ -46,6 +46,20 @@ export type PendingPhoto = {
   error?: string
 }
 
+/** A voice note recorded without a connection (or whose send hit a network error). The audio is dropped once answered. */
+export type PendingVoice = {
+  id?: number
+  clientId: string
+  userId: string
+  data: ArrayBuffer
+  tz: string
+  createdAt: number
+  attempts: number
+  error?: string
+  /** The server's answer, kept until the rider opens it. */
+  result?: unknown
+}
+
 class OfflineDB extends Dexie {
   bikes!: Table<CacheRow, string>
   bikeDetail!: Table<CacheRow, string>
@@ -54,6 +68,7 @@ class OfflineDB extends Dexie {
   lists!: Table<CacheRow, string> // services, expenses, categories, reminders
   outbox!: Table<OutboxRow, number>
   pendingPhotos!: Table<PendingPhoto, number>
+  pendingVoice!: Table<PendingVoice, number>
 
   constructor() {
     super('enduro-offline')
@@ -66,6 +81,7 @@ class OfflineDB extends Dexie {
       outbox: '++id, clientId',
     })
     this.version(2).stores({ pendingPhotos: '++id, clientId' })
+    this.version(3).stores({ pendingVoice: '++id, clientId' })
   }
 }
 

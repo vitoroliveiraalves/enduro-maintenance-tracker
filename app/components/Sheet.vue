@@ -2,6 +2,11 @@
 const props = defineProps<{ title: string; testid?: string }>()
 const open = defineModel<boolean>('open', { default: false })
 
+// Count open sheets app-wide (the mic button hides while one is open).
+const { openSheets } = useSheets()
+watch(open, (v, was) => { if (!!v !== !!was) openSheets.value += v ? 1 : -1 }, { immediate: true })
+onBeforeUnmount(() => { if (open.value) openSheets.value-- })
+
 const titleId = `sheet-${useId()}`
 const panel = ref<HTMLElement | null>(null)
 let returnTo: HTMLElement | null = null

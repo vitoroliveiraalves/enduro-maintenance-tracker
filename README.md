@@ -27,6 +27,9 @@ Create a user from the command line (or sign up at `/register`):
 pnpm user:create rider@example.com some-password
 ```
 
+Voice notes use the same `NUXT_OPENROUTER_API_KEY` (model `NUXT_VOICE_MODEL`, default the
+invoice model; caps `NUXT_VOICE_DAILY_CAP` 60/user/day, `NUXT_VOICE_GLOBAL_DAILY_CAP` 600/day, 20/user/10 min);
+without a key the mic is hidden and Settings says voice isn't set up. Audio and transcripts are never stored.
 Invoice reading needs `NUXT_OPENROUTER_API_KEY`; without it the app shows a calm
 notice and riders type the lines. Push reminders need a VAPID key pair
 (`pnpm vapid:generate`).
@@ -59,7 +62,7 @@ First deploy:
 cp .env.example prod.env          # never commit it (git-ignored)
 # set DOMAIN, APP_BIND (`hostname -I`, the LAN IP), APP_PORT if 3020 is taken, POSTGRES_PASSWORD (`openssl rand -hex 32`),
 # BETTER_AUTH_SECRET (`openssl rand -base64 48`), NUXT_VAPID_* (`pnpm vapid:generate`),
-# NUXT_OPENROUTER_API_KEY. DATABASE_URL and BETTER_AUTH_URL are set by the compose file.
+# NUXT_OPENROUTER_API_KEY (invoices and voice notes; optional NUXT_VOICE_MODEL / NUXT_VOICE_*_CAP). DATABASE_URL and BETTER_AUTH_URL are set by the compose file.
 docker compose -f compose.prod.yml --env-file prod.env up -d --build
 ```
 

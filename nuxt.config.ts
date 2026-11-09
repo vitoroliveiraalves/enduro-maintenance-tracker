@@ -31,8 +31,8 @@ export default defineNuxtConfig({
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        // Camera for invoice capture; nothing else.
-        'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), payment=()',
+        // Camera for invoice capture, microphone for voice notes; nothing else.
+        'Permissions-Policy': 'camera=(self), microphone=(self), geolocation=(), payment=()',
         'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
         // Browsers ignore HSTS over plain http, so this is safe in dev.
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
@@ -50,6 +50,11 @@ export default defineNuxtConfig({
     invoiceGlobalDailyCap: 300,
     // '' = OpenRouter; 'mock' / 'mock-fail' = canned reader for e2e (NUXT_INVOICE_READER)
     invoiceReader: '',
+    // Voice notes (NUXT_VOICE_*): model defaults to openrouterModel; 'mock' reader for e2e.
+    voiceModel: '',
+    voiceDailyCap: 60,
+    voiceGlobalDailyCap: 600,
+    voiceReader: '',
     // Web Push (NUXT_VAPID_*; `pnpm vapid:generate`). No keys → push disabled, Settings says so.
     vapidPublicKey: '',
     vapidPrivateKey: '',
