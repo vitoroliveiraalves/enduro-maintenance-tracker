@@ -52,8 +52,8 @@ watch(syncTick, load)
             </div>
           </div>
           <div v-if="b.latestReading" class="mt-3 flex gap-6 text-sm">
-            <span><b class="text-white">{{ hours(b.latestReading.hoursTenths) }}</b></span>
-            <span><b class="text-white">{{ km(b.latestReading.km) }}</b></span>
+            <span v-if="b.latestReading.hoursTenths !== null"><b class="text-white">{{ hours(b.latestReading.hoursTenths) }}</b></span>
+            <span v-if="b.latestReading.km !== null"><b class="text-white">{{ km(b.latestReading.km) }}</b></span>
           </div>
         </NuxtLink>
       </li>

@@ -11,7 +11,7 @@ import {
 
 const d = (s: string) => new Date(s)
 const now = d('2026-11-08T12:00:00Z')
-const r = (at: string, hoursTenths: number, km = 0, condition: Condition = 'normal'): Reading => ({
+const r = (at: string, hoursTenths: number | null, km: number | null = 0, condition: Condition = 'normal'): Reading => ({
   at: d(at), hoursTenths, km, condition
 })
 
@@ -176,5 +176,36 @@ describe('sortByUrgency', () => {
   it('orders overdue, soon, ok, unknown', () => {
     const out = sortByUrgency([mk('ok', 'ok', 0.2), mk('unk', 'unknown', null), mk('over', 'overdue', 1.02), mk('soon', 'soon', 0.85)])
     expect(out.map(x => x.name)).toEqual(['over', 'soon', 'ok', 'unk'])
+  })
+})
+
+describe('null meters', () => {
+  it('km-only readings with a km interval', () => {
+    const def: ItemDef = { everyKm: 1000, conditionMultipliers: {} }
+    const s = computeStatus(def, { at: d('2026-10-01T10:00:00Z'), km: 1000 }, [
+      r('2026-10-01T10:00:00Z', null, 1000), r('2026-11-01T10:00:00Z', null, 1800)
+    ], now)
+    expect(s.sinceKm).toBe(800)
+    expect(s.state).toBe('soon')
+    expect(s.sinceHoursTenths).toBeNull()
+  })
+
+  it('meter switched off then on: each unit uses only readings carrying it', () => {
+    const def: ItemDef = { everyHoursTenths: 1000, everyKm: 5000, conditionMultipliers: {} }
+    const readings = [
+      r('2026-09-01T10:00:00Z', 100, 1000),
+      r('2026-10-01T10:00:00Z', null, 1500),
+      r('2026-11-01T10:00:00Z', 160, null)
+    ]
+    const s = computeStatus(def, { at: d('2026-09-01T10:00:00Z') }, readings, now)
+    expect(s.sinceHoursTenths).toBe(60)
+    expect(s.sinceKm).toBe(500)
+  })
+
+  it('pickLastDone estimate skips readings whose unit is null', () => {
+    const readings = [r('2026-10-01T10:00:00Z', 300, 900), r('2026-10-20T10:00:00Z', null, 1200)]
+    const last = pickLastDone([{ at: d('2026-10-25T00:00:00Z') }], readings)
+    expect(last?.estHoursTenths).toBe(300)
+    expect(last?.estKm).toBe(1200)
   })
 })

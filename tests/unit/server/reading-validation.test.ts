@@ -35,3 +35,18 @@ describe('validateBeforeLater', () => {
     expect(validateBeforeLater(later, { hoursTenths: 100, km: 3813 })).toEqual({ ok: false, error: 'km-exceed-later' })
   })
 })
+
+describe('null meters', () => {
+  const kmOnly = { at: new Date('2026-10-01'), hoursTenths: null, km: 100, condition: 'normal' as const }
+  it('skips a meter when either side is null', () => {
+    expect(validateReading(kmOnly, { hoursTenths: 20, km: 120 })).toEqual({ ok: true })
+    expect(validateReading(prev, { hoursTenths: null, km: 4000 })).toEqual({ ok: true })
+  })
+  it('still rejects a km decrease', () => {
+    expect(validateReading(kmOnly, { hoursTenths: 20, km: 90 })).toEqual({ ok: false, error: 'km-decreased' })
+  })
+  it('validateBeforeLater uses the same rule', () => {
+    expect(validateBeforeLater(kmOnly, { hoursTenths: 500, km: 90 })).toEqual({ ok: true })
+    expect(validateBeforeLater(kmOnly, { hoursTenths: 5, km: 110 })).toEqual({ ok: false, error: 'km-exceed-later' })
+  })
+})

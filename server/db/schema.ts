@@ -157,6 +157,7 @@ export const bikes = pgTable(
     model: text('model').notNull(),
     year: integer('year').notNull(),
     stroke: text('stroke', { enum: ['2T', '4T'] }).notNull(),
+    meters: text('meters', { enum: ['hours_km', 'km', 'hours'] }).notNull().default('hours_km'),
     photoDocumentId: uuid('photo_document_id').references(() => documents.id, { onDelete: 'set null' }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: createdAt(),
@@ -175,8 +176,8 @@ export const meterReadings = pgTable(
     userId: userRef(),
     clientId: clientId(),
     at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
-    hoursTenths: integer('hours_tenths').notNull(),
-    km: integer('km').notNull(),
+    hoursTenths: integer('hours_tenths'),
+    km: integer('km'),
     condition: text('condition', { enum: ['normal', 'mud', 'sand', 'dust', 'race'] })
       .notNull()
       .default('normal'),

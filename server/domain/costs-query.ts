@@ -61,7 +61,7 @@ export const MIN_KM = 100
 export const perUnitCents = (totalCents: number, tenthsOrKm: number, tenths: boolean): number | null =>
   tenthsOrKm < (tenths ? MIN_HOURS_TENTHS : MIN_KM) ? null : Math.round(totalCents / (tenths ? tenthsOrKm / 10 : tenthsOrKm))
 
-type Rd = { day: string; hoursTenths: number; km: number }
+type Rd = { day: string; hoursTenths: number | null; km: number | null }
 
 /** Meter delta inside a period for one bike's readings (sorted ascending). */
 export function readingsDelta(rs: Rd[], range: Range): { hoursTenths: number; km: number } {
@@ -71,7 +71,8 @@ export function readingsDelta(rs: Rd[], range: Range): { hoursTenths: number; km
   const before = range.from === null ? [] : rs.filter((r) => r.day < range.from!)
   const start = before[before.length - 1] ?? inEnd.find((r) => range.from === null || r.day >= range.from)
   if (!start) return { hoursTenths: 0, km: 0 }
-  return { hoursTenths: Math.max(0, end.hoursTenths - start.hoursTenths), km: Math.max(0, end.km - start.km) }
+  const delta = (a: number | null, b: number | null) => (a !== null && b !== null ? Math.max(0, a - b) : 0)
+  return { hoursTenths: delta(end.hoursTenths, start.hoursTenths), km: delta(end.km, start.km) }
 }
 
 async function checkedBike(userId: string, bikeId: string | null | undefined) {

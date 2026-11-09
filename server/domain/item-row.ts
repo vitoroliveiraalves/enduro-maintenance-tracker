@@ -1,3 +1,4 @@
+import type { BikeMeters } from '../../shared/utils/meters'
 import type { ItemDef, LastDone, Status } from './maintenance-status'
 
 /** One maintenance item with its derived state, as returned by the bike and items endpoints. */
@@ -22,6 +23,7 @@ export type BikeSummary = {
   make: string
   model: string
   year: number
-  latestReading: { at: string; hoursTenths: number; km: number } | null
+  meters: BikeMeters
+  latestReading: { at: string; hoursTenths: number | null; km: number | null } | null
   counts: { overdue: number; soon: number }
 }

@@ -57,12 +57,12 @@ export function cleanDate(v: unknown, label: string): string {
 export function assertNotAboveMeters(
   what: string,
   done: { hoursTenths?: number | null; km?: number | null },
-  current: { hoursTenths: number; km: number },
+  current: { hoursTenths: number | null; km: number | null },
 ) {
-  if (done.hoursTenths != null && done.hoursTenths > current.hoursTenths) {
+  if (done.hoursTenths != null && current.hoursTenths !== null && done.hoursTenths > current.hoursTenths) {
     throw bad(`${what}: ${(done.hoursTenths / 10).toFixed(1)} h is more than the bike's current ${(current.hoursTenths / 10).toFixed(1)} h`)
   }
-  if (done.km != null && done.km > current.km) {
+  if (done.km != null && current.km !== null && done.km > current.km) {
     throw bad(`${what}: ${done.km} km is more than the bike's current ${current.km} km`)
   }
 }
@@ -263,6 +263,7 @@ export async function listBikes(userId: string): Promise<BikeSummary[]> {
         make: b.make,
         model: b.model,
         year: b.year,
+        meters: b.meters,
         latestReading: rd ? { at: rd.at.toISOString(), hoursTenths: rd.hoursTenths, km: rd.km } : null,
         counts: {
           overdue: rows.filter((r) => r.status.state === 'overdue').length,

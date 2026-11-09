@@ -65,10 +65,10 @@ export async function assertNotAboveMetersOn(bike: Bike, at: string, done: { hou
     .limit(1)
   if (!r) return
   const on = `On ${r.at.getUTCDate()} ${MONTHS[r.at.getUTCMonth()]}`
-  if (done.hoursTenths != null && done.hoursTenths > r.hoursTenths) {
+  if (done.hoursTenths != null && r.hoursTenths !== null && done.hoursTenths > r.hoursTenths) {
     throw bad(`${on} the bike had ${(r.hoursTenths / 10).toFixed(1)} h — the service can't be at ${(done.hoursTenths / 10).toFixed(1)} h`)
   }
-  if (done.km != null && done.km > r.km) throw bad(`${on} the bike had ${r.km} km — the service can't be at ${done.km} km`)
+  if (done.km != null && r.km !== null && done.km > r.km) throw bad(`${on} the bike had ${r.km} km — the service can't be at ${done.km} km`)
 }
 
 /**

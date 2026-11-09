@@ -9,7 +9,7 @@ import { bad, int, timestamp, uuid } from './validate'
 
 const CONDITIONS = ['normal', 'mud', 'sand', 'dust', 'race'] as const
 
-const meters = (r: { hoursTenths: number; km: number }) => ({ hoursTenths: r.hoursTenths, km: r.km })
+const meters = (r: { hoursTenths: number | null; km: number | null }) => ({ hoursTenths: r.hoursTenths, km: r.km })
 
 export function parseReadingInput(raw: unknown) {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw bad('Invalid body')

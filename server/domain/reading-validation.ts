@@ -1,6 +1,9 @@
 import type { Reading } from './maintenance-status'
 
-type Meters = { hoursTenths: number; km: number }
+type Meters = { hoursTenths: number | null; km: number | null }
+
+/** Both sides present, else nothing to compare. */
+const both = (a: number | null, b: number | null): [number, number] | null => (a !== null && b !== null ? [a, b] : null)
 
 export const BIG_JUMP_HOURS_TENTHS = 500
 export const BIG_JUMP_KM = 1500
@@ -12,9 +15,11 @@ export type ReadingCheck =
 /** New reading vs the reading just before it in time: never lower, ask when the jump is huge. */
 export function validateReading(prev: Reading | null, next: Meters): ReadingCheck {
   if (!prev) return { ok: true }
-  if (next.hoursTenths < prev.hoursTenths) return { ok: false, error: 'hours-decreased' }
-  if (next.km < prev.km) return { ok: false, error: 'km-decreased' }
-  if (next.hoursTenths - prev.hoursTenths > BIG_JUMP_HOURS_TENTHS || next.km - prev.km > BIG_JUMP_KM) {
+  const h = both(next.hoursTenths, prev.hoursTenths)
+  const k = both(next.km, prev.km)
+  if (h && h[0] < h[1]) return { ok: false, error: 'hours-decreased' }
+  if (k && k[0] < k[1]) return { ok: false, error: 'km-decreased' }
+  if ((h && h[0] - h[1] > BIG_JUMP_HOURS_TENTHS) || (k && k[0] - k[1] > BIG_JUMP_KM)) {
     return { ok: true, warn: 'big-jump' }
   }
   return { ok: true }
@@ -26,7 +31,9 @@ export function validateBeforeLater(
   next: Meters,
 ): { ok: true } | { ok: false; error: 'hours-exceed-later' | 'km-exceed-later' } {
   if (!later) return { ok: true }
-  if (next.hoursTenths > later.hoursTenths) return { ok: false, error: 'hours-exceed-later' }
-  if (next.km > later.km) return { ok: false, error: 'km-exceed-later' }
+  const h = both(next.hoursTenths, later.hoursTenths)
+  const k = both(next.km, later.km)
+  if (h && h[0] > h[1]) return { ok: false, error: 'hours-exceed-later' }
+  if (k && k[0] > k[1]) return { ok: false, error: 'km-exceed-later' }
   return { ok: true }
 }
