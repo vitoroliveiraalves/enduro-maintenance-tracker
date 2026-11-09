@@ -18,6 +18,8 @@ export function checkProductionEnv(env: Record<string, string | undefined>) {
     warnings.push(`BETTER_AUTH_URL (${url}) is not https; cookies and push need https in production.`)
   }
 
+  if ((env.DATABASE_URL ?? '').includes('change-me-hex-only')) errors.push('POSTGRES_PASSWORD is still the .env.example placeholder.')
+
   if (!env.NUXT_VAPID_PUBLIC_KEY || !env.NUXT_VAPID_PRIVATE_KEY) warnings.push('NUXT_VAPID_* not set: push notifications are off.')
   else if (!/^mailto:.+@.+/.test(env.NUXT_VAPID_SUBJECT ?? '') || /you@example\.com/.test(env.NUXT_VAPID_SUBJECT ?? '')) {
     warnings.push('NUXT_VAPID_SUBJECT should be a real mailto: address (Apple rejects placeholders).')

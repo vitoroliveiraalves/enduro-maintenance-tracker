@@ -43,34 +43,67 @@ The e2e run uses its own `enduro_e2e` database and never touches the dev one.
 
 ## Deploy
 
-The `Dockerfile` builds a production image (Node 22, `node .output/server/index.mjs`,
-`NODE_ENV=production`, `PORT=3000`, `HOST=0.0.0.0`). Every variable is listed with
-a comment in `.env.example`.
+Production runs on one server with Docker Compose (`compose.prod.yml`), behind
+**Nginx Proxy Manager** (NPM) for HTTPS. The stack:
+
+- `db`: Postgres 16 on a volume. Not published, no internet.
+- `migrate`: applies pending migrations, then exits. The app waits for it.
+- `app`: the server. It joins NPM's Docker network as `enduro-app`, so no port is
+  published.
+- `backup`: a `pg_dump` every 24 h into `BACKUP_DIR`, kept `BACKUP_KEEP_DAYS` days.
+
+First deploy:
 
 ```sh
-docker build -t enduro-tracker .
-docker run --rm --env-file /path/to/prod.env enduro-tracker node .output/migrate.mjs   # migrations first
-docker run -d -p 3000:3000 --env-file /path/to/prod.env enduro-tracker
+cp .env.example prod.env          # never commit it (git-ignored)
+# set DOMAIN, NPM_NETWORK (`docker network ls`), POSTGRES_PASSWORD (`openssl rand -hex 32`),
+# BETTER_AUTH_SECRET (`openssl rand -base64 48`), NUXT_VAPID_* (`pnpm vapid:generate`),
+# NUXT_OPENROUTER_API_KEY. DATABASE_URL and BETTER_AUTH_URL are set by the compose file.
+docker compose -f compose.prod.yml --env-file prod.env up -d --build
 ```
 
-Without Docker: `pnpm build`, then `pnpm db:migrate:prod` (drizzle's runtime
-migrator, no drizzle-kit), then `NODE_ENV=production node .output/server/index.mjs`.
+Then in NPM add a **Proxy Host**:
+
+- domain `DOMAIN`, scheme `http`, forward to `enduro-app` port `3000`;
+- SSL tab: request a Let's Encrypt certificate, turn on **Force SSL**
+  (HSTS is already sent by the app).
+
+**Update:** `git pull`, then the same `up -d --build` command. It rebuilds, migrates,
+then restarts the app. Expect a few seconds of downtime.
+
+**Logs and status:** `docker compose -f compose.prod.yml --env-file prod.env ps`
+(and `logs app`).
+
+**Restore a backup:**
+
+```sh
+docker compose -f compose.prod.yml --env-file prod.env stop app
+docker compose -f compose.prod.yml --env-file prod.env exec backup \
+  pg_restore --clean --if-exists -d enduro /backups/enduro-YYYY-MM-DD-HHMM.dump
+docker compose -f compose.prod.yml --env-file prod.env start app
+```
+
+Without Compose: build the image (`docker build -t enduro-tracker .`), then run
+`node .output/migrate.mjs` in it before starting it. Or, without Docker: `pnpm build`,
+`pnpm db:migrate:prod`, then `NODE_ENV=production node .output/server/index.mjs`.
 
 Rules for a production host:
 
 - **Run behind an https reverse proxy that overwrites `X-Real-IP`** with the real
-  client address (nginx: `proxy_set_header X-Real-IP $remote_addr;`). The auth rate
-  limiter reads that header (`AUTH_IP_HEADER`); if the proxy passes a client-set
-  value through, the limit can be dodged. Alternatively list your proxies in
-  `AUTH_TRUSTED_PROXIES`.
+  client address. NPM does this on every proxy host
+  (`proxy_set_header X-Real-IP $remote_addr;`). The auth rate limiter reads that
+  header (`AUTH_IP_HEADER`); if the proxy passes a client-set value through, the
+  limit can be dodged. If NPM itself sits behind Cloudflare or another proxy,
+  `$remote_addr` is that proxy: set NPM's real-IP handling first, or every rider
+  shares one rate limit.
 - **`BETTER_AUTH_URL` must be the public https origin** riders open
   (e.g. `https://enduro.example.com`), or sign-in cookies and origin checks fail.
 - **Single node only.** The invoice-reading rate limits live in memory and reset on
   restart; running several instances would multiply them. (Upload quotas are
   counted in Postgres.)
 - **Set `NODE_ENV=production`** (the image does).
-- **Run migrations before starting** a new version (`node .output/migrate.mjs` in the
-  image, or `pnpm db:migrate:prod`).
+- **Run migrations before starting** a new version (the `migrate` service does it;
+  otherwise `node .output/migrate.mjs` in the image, or `pnpm db:migrate:prod`).
 - **Generate VAPID keys with `pnpm vapid:generate`** and set `NUXT_VAPID_*`;
   `NUXT_VAPID_SUBJECT` must be a real `mailto:` (Apple rejects placeholders).
 - Set a long random `BETTER_AUTH_SECRET`; never reuse the example value.
@@ -80,7 +113,8 @@ Rules for a production host:
 - **Health:** `GET /api/health` is 200 when the app and Postgres answer, 503 when
   the database is unreachable. The image has a Docker `HEALTHCHECK` on it; point
   your uptime monitor there too.
-- **Back up Postgres daily** and keep copies off the host. It holds everything,
+- **Back up Postgres daily** and keep copies off the host (the `backup` service writes
+  the daily dumps; copying `BACKUP_DIR` elsewhere is up to you). It holds everything,
   including invoice photos (`document_files`), so expect it to grow. For example:
   `pg_dump --format=custom "$DATABASE_URL" > enduro-$(date +%F).dump`, restore with
   `pg_restore --clean --dbname "$DATABASE_URL" <file>`. Test a restore before launch.

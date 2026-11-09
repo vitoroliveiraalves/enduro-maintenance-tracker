@@ -16,3 +16,6 @@ docs
 !.env.example
 *.log
 .DS_Store
+prod.env
+backups
+compose.prod.yml

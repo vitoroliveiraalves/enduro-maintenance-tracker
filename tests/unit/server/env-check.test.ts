@@ -20,6 +20,7 @@ describe('checkProductionEnv', () => {
     expect(checkProductionEnv({ ...good, BETTER_AUTH_SECRET: 'change-me-to-a-long-random-string' }).errors[0]).toMatch(/placeholder/)
     expect(checkProductionEnv({ ...good, BETTER_AUTH_SECRET: 'short' }).errors[0]).toMatch(/32/)
     expect(checkProductionEnv({ ...good, BETTER_AUTH_URL: '' }).errors[0]).toMatch(/BETTER_AUTH_URL/)
+    expect(checkProductionEnv({ ...good, DATABASE_URL: 'postgres://enduro:change-me-hex-only@db:5432/enduro' }).errors[0]).toMatch(/POSTGRES_PASSWORD/)
   })
 
   it('only warns for plain http on a public host, missing push or AI keys, placeholder VAPID subject', () => {

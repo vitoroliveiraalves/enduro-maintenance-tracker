@@ -1,0 +1,104 @@
+# Production on one server: Postgres, migrations, the app and daily backups.
+# HTTPS comes from Nginx Proxy Manager (NPM): the app joins NPM's Docker network
+# as `enduro-app`, so no port is published; in NPM add a Proxy Host
+# DOMAIN -> http://enduro-app:3000 with an SSL certificate (Force SSL on).
+#
+#   cp .env.example prod.env    # fill in DOMAIN, NPM_NETWORK, POSTGRES_PASSWORD, BETTER_AUTH_SECRET, keys
+#   docker compose -f compose.prod.yml --env-file prod.env up -d --build
+#
+# Same command to update: it rebuilds, migrates, then restarts the app. See README "Deploy".
+# (docker-compose.yml is the local dev database only; this file never touches it.)
+name: enduro-prod
+
+x-app: &app
+  build: .
+  image: enduro-tracker:latest
+  env_file: ${ENV_FILE:-prod.env} # the same file as --env-file
+  environment:
+    # Built from the compose values, so prod.env can't point them elsewhere by mistake.
+    DATABASE_URL: postgres://enduro:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in prod.env}@db:5432/enduro
+    BETTER_AUTH_URL: https://${DOMAIN:?set DOMAIN in prod.env}
+    # NPM sets X-Real-IP to the connecting address on every proxied request.
+    AUTH_IP_HEADER: x-real-ip
+    AUTH_TRUSTED_PROXIES: ''
+  networks: [internal]
+
+services:
+  db:
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: enduro
+      POSTGRES_DB: enduro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in prod.env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U enduro -d enduro']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [internal] # never published, never on NPM's network
+
+  # One-shot: applies pending migrations, then exits. The app waits for it.
+  migrate:
+    <<: *app
+    command: ['node', '.output/migrate.mjs']
+    restart: 'no'
+    depends_on:
+      db: { condition: service_healthy }
+
+  app:
+    <<: *app
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    # npm: NPM reaches it as enduro-app:3000; that network also gives the way out
+    # to OpenRouter (invoice lines) and the Web Push services.
+    networks:
+      internal: {}
+      npm:
+        aliases: [enduro-app]
+    # Healthcheck (GET /api/health) comes from the image.
+
+  # Daily pg_dump into BACKUP_DIR on the host (copy that folder off the server).
+  # A failed dump is left as *.partial and ages out with the old dumps.
+  backup:
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully } # first dump after the schema exists
+    environment:
+      PGHOST: db
+      PGUSER: enduro
+      PGDATABASE: enduro
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in prod.env}
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        while true; do
+          f=/backups/enduro-$$(date +%F-%H%M).dump
+          if pg_dump --format=custom --file="$$f.partial" && mv "$$f.partial" "$$f"; then
+            echo "[backup] wrote $$f"
+          else
+            echo "[backup] FAILED: see $$f.partial" >&2
+          fi
+          find /backups -name 'enduro-*' -mtime +"$$KEEP_DAYS" -delete
+          sleep 86400
+        done
+    networks: [internal]
+
+volumes:
+  db-data:
+
+networks:
+  internal:
+    internal: true # no route out: the database and backups never reach the internet
+  npm:
+    external: true
+    name: ${NPM_NETWORK:?set NPM_NETWORK in prod.env (docker network ls; the network Nginx Proxy Manager runs on)}
