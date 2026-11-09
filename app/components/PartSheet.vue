@@ -47,8 +47,11 @@ async function loadChoices() {
   }
   choices.value = out
 }
-watch(bikeId, () => {
-  if (open.value) void loadChoices()
+// A part only links to items of its own bike: drop links the new choice doesn't offer.
+watch(bikeId, async () => {
+  if (!open.value) return
+  await loadChoices()
+  if (bikeId.value && choices.value.length) itemIds.value = itemIds.value.filter((id) => choices.value.some((c) => c.id === id))
 })
 
 watch(open, async (v) => {
@@ -203,7 +206,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
             v-for="c in choices"
             :key="c.id"
             type="button"
-            class="min-h-9 rounded-full px-3 text-sm"
+            class="min-h-11 rounded-full px-3 text-sm"
             :class="itemIds.includes(c.id) ? 'bg-accent/20 text-accent' : 'border border-white/15 text-muted'"
             :aria-pressed="itemIds.includes(c.id)"
             data-testid="part-item"

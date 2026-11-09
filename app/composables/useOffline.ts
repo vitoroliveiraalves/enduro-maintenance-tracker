@@ -51,7 +51,7 @@ export async function requestFlush(force = false) {
   if (res.sent) {
     // Refresh the cached views the replayed writes touched, then let screens reload.
     const { get } = useApi()
-    await Promise.all([get('/api/bikes'), ...res.bikeIds.map((id) => get(`/api/bikes/${id}`))].map((p) => p.catch(() => null)))
+    await Promise.all([get('/api/bikes'), get('/api/parts'), ...res.bikeIds.map((id) => get(`/api/bikes/${id}`))].map((p) => p.catch(() => null)))
     syncTick.value++
   }
   if (res.retryAt) {

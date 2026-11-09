@@ -79,3 +79,27 @@ test('shelf: ?item= filter, low stock marker and delete', async ({ page }) => {
   await page.getByTestId('part-delete-yes').click()
   await expect(page.getByTestId('part-row')).toHaveCount(1)
 })
+
+test('part sheet: changing the bike drops links to the other bike\'s items', async ({ page }) => {
+  await signUpFresh(page)
+  const mk = async (name: string, item: string) => {
+    const b = (await (await page.request.post('/api/bikes', { data: bikeBody(name, [{ name: item, everyHoursTenths: 150 }]) })).json()) as { id: string }
+    const d = (await (await page.request.get(`/api/bikes/${b.id}`)).json()) as { items: Array<{ id: string }> }
+    return { id: b.id, item: d.items[0]!.id }
+  }
+  const a = await mk('Bike A', 'A oil')
+  const b = await mk('Bike B', 'B chain')
+  const created = (await (await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name: 'Linked part', bikeId: a.id, itemIds: [a.item] } })).json()) as { id: string }
+
+  await page.goto('/shelf')
+  await page.getByTestId('part-row').click()
+  await expect(page.getByTestId('part-item').filter({ hasText: 'A oil' })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByTestId('part-bike').selectOption(b.id)
+  await expect(page.getByTestId('part-item')).toHaveText('B chain')
+  await page.getByTestId('part-item').click()
+  await page.getByTestId('part-save').click()
+  await expect(page.getByTestId('part-sheet')).toBeHidden()
+  const row = (await (await page.request.get(`/api/parts/${created.id}`)).json()) as { bikeId: string; itemIds: string[] }
+  expect(row.bikeId).toBe(b.id)
+  expect(row.itemIds).toEqual([b.item])
+})

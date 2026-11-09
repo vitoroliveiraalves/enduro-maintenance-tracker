@@ -71,7 +71,7 @@ function open(p: ShelfPart | null) {
       >
       <p v-if="itemFilter" class="mt-2 text-xs text-muted" data-testid="shelf-item-filter">
         Only parts for one maintenance item ·
-        <NuxtLink to="/shelf" class="text-accent underline">show all</NuxtLink>
+        <NuxtLink to="/shelf" class="inline-flex min-h-11 items-center text-accent underline">show all</NuxtLink>
       </p>
       <p v-if="error" role="alert" class="mt-3 text-danger">{{ error }}</p>
 
@@ -88,7 +88,7 @@ function open(p: ShelfPart | null) {
             <span class="min-w-0">
               <span class="block truncate font-semibold text-white">{{ p.name }}</span>
               <span class="block truncate text-xs text-muted">
-                {{ p.bikeName ?? 'Any bike' }}<template v-if="p.pending"> · waiting to sync</template>
+                {{ p.bikeName ?? 'Any bike' }}<template v-if="p.pending || p.pendingSync"> · Waiting to sync</template>
               </span>
             </span>
             <span class="shrink-0 text-lg font-bold" :class="low(p) ? 'text-danger-text' : 'text-white'" data-testid="part-qty" :data-low="low(p)">{{ qty(p.qtyHundredths, p.unit) }}</span>
