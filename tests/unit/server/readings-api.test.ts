@@ -102,3 +102,27 @@ describe('undoLatestReading (a confirmed typo can be taken back)', () => {
     await expect(undoLatestReading(bike, {})).rejects.toMatchObject({ statusCode: 400 })
   })
 })
+
+describe("logReading with the bike's meters", () => {
+  const make = (meters: 'km' | 'hours') =>
+    createBike(uid, { ...bikeBody(), meters, items: [{ name: 'Chain', [meters === 'km' ? 'everyKm' : 'everyHoursTenths']: 100 }] })
+
+  it('km bike: hours ignored (stored null), condition forced to normal, km required', async () => {
+    const kmBike = await make('km')
+    const r = await logReading(kmBike, { clientId: crypto.randomUUID(), hoursTenths: 99, km: 4000, condition: 'mud' })
+    expect(r).toMatchObject({ status: 200, body: { latestReading: { hoursTenths: null, km: 4000, condition: 'normal' } } })
+    await expect(logReading(kmBike, { clientId: crypto.randomUUID(), hoursTenths: 99 })).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  it('km bike: a km decrease is 422 km-decreased', async () => {
+    const kmBike = await make('km')
+    expect(await logReading(kmBike, { clientId: crypto.randomUUID(), km: 3000 })).toMatchObject({ status: 422, body: { error: 'km-decreased' } })
+  })
+
+  it('hours bike: hours required, km ignored (stored null)', async () => {
+    const hBike = await make('hours')
+    await expect(logReading(hBike, { clientId: crypto.randomUUID(), km: 4000 })).rejects.toMatchObject({ statusCode: 400 })
+    const r = await logReading(hBike, { clientId: crypto.randomUUID(), hoursTenths: 1500, km: 4000, condition: 'sand' })
+    expect(r).toMatchObject({ status: 200, body: { latestReading: { hoursTenths: 1500, km: null, condition: 'sand' } } })
+  })
+})

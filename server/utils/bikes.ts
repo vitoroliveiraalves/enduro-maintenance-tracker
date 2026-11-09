@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, maintenanceItems, meterReadings, partItems, parts, serviceItems, services } from '../db/schema'
 import type { Bike, ConditionMultipliers, MaintenanceItem } from '../db/schema'
@@ -6,6 +6,8 @@ import { computeStatus, pickLastDone, sortByUrgency } from '../domain/maintenanc
 import type { ItemDef, Reading } from '../domain/maintenance-status'
 import type { BikeSummary, ItemRow } from '../domain/item-row'
 import { bad, day, int, MAX_YEAR, uuid } from './validate'
+import { countedDef, countsHours, countsKm, isBikeMeters, keepCounted } from '../../shared/utils/meters'
+import type { BikeMeters } from '../../shared/utils/meters'
 
 export type ItemInput = {
   name: string
@@ -23,8 +25,9 @@ export type BikeInput = {
   model: string
   year: number
   stroke: '2T' | '4T'
-  hoursTenths: number
-  km: number
+  meters?: BikeMeters
+  hoursTenths?: number
+  km?: number
   items: ItemInput[]
 }
 
@@ -52,6 +55,18 @@ export function cleanDate(v: unknown, label: string): string {
   if (at > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) throw future()
   return at
 }
+
+/** The optional hours/km of a write, parsed only for the meters the bike counts (an uncounted one is ignored, stored null). */
+export function countedMeters(meters: BikeMeters, o: Obj): { hoursTenths: number | null; km: number | null } {
+  return keepCounted(meters, {
+    hoursTenths: countsHours(meters) ? optInt(o.hoursTenths, 'hoursTenths') : null,
+    km: countsKm(meters) ? optInt(o.km, 'km') : null,
+  })
+}
+
+/** Newest reading first; a reading without hours sorts after one with them. */
+export const hoursDesc = sql`${meterReadings.hoursTenths} desc nulls last`
+export const hoursAsc = sql`${meterReadings.hoursTenths} asc nulls last`
 
 /** Throws 400 when hours/km are above the bike's current meters. */
 export function assertNotAboveMeters(
@@ -82,10 +97,10 @@ function multipliers(v: unknown): ConditionMultipliers {
 }
 
 type Intervals = { everyHoursTenths: number | null; everyKm: number | null; everyMonths: number | null }
-function intervals(o: Obj): Intervals {
+function intervals(o: Obj, meters: BikeMeters = 'hours_km'): Intervals {
   const r = {
-    everyHoursTenths: optInt(o.everyHoursTenths, 'everyHoursTenths', 1),
-    everyKm: optInt(o.everyKm, 'everyKm', 1),
+    everyHoursTenths: countsHours(meters) ? optInt(o.everyHoursTenths, 'everyHoursTenths', 1) : null,
+    everyKm: countsKm(meters) ? optInt(o.everyKm, 'everyKm', 1) : null,
     everyMonths: optInt(o.everyMonths, 'everyMonths', 1),
   }
   if (r.everyHoursTenths === null && r.everyKm === null && r.everyMonths === null) {
@@ -96,29 +111,36 @@ function intervals(o: Obj): Intervals {
 
 type CleanItem = { name: string; conditionMultipliers: ConditionMultipliers; lastDone: { at: string; atUnknown: boolean; hoursTenths: number | null; km: number | null } | null } & Intervals
 
-function cleanItem(raw: unknown): CleanItem {
+function cleanItem(raw: unknown, meters: BikeMeters): CleanItem {
   if (!isObj(raw)) throw bad('Invalid item')
   let lastDone: CleanItem['lastDone'] = null
   if (raw.lastDone !== undefined && raw.lastDone !== null) {
     const l = raw.lastDone
     if (!isObj(l)) throw bad('Invalid lastDone')
-    const hoursTenths = optInt(l.hoursTenths, 'lastDone hours')
-    const km = optInt(l.km, 'lastDone km')
+    const sent = l.hoursTenths != null || l.km != null
+    const hoursTenths = countsHours(meters) ? optInt(l.hoursTenths, 'lastDone hours') : null
+    const km = countsKm(meters) ? optInt(l.km, 'lastDone km') : null
     if (l.at === undefined || l.at === null || l.at === '') {
       // Meters known, date not: keep the set-up day as a placeholder, flagged, never shown as a date.
-      if (hoursTenths === null && km === null) throw bad('Invalid lastDone')
-      lastDone = { at: new Date().toISOString().slice(0, 10), atUnknown: true, hoursTenths, km }
+      if (hoursTenths === null && km === null) {
+        // Only uncounted meters were sent: nothing to record (ignored, not a 400).
+        if (!sent) throw bad('Invalid lastDone')
+      } else {
+        lastDone = { at: new Date().toISOString().slice(0, 10), atUnknown: true, hoursTenths, km }
+      }
     } else {
       lastDone = { at: cleanDate(l.at, 'lastDone'), atUnknown: false, hoursTenths, km }
     }
   }
-  return { name: str(raw.name, 'item name'), conditionMultipliers: multipliers(raw.conditionMultipliers), ...intervals(raw), lastDone }
+  return { name: str(raw.name, 'item name'), conditionMultipliers: multipliers(raw.conditionMultipliers), ...intervals(raw, meters), lastDone }
 }
 
 export function parseBikeInput(raw: unknown) {
   if (!isObj(raw)) throw bad('Invalid body')
   if (raw.stroke !== '2T' && raw.stroke !== '4T') throw bad('Invalid stroke')
   if (!Array.isArray(raw.items) || raw.items.length > 80) throw bad('Invalid items')
+  if (raw.meters !== undefined && !isBikeMeters(raw.meters)) throw bad('Invalid meters')
+  const meters: BikeMeters = raw.meters ?? 'hours_km'
   const parsed = {
     clientId: uuid(raw.clientId),
     name: str(raw.name, 'name'),
@@ -126,9 +148,10 @@ export function parseBikeInput(raw: unknown) {
     model: str(raw.model, 'model'),
     year: int(raw.year, 'year', 1950, 2100),
     stroke: raw.stroke as '2T' | '4T',
-    hoursTenths: int(raw.hoursTenths, 'hoursTenths'),
-    km: int(raw.km, 'km'),
-    items: raw.items.map(cleanItem),
+    meters,
+    hoursTenths: countsHours(meters) ? int(raw.hoursTenths, 'hoursTenths') : null,
+    km: countsKm(meters) ? int(raw.km, 'km') : null,
+    items: raw.items.map((i) => cleanItem(i, meters)),
   }
   for (const it of parsed.items) {
     if (it.lastDone) assertNotAboveMeters(it.name, it.lastDone, parsed)
@@ -145,7 +168,7 @@ export async function createBike(userId: string, raw: unknown): Promise<Bike> {
   return db.transaction(async (tx) => {
     const [bike] = await tx
       .insert(bikes)
-      .values({ userId, clientId: input.clientId, name: input.name, make: input.make, model: input.model, year: input.year, stroke: input.stroke })
+      .values({ userId, clientId: input.clientId, name: input.name, make: input.make, model: input.model, year: input.year, stroke: input.stroke, meters: input.meters })
       .onConflictDoNothing({ target: [bikes.userId, bikes.clientId] })
       .returning()
     if (!bike) {
@@ -179,7 +202,8 @@ export async function createBike(userId: string, raw: unknown): Promise<Bike> {
   })
 }
 
-const defOf = (i: MaintenanceItem): ItemDef => ({
+/** The item's intervals as stored; status goes through `countedDef` for the bike's meters. */
+const defOf = (i: MaintenanceItem, meters: BikeMeters): ItemDef => countedDef(meters, {
   ...(i.everyHoursTenths ? { everyHoursTenths: i.everyHoursTenths } : {}),
   ...(i.everyKm ? { everyKm: i.everyKm } : {}),
   ...(i.everyMonths ? { everyMonths: i.everyMonths } : {}),
@@ -191,13 +215,15 @@ export async function latestReading(bikeId: string, userId: string) {
     .select()
     .from(meterReadings)
     .where(and(eq(meterReadings.bikeId, bikeId), eq(meterReadings.userId, userId)))
-    .orderBy(desc(meterReadings.at), desc(meterReadings.hoursTenths))
+    .orderBy(desc(meterReadings.at), hoursDesc)
     .limit(1)
   return r ?? null
 }
 
 /** Active items of a bike with last-done and status, most urgent first. */
 export async function itemRows(bikeId: string, userId: string, now = new Date()): Promise<ItemRow[]> {
+  const [bike] = await db.select({ meters: bikes.meters }).from(bikes).where(and(eq(bikes.id, bikeId), eq(bikes.userId, userId)))
+  const meters = bike?.meters ?? 'hours_km'
   const items = await db
     .select()
     .from(maintenanceItems)
@@ -238,7 +264,7 @@ export async function itemRows(bikeId: string, userId: string, now = new Date())
     const picked = pickLastDone(list, readings)
     const src = picked && list.find((s) => s.at.getTime() === picked.at.getTime() && s.hoursTenths === picked.hoursTenths && s.km === picked.km)
     const last = picked && src ? { ...picked, serviceId: src.id, by: src.by, ...(src.garageName ? { garageName: src.garageName } : {}) } : null
-    const def = defOf(item)
+    const def = defOf(item, meters)
     return { id: item.id, name: item.name, def, last, status: computeStatus(def, picked, readings, now), stock: stockOf(item.id) }
   })
   return sortByUrgency(rows)
@@ -281,6 +307,10 @@ export async function patchBike(bike: Bike, raw: unknown): Promise<Bike> {
   if (raw.make !== undefined) set.make = str(raw.make, 'make')
   if (raw.model !== undefined) set.model = str(raw.model, 'model')
   if (raw.year !== undefined) set.year = int(raw.year, 'year', 1950, 2100)
+  if (raw.meters !== undefined) {
+    if (!isBikeMeters(raw.meters)) throw bad('Invalid meters')
+    set.meters = raw.meters
+  }
   if (raw.archived !== undefined) set.archivedAt = raw.archived ? new Date() : null
   if (Object.keys(set).length === 0) return bike
   const [row] = await db.update(bikes).set(set).where(and(eq(bikes.id, bike.id), eq(bikes.userId, bike.userId))).returning()
@@ -291,7 +321,7 @@ export async function patchBike(bike: Bike, raw: unknown): Promise<Bike> {
 export async function createItem(bike: Bike, raw: unknown): Promise<MaintenanceItem> {
   if (!isObj(raw)) throw bad('Invalid body')
   const clientId = uuid(raw.clientId)
-  const item = cleanItem(raw)
+  const item = cleanItem(raw, bike.meters)
   const [row] = await db
     .insert(maintenanceItems)
     .values({
@@ -320,9 +350,12 @@ export async function patchItem(item: MaintenanceItem, userId: string, raw: unkn
   const set: Partial<typeof maintenanceItems.$inferInsert> = {}
   if (raw.name !== undefined) set.name = str(raw.name, 'item name')
   if ('everyHoursTenths' in raw || 'everyKm' in raw || 'everyMonths' in raw) {
+    // An uncounted unit in the body is ignored: its stored interval stays (switching back is lossless).
+    const [bike] = await db.select({ meters: bikes.meters }).from(bikes).where(and(eq(bikes.id, item.bikeId), eq(bikes.userId, userId)))
+    const meters = bike?.meters ?? 'hours_km'
     const merged = intervals({
-      everyHoursTenths: 'everyHoursTenths' in raw ? raw.everyHoursTenths : item.everyHoursTenths,
-      everyKm: 'everyKm' in raw ? raw.everyKm : item.everyKm,
+      everyHoursTenths: 'everyHoursTenths' in raw && countsHours(meters) ? raw.everyHoursTenths : item.everyHoursTenths,
+      everyKm: 'everyKm' in raw && countsKm(meters) ? raw.everyKm : item.everyKm,
       everyMonths: 'everyMonths' in raw ? raw.everyMonths : item.everyMonths,
     })
     Object.assign(set, merged)

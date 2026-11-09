@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, expenseItems, expenses, maintenanceItems, meterReadings, partMovements, parts, serviceItems, services } from '../db/schema'
 import type { Bike, Service } from '../db/schema'
-import { assertNotAboveMeters, bikeDetail, cleanDate, isObj, latestReading, optInt, str } from './bikes'
+import { assertNotAboveMeters, bikeDetail, cleanDate, countedMeters, hoursDesc, isObj, latestReading, str } from './bikes'
 import { bad, uuid } from './validate'
 import { applyMovement, qty } from './parts'
 import { amountCents, checkCategory, checkDocument, checkItemIds, description } from './expenses'
@@ -61,7 +61,7 @@ export async function assertNotAboveMetersOn(bike: Bike, at: string, done: { hou
     .select()
     .from(meterReadings)
     .where(and(eq(meterReadings.bikeId, bike.id), eq(meterReadings.userId, bike.userId), lt(meterReadings.at, endOfDay)))
-    .orderBy(desc(meterReadings.at), desc(meterReadings.hoursTenths))
+    .orderBy(desc(meterReadings.at), hoursDesc)
     .limit(1)
   if (!r) return
   const on = `On ${r.at.getUTCDate()} ${MONTHS[r.at.getUTCMonth()]}`
@@ -84,8 +84,7 @@ export async function insertService(bike: Bike, raw: unknown, tx: Tx): Promise<s
   if (existing) return null
 
   const at = cleanDate(raw.at, 'service')
-  const hoursTenths = optInt(raw.hoursTenths, 'hoursTenths')
-  const km = optInt(raw.km, 'km')
+  const { hoursTenths, km } = countedMeters(bike.meters, raw)
   const current = await latestReading(bike.id, userId)
   if (current) assertNotAboveMeters('Service', { hoursTenths, km }, current)
   await assertNotAboveMetersOn(bike, at, { hoursTenths, km }, tx)

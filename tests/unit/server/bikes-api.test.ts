@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { bikes, maintenanceItems, meterReadings, services, user } from '../../../server/db/schema'
 import { TEMPLATES } from '../../../server/domain/templates'
-import { bikeDetail, createBike, createItem, itemRows, listBikes, patchItem } from '../../../server/utils/bikes'
+import { bikeDetail, createBike, createItem, itemRows, listBikes, patchBike, patchItem } from '../../../server/utils/bikes'
 import { truncateUsers } from '../../support/truncate'
 
 let uid: string, other: string
@@ -125,6 +125,70 @@ describe('bikes api logic', () => {
     it('accepts values equal to current and today', async () => {
       const today = new Date().toISOString().slice(0, 10)
       await expect(createBike(uid, withLast({ at: today, hoursTenths: 1425, km: 3812 }))).resolves.toBeTruthy()
+    })
+  })
+
+  describe('meters', () => {
+    const kmBody = (over: Record<string, unknown> = {}) => {
+      const rest: Record<string, unknown> = body()
+      delete rest.hoursTenths
+      return { ...rest, meters: 'km', items: [{ name: 'Chain', everyHoursTenths: 150, everyKm: 6000 }], ...over }
+    }
+
+    it('km bike: first reading has no hours; hours interval is stored null', async () => {
+      const bike = await createBike(uid, kmBody({ hoursTenths: 99 }))
+      expect(bike.meters).toBe('km')
+      const detail = await bikeDetail(bike)
+      expect(detail.latestReading).toMatchObject({ hoursTenths: null, km: 3812 })
+      const [it] = await db.select().from(maintenanceItems).where(eq(maintenanceItems.bikeId, bike.id))
+      expect(it).toMatchObject({ everyHoursTenths: null, everyKm: 6000 })
+    })
+
+    it('km bike without km, or with an unknown meters value, is a 400', async () => {
+      const noKm = kmBody()
+      delete noKm.km
+      await expect(createBike(uid, noKm)).rejects.toMatchObject({ statusCode: 400 })
+      await expect(createBike(uid, body({ meters: 'street' }))).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid meters' })
+      expect(await db.select().from(bikes)).toHaveLength(0)
+    })
+
+    it('uncounted last-done meters are ignored; only-uncounted without a date records nothing', async () => {
+      const items = [
+        { name: 'Chain', everyKm: 6000, lastDone: { at: '2026-09-01', hoursTenths: 1200, km: 3000 } },
+        { name: 'Oil', everyKm: 6000, lastDone: { hoursTenths: 1200 } },
+      ]
+      const bike = await createBike(uid, kmBody({ items }))
+      const svc = await db.select().from(services).where(eq(services.bikeId, bike.id))
+      expect(svc).toHaveLength(1)
+      expect(svc[0]).toMatchObject({ hoursTenths: null, km: 3000 })
+    })
+
+    it('switching meters changes status only; switching back restores it', async () => {
+      const bike = await createBike(uid, body({
+        items: [{ name: 'Gearbox oil', everyHoursTenths: 150, lastDone: { at: '2026-09-01', hoursTenths: 100 } }],
+      }))
+      await db.insert(meterReadings).values({ bikeId: bike.id, userId: uid, hoursTenths: 250, km: 3900 })
+      const now = new Date()
+      const before = (await itemRows(bike.id, uid, now))[0]!
+      expect(['soon', 'overdue']).toContain(before.status.state)
+      const onKm = await patchBike(bike, { meters: 'km' })
+      expect(onKm.meters).toBe('km')
+      expect((await itemRows(bike.id, uid))[0]!.status.state).toBe('unknown')
+      const back = await patchBike(onKm, { meters: 'hours_km' })
+      expect((await itemRows(bike.id, uid, now))[0]!).toEqual(before)
+      expect(back.meters).toBe('hours_km')
+      await expect(patchBike(back, { meters: 'x' })).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid meters' })
+      expect(await db.select().from(meterReadings).where(eq(meterReadings.bikeId, bike.id))).toHaveLength(2)
+    })
+
+    it('item create strips an uncounted interval; item patch ignores it', async () => {
+      const bike = await createBike(uid, kmBody({ items: [] }))
+      const a = await createItem(bike, { clientId: crypto.randomUUID(), name: 'Chain', everyHoursTenths: 300, everyKm: 5000 })
+      expect(a).toMatchObject({ everyHoursTenths: null, everyKm: 5000 })
+      // a stored uncounted interval (e.g. from before a switch) survives a patch that names it
+      await db.update(maintenanceItems).set({ everyHoursTenths: 400 }).where(eq(maintenanceItems.id, a.id))
+      const patched = await patchItem({ ...a, everyHoursTenths: 400 }, uid, { everyHoursTenths: 999, everyKm: 7000 })
+      expect(patched).toMatchObject({ everyHoursTenths: 400, everyKm: 7000 })
     })
   })
 })

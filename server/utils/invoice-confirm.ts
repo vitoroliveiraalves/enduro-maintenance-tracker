@@ -3,7 +3,7 @@ import { createError } from 'h3'
 import { db } from '../db/client'
 import { documents, expenseItems, expenses, parts } from '../db/schema'
 import type { Bike, Document, Part } from '../db/schema'
-import { cleanDate, isObj, optInt, str } from './bikes'
+import { cleanDate, countedMeters, isObj, str } from './bikes'
 import { bad, isUuid, uuid } from './validate'
 import { applyMovement, createPart, qty } from './parts'
 import type { Tx } from './expenses'
@@ -61,8 +61,7 @@ export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): P
   if (!Array.isArray(raw.lines) || raw.lines.length > MAX_LINES) throw bad('Invalid lines')
   if (!raw.lines.length) throw bad('Add at least one line')
   const at = cleanDate(raw.at, 'invoice')
-  const hoursTenths = optInt(raw.hoursTenths, 'hoursTenths')
-  const km = optInt(raw.km, 'km')
+  const { hoursTenths, km } = countedMeters(bike.meters, raw)
   const garageName = raw.garageName == null || raw.garageName === '' ? null : str(raw.garageName, 'garageName')
   const number = raw.number == null || raw.number === '' ? null : str(raw.number, 'number', 60)
   const nif = raw.supplierNif == null || raw.supplierNif === '' ? null : String(raw.supplierNif).replace(/\s/g, '')

@@ -119,6 +119,14 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   // Account delete without the exact confirmation (never send the valid one here).
   for (const body of [{}, { confirm: 'delete' }, { confirm: true }]) cases.push(['delete', '/api/account', body, 400])
 
+  // Bad meters: unknown value on create/patch, and a missing counted meter on a reading.
+  cases.push(
+    ['post', '/api/bikes', { ...bikeBody('X', []), meters: 'x' }, 400],
+    ['patch', `/api/bikes/${bike.id}`, { meters: 7 }, 400],
+    ['patch', `/api/bikes/${bike.id}`, { meters: 'x' }, 400],
+    ['post', '/api/readings', rd({ hoursTenths: undefined }), 400],
+  )
+
   // Bad numbers.
   for (const n of [HUGE, -1, 1.5, '12', null]) {
     cases.push(

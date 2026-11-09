@@ -42,6 +42,14 @@ beforeEach(async () => {
 })
 
 describe('createService', () => {
+  it('km bike: a service with hours stores them null and saves', async () => {
+    const kmBike = await createBike(uid, { ...bikeBody(), meters: 'km', items: [{ name: 'Chain', everyKm: 5000 }] })
+    const [chain] = await itemRows(kmBike.id, uid)
+    await createService(kmBike, { clientId: crypto.randomUUID(), at: day(0), hoursTenths: 50, km: 3800, by: 'diy', itemIds: [chain!.id] })
+    const [row] = await db.select().from(services).where(eq(services.bikeId, kmBike.id))
+    expect(row).toMatchObject({ hoursTenths: null, km: 3800 })
+  })
+
   it('resets every picked item and books a linked cost', async () => {
     const before = await items()
     expect(before['Gearbox oil']!.status.state).toBe('overdue')
