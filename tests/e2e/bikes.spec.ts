@@ -30,12 +30,12 @@ test('add a 2T bike with Gearbox oil last done, see overdue and unknown rows', a
   await expect(page.getByTestId('item-state').filter({ hasText: /^Unknown$/ }).first()).toBeVisible()
   await expect(page.getByTestId('item-row').filter({ hasText: 'Coolant' })).toHaveCount(0)
 
-  // Garage lists it with an overdue count; Bike tab returns to the last bike
+  // The Garage tab opens the garage (never a bike on its own), which lists it with an overdue count
   await page.getByTestId('tab-costs').click()
   await expect(page.getByRole('heading', { name: 'Running costs' })).toBeVisible()
-  await page.getByTestId('tab-bike').click()
-  await expect(page).toHaveURL(/\/bikes\/[0-9a-f-]{36}$/)
-  await page.goto('/')
+  await page.getByTestId('tab-garage').click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('heading', { name: 'Garage' })).toBeVisible()
   const card = page.getByTestId('bike-card').filter({ has: page.getByText('KTM 300 EXC', { exact: true }) })
   await expect(card.getByTestId('count-overdue')).toContainText('1')
   await expect(card).toContainText('142.5 h')

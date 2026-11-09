@@ -69,7 +69,8 @@ test('mark done with a comma cost, standalone expense, history, delete', async (
   await svcRow.getByTestId('delete-service').click()
   await svcRow.getByTestId('confirm-delete').click()
   await expect(svcRow).toHaveCount(0)
-  await page.getByTestId('tab-bike').click()
+  await page.getByTestId('tab-garage').click()
+  await page.getByTestId('bike-card').filter({ hasText: 'Svc Bike' }).first().click()
   await expect(page.getByTestId('item-row').filter({ hasText: 'Gearbox oil' }).getByTestId('item-state')).toHaveText(/overdue/)
 })
 
