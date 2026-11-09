@@ -97,6 +97,7 @@ async function checkPart(tx: Tx, userId: string, partId: string) {
 function refId(v: unknown, field: string): string | null {
   if (v === null || v === undefined) return null
   if (typeof v !== 'string') throw bad(`Invalid ${field}`)
+  if (v === '') throw bad(`Invalid ${field}`)
   return v
 }
 

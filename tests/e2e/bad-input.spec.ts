@@ -177,6 +177,7 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
     cases.push(['post', '/api/parts', newPart({ itemIds: v }), 400], ['patch', `/api/parts/${part.id}`, { itemIds: v }, 400])
   }
   for (const v of [123, true, {}, []]) cases.push(['post', '/api/parts', newPart({ bikeId: v }), 400], ['patch', `/api/parts/${part.id}`, { bikeId: v }, 400])
+  cases.push(['post', '/api/parts', newPart({ bikeId: '' }), 400], ['patch', `/api/parts/${part.id}`, { bikeId: '' }, 400])
   for (const v of ['nope', uuid()]) cases.push(['post', '/api/parts', newPart({ bikeId: v }), 404], ['patch', `/api/parts/${part.id}`, { bikeId: v }, 404])
 
   // Shopping: bad ids in the path -> 404; bad text/done -> 400; bikeId (like readings) -> 404; partId (body reference) -> 400.
@@ -187,6 +188,7 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   for (const v of ['yes', 1, null, {}]) cases.push(['patch', `/api/shopping/${entry.id}`, { done: v }, 400])
   cases.push(['post', '/api/shopping', { text: 'x' }, 400], ['post', '/api/shopping', { clientId: 'nope', text: 'x' }, 400])
   for (const v of [123, true, {}, []]) cases.push(['post', '/api/shopping', newEntry({ bikeId: v }), 400], ['post', '/api/shopping', newEntry({ partId: v }), 400])
+  cases.push(['post', '/api/shopping', newEntry({ bikeId: '' }), 400], ['post', '/api/shopping', newEntry({ partId: '' }), 400])
   for (const v of ['nope', uuid()]) cases.push(['post', '/api/shopping', newEntry({ bikeId: v }), 404], ['post', '/api/shopping', newEntry({ partId: v }), 400])
 
   // Invoice shelf lines: bad qty, a part that is not the rider's, no name and no part, bad ids -> 400.

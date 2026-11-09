@@ -171,6 +171,22 @@ test('reading fails → manual notice; one line typed by hand; confirm works', a
   await expect(page.getByTestId('item-row').filter({ hasText: 'Gearbox oil' }).getByTestId('item-subline')).toHaveText(/· garage$/)
 })
 
+test('a >80 char description sent to the shelf is cut to the 80-char part name limit', async ({ page }) => {
+  const { bikeId } = await freshRiderWithBike(page)
+  await upload(page, FAIL_PDF)
+  await expect(page.getByTestId('manual-notice')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('add-line').click()
+  const line = page.getByTestId('inv-line')
+  await line.getByTestId('line-desc').fill('Q'.repeat(120))
+  await line.getByTestId('line-amount').fill('10')
+  await line.getByTestId('line-shelf').click()
+  await expect(line.getByTestId('line-shelf-name')).toHaveValue('Q'.repeat(80))
+  await page.getByTestId('confirm').click()
+  await page.waitForURL(`/bikes/${bikeId}`, { timeout: 15_000 })
+  const parts = (await (await page.request.get('/api/parts')).json()) as Array<{ name: string }>
+  expect(parts.map((p) => p.name)).toEqual(['Q'.repeat(80)])
+})
+
 test('totals off by more than the tolerance → asked to save anyway', async ({ page }) => {
   const { bikeId } = await freshRiderWithBike(page)
   await upload(page, QR_123)

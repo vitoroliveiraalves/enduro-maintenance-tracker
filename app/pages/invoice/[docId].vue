@@ -23,7 +23,7 @@ type Doc = {
 type Category = { id: string; name: string; kind: string }
 type Item = { id: string; name: string }
 type Reading = { at: string; hoursTenths: number; km: number }
-type Part = { id: string; name: string; unit: string; qtyHundredths: number }
+type Part = { id: string; name: string; unit: string; qtyHundredths: number; pending?: boolean }
 type Line = {
   key: number
   description: string
@@ -44,7 +44,7 @@ type Line = {
 const newLine = (key: number, over: Partial<Line> & Pick<Line, 'description' | 'amountText' | 'categoryId' | 'itemIds' | 'open'>): Line => ({
   key,
   shelf: false,
-  shelfName: over.description,
+  shelfName: over.description.slice(0, 80),
   shelfQtyText: '1',
   shelfUnit: 'pcs',
   shelfPart: null,
@@ -209,7 +209,7 @@ const shelfParts = ref<Part[]>([])
 let partsLoaded = false
 async function setShelf(l: Line, on: boolean) {
   l.shelf = on
-  if (on && !l.shelfName.trim()) l.shelfName = l.description
+  if (on && !l.shelfName.trim()) l.shelfName = l.description.slice(0, 80)
   if (!on || partsLoaded) return
   partsLoaded = true
   try {
@@ -219,7 +219,7 @@ async function setShelf(l: Line, on: boolean) {
   }
 }
 const pickMatches = (l: Line) => {
-  return l.pickQuery.trim() ? shelfParts.value.filter((p) => matches(l.pickQuery, p.name)).slice(0, 5) : []
+  return l.pickQuery.trim() ? shelfParts.value.filter((p) => !p.pending && !p.id.startsWith('pending-') && matches(l.pickQuery, p.name)).slice(0, 5) : []
 }
 function pickPart(l: Line, p: Part | null) {
   l.shelfPart = p

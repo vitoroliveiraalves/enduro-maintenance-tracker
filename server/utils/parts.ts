@@ -124,6 +124,7 @@ function minQty(v: unknown): number | null {
 function bikeIdOf(v: unknown): string | null {
   if (v === null || v === undefined) return null
   if (typeof v !== 'string') throw bad('Invalid bikeId')
+  if (v === '') throw bad('Invalid bikeId')
   return v
 }
 

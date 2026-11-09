@@ -81,6 +81,17 @@ describe('partsUsed', () => {
     expect(await db.select().from(partMovements)).toHaveLength(0)
   })
 
+  it('two concurrent deletes give the used parts back exactly once', async () => {
+    await svc({ partsUsed: [use(plug, 100), use(oil, 250)] })
+    expect(await count(plug)).toBe(200)
+    expect(await count(oil)).toBe(750)
+    const row = (await db.select().from(services))[0]!
+    await Promise.all([deleteService(row), deleteService(row)])
+    expect(await count(plug)).toBe(300)
+    expect(await count(oil)).toBe(1000)
+    expect(await db.select().from(partMovements)).toHaveLength(0)
+  })
+
   it('rejects bad lines and saves nothing', async () => {
     const bads = [
       [use(plug, 0)], [use(plug, -5)], [use(plug, 1.5)], [use(plug, 100, { partId: 'nope' })], [use(plug, 100, { clientId: 'x' })],

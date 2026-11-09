@@ -138,11 +138,12 @@ export async function insertService(bike: Bike, raw: unknown, tx: Tx): Promise<s
 export async function deleteService(service: Service) {
   const own = and(eq(expenses.serviceId, service.id), eq(expenses.userId, service.userId))
   await db.transaction(async (tx) => {
-    // Give the used parts back before the cascade removes their movements.
+    // Give the used parts back.
+    // Deleting them first (and restoring only what came back) makes a concurrent delete restore nothing twice.
     const used = await tx
-      .select({ partId: partMovements.partId, qty: partMovements.qtyHundredths })
-      .from(partMovements)
+      .delete(partMovements)
       .where(and(eq(partMovements.serviceId, service.id), eq(partMovements.userId, service.userId), eq(partMovements.kind, 'used')))
+      .returning({ partId: partMovements.partId, qty: partMovements.qtyHundredths })
     for (const m of used) {
       if (!m.partId) continue
       await tx
