@@ -16,4 +16,9 @@ describe('rideToast', () => {
   it('offline: says it will sync', () => {
     expect(rideToast([], { hoursTenths: 1450, km: 3880 }, [], true)).toBe(`Ride saved on this phone · 145.0 h · 3${T}880 km · syncs when online`)
   })
+  it('km-only bike: only km, never hours', () => {
+    const t = rideToast([], { hoursTenths: null, km: 3812 }, [], false)
+    expect(t).toBe(`Ride saved · 3${T}812 km`)
+    expect(rideToast([], { hoursTenths: 1450, km: null }, [], true)).toBe('Ride saved on this phone · 145.0 h · syncs when online')
+  })
 })

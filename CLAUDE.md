@@ -21,6 +21,7 @@ Loop fix and rerun until all pass; if one is N/A, say why in the commit body.
 - **Env**: every variable is listed with a comment in `.env.example` (placeholders only). Never read or create a real `.env`. Deploy notes in `README.md`.
 
 ## Global constraints
+- A bike counts hours & km, km only or hours only (`bikes.meters`, helpers in `shared/utils/meters.ts`); show and ask only counted meters. Uncounted values on writes are ignored (stored null), never a 400.
 - UI language English. Money = integer cents EUR, shown `1.234,56 €` via `useFormatters().money()`; hours = integer tenths, shown `142.5 h`; km integer, shown with thin-space thousands (`3 812 km`).
 - Numeric inputs accept `142.5` and `142,5` (`parseDecimal`).
 - Dark UI; tokens in `app/assets/css/main.css`: accent `#ff6a00`, red `#ff4d4f`, amber `#ffb020`, green `#3ecf8e`, background `#121417`, surface `#1c2026`.

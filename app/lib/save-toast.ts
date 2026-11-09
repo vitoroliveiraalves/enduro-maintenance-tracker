@@ -4,8 +4,9 @@ type Row = { id: string; name: string; status: { state: string } }
 const WORSE = { overdue: 'now overdue', soon: 'due soon' } as const
 
 /** "Ride saved · 145.0 h · 3 880 km · Air filter clean now overdue". */
-export function rideToast(before: Row[], meters: { hoursTenths: number; km: number }, after: Row[], queued: boolean): string {
-  const m = `${formatHours(meters.hoursTenths)} · ${formatKm(meters.km)}`
+export function rideToast(before: Row[], meters: { hoursTenths: number | null; km: number | null }, after: Row[], queued: boolean): string {
+  // Only the meters the reading has (a km-only bike never shows hours).
+  const m = [meters.hoursTenths !== null ? formatHours(meters.hoursTenths) : '', meters.km !== null ? formatKm(meters.km) : ''].filter(Boolean).join(' · ')
   if (queued) return `Ride saved on this phone · ${m} · syncs when online`
   const was = new Map(before.map((r) => [r.id, r.status.state]))
   const changed = after

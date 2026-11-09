@@ -20,8 +20,8 @@ type Service = {
 }
 type History = { item: ItemRowJson & { bikeId: string }; status: ItemRowJson['status']; services: Service[]; pendingSync?: boolean; notCached?: boolean }
 type Detail = {
-  bike: { id: string; name: string }
-  latestReading: { at: string; hoursTenths: number; km: number } | null
+  bike: { id: string; name: string; meters?: BikeMeters }
+  latestReading: { at: string; hoursTenths: number | null; km: number | null } | null
   items: Array<ItemRowJson & { pendingSync?: boolean }>
 }
 
@@ -38,6 +38,9 @@ const doneOpen = ref(false)
 
 const hText = ref('')
 const kmText = ref('')
+const bikeMeters = computed<BikeMeters>(() => detail.value?.bike.meters ?? 'hours_km')
+const hasHours = computed(() => countsHours(bikeMeters.value))
+const hasKm = computed(() => countsKm(bikeMeters.value))
 const moText = ref('')
 const editError = ref('')
 const saved = ref(false)
@@ -109,8 +112,9 @@ async function saveIntervals() {
   editError.value = ''
   saved.value = false
   const num = (t: string) => (t.trim() ? parseDecimal(t) : null)
-  const [h, k, m] = [num(hText.value), num(kmText.value), num(moText.value)]
-  const typed = [hText, kmText, moText].map((r) => r.value.trim())
+  // Hidden (uncounted) units are not sent: the server keeps their stored interval.
+  const [h, k, m] = [hasHours.value ? num(hText.value) : null, hasKm.value ? num(kmText.value) : null, num(moText.value)]
+  const typed = [hasHours.value ? hText.value.trim() : '', hasKm.value ? kmText.value.trim() : '', moText.value.trim()]
   const parsed = [h, k, m]
   if (parsed.some((v, i) => (typed[i] && v === null) || (v !== null && v <= 0))) {
     return void (editError.value = 'Enter intervals as numbers above zero.')
@@ -120,7 +124,11 @@ async function saveIntervals() {
   try {
     const res = await mutate(
       `/api/items/${itemId}`,
-      { everyHoursTenths: h === null ? null : Math.round(h * 10), everyKm: k === null ? null : Math.round(k), everyMonths: m === null ? null : Math.round(m) },
+      {
+        ...(hasHours.value ? { everyHoursTenths: h === null ? null : Math.round(h * 10) } : {}),
+        ...(hasKm.value ? { everyKm: k === null ? null : Math.round(k) } : {}),
+        everyMonths: m === null ? null : Math.round(m),
+      },
       { method: 'PATCH', queue: true },
     )
     savedQueued.value = isQueued(res)
@@ -173,6 +181,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         :bike-id="bikeId"
         :items="detail.items"
         :current="detail.latestReading"
+        :meters="bikeMeters"
         :item-id="itemId"
         @saved="onDone"
       />
@@ -182,11 +191,11 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <h2 class="mb-1.5 mt-5 text-[11px] uppercase tracking-[0.08em] text-muted">Service interval</h2>
       <form class="rounded-xl bg-surface px-3 py-3" data-testid="interval-editor" @submit.prevent="saveIntervals" @input="editError = ''; saved = false">
         <div class="flex gap-2.5">
-          <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+          <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
             Hours
             <input v-model="hText" inputmode="decimal" autocomplete="off" data-testid="iv-hours" :class="field">
           </label>
-          <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+          <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
             Km
             <input v-model="kmText" inputmode="decimal" autocomplete="off" data-testid="iv-km" :class="field">
           </label>

@@ -11,9 +11,12 @@ type Category = { id: string; name: string; kind: string }
 const props = defineProps<{
   bikeId: string
   items: ItemRowJson[]
-  current: { hoursTenths: number; km: number } | null
+  current: { hoursTenths: number | null; km: number | null } | null
   itemId: string | null
+  meters?: BikeMeters
 }>()
+const hasHours = computed(() => countsHours(props.meters ?? 'hours_km'))
+const hasKm = computed(() => countsKm(props.meters ?? 'hours_km'))
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ saved: [detail: Detail] }>()
 
@@ -86,8 +89,8 @@ watch(
   async (isOpen) => {
     if (!isOpen) return
     at.value = todayLocal()
-    hoursText.value = props.current ? String(props.current.hoursTenths / 10) : ''
-    kmText.value = props.current ? String(props.current.km) : ''
+    hoursText.value = hasHours.value && props.current?.hoursTenths != null ? String(props.current.hoursTenths / 10) : ''
+    kmText.value = hasKm.value && props.current?.km != null ? String(props.current.km) : ''
     by.value = 'diy'
     garageName.value = ''
     picked.value = []
@@ -120,7 +123,7 @@ async function save() {
   const h = hoursText.value.trim() ? parseDecimal(hoursText.value) : null
   const k = kmText.value.trim() ? parseDecimal(kmText.value) : null
   if ((hoursText.value.trim() && (h === null || h < 0)) || (kmText.value.trim() && (k === null || k < 0))) {
-    return void (error.value = 'Enter hours and km as numbers.')
+    return void (error.value = `Enter ${hasHours.value && hasKm.value ? 'hours and km' : hasHours.value ? 'hours' : 'km'} as numbers.`)
   }
   const cents = costText.value.trim() ? parseCents(costText.value) : null
   if (costText.value.trim() && cents === null) return void (error.value = 'Enter the cost as an amount, like 24,90.')
@@ -174,11 +177,11 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         <input v-model="at" type="date" :max="todayLocal()" required data-testid="md-date" :class="field">
       </label>
       <div class="mt-3 flex gap-2.5">
-        <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+        <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Hours
           <input v-model="hoursText" inputmode="decimal" autocomplete="off" data-testid="md-hours" :class="field">
         </label>
-        <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+        <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           Km
           <input v-model="kmText" inputmode="decimal" autocomplete="off" data-testid="md-km" :class="field">
         </label>

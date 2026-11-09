@@ -9,7 +9,7 @@ import type { OutboxRow } from './db'
  * only flagged `pendingSync`.
  */
 type Obj = Record<string, unknown>
-type Reading = { at: string; hoursTenths: number; km: number; pending?: boolean }
+type Reading = { at: string; hoursTenths: number | null; km: number | null; pending?: boolean }
 
 const pathOf = (url: string) => url.split('?')[0]!
 const queryOf = (url: string) => new URLSearchParams(url.split('?')[1] ?? '')
@@ -27,7 +27,8 @@ function latest(current: Reading | null, queued: OutboxRow[]): Reading | null {
   for (const r of queued) {
     const h = num(r.body.hoursTenths)
     const k = num(r.body.km)
-    if (h === null || k === null) continue
+    // A km-only (or hours-only) bike's reading carries one meter.
+    if (h === null && k === null) continue
     const at = str(r.body.at) ?? new Date(r.createdAt).toISOString()
     if (!best || at >= best.at) best = { at, hoursTenths: h, km: k, pending: true }
   }
@@ -87,7 +88,8 @@ export function overlay<T>(url: string, data: T, rows: OutboxRow[]): T {
         name: str(r.body.name) ?? 'New bike',
         year: num(r.body.year),
         counts: { overdue: 0, soon: 0 },
-        latestReading: { at: new Date(r.createdAt).toISOString(), hoursTenths: num(r.body.hoursTenths) ?? 0, km: num(r.body.km) ?? 0 },
+        meters: str(r.body.meters) ?? 'hours_km',
+        latestReading: { at: new Date(r.createdAt).toISOString(), hoursTenths: num(r.body.hoursTenths), km: num(r.body.km) },
         pending: true,
       })
     }
