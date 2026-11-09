@@ -98,6 +98,8 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
     { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: 'nope' },
   ]) cases.push(['post', '/api/push/subscribe', body, 400])
   for (const body of [{}, { endpoint: 123 }]) cases.push(['post', '/api/push/unsubscribe', body, 400])
+  // Account delete without the exact confirmation (never send the valid one here).
+  for (const body of [{}, { confirm: 'delete' }, { confirm: true }]) cases.push(['delete', '/api/account', body, 400])
 
   // Bad numbers.
   for (const n of [HUGE, -1, 1.5, '12', null]) {
