@@ -168,3 +168,27 @@ test('install popup (Chrome/Android)', async ({ page }) => {
   await page.getByTestId('install-popup').waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/install-popup-android.png' })
 })
+
+test('shelf and part sheet', async ({ page }) => {
+  await signUpFresh(page)
+  const bike = await page.request.post('/api/bikes', { data: bikeBody("KTM 300 EXC '23", [{ name: 'Gearbox oil', everyHoursTenths: 150 }, { name: 'Air filter clean', everyHoursTenths: 50 }]) })
+  if (!bike.ok()) throw new Error('seed failed')
+  const bikeId = ((await bike.json()) as { id: string }).id
+  const mk = async (name: string, qty: number, extra: object = {}) => {
+    const r = await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), name, qtyHundredths: qty, startClientId: crypto.randomUUID(), ...extra } })
+    if (!r.ok()) throw new Error('seed failed')
+  }
+  await mk('Junta escape', 200, { bikeId, minHundredths: 100 })
+  await mk('Vela NGK BR8ES', 100, { bikeId, minHundredths: 300 })
+  await mk('Óleo motor', 150, { unit: 'L' })
+  await mk('Cabo de embraiagem', 0, { bikeId })
+  await page.goto('/shelf')
+  await page.getByTestId('part-row').nth(3).waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/shelf.png' })
+  await page.getByTestId('part-row').filter({ hasText: 'Vela' }).click()
+  await page.getByTestId('part-minus').click()
+  await page.getByTestId('part-plus').click()
+  await page.getByTestId('part-item').first().waitFor()
+  await page.getByTestId('part-history').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/part-sheet.png' })
+})

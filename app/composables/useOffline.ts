@@ -79,7 +79,7 @@ export async function warmCacheOnce() {
   } catch {
     // no storage
   }
-  const urls = ['/api/bikes', '/api/categories', '/api/services', '/api/expenses', `/api/costs?${new URLSearchParams({ period: 'month', date: today })}`]
+  const urls = ['/api/bikes', '/api/categories', '/api/services', '/api/expenses', '/api/parts', `/api/costs?${new URLSearchParams({ period: 'month', date: today })}`]
   if (lastBike) urls.push(`/api/bikes/${lastBike}`)
   await Promise.all(urls.map((u) => get(u).catch(() => null)))
 }

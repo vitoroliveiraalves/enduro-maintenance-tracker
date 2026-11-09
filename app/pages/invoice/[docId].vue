@@ -62,7 +62,7 @@ const id = route.params.docId as string
 const duplicate = route.query.duplicate === '1'
 const qrNotice = typeof route.query.qrNotice === 'string' ? route.query.qrNotice : ''
 const { get, mutate } = useApi()
-const { money, date } = useFormatters()
+const { money, date, qty } = useFormatters()
 const store = useBikesStore()
 
 const doc = ref<Doc | null>(null)
@@ -219,8 +219,7 @@ async function setShelf(l: Line, on: boolean) {
   }
 }
 const pickMatches = (l: Line) => {
-  const q = l.pickQuery.trim().toLowerCase()
-  return q ? shelfParts.value.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 5) : []
+  return l.pickQuery.trim() ? shelfParts.value.filter((p) => matches(l.pickQuery, p.name)).slice(0, 5) : []
 }
 function pickPart(l: Line, p: Part | null) {
   l.shelfPart = p
@@ -538,7 +537,7 @@ async function discard() {
                 <ul v-if="pickMatches(l).length" class="grid gap-1">
                   <li v-for="p in pickMatches(l)" :key="p.id">
                     <button type="button" class="min-h-11 w-full rounded-xl border border-white/15 px-3 text-left text-sm" data-testid="line-shelf-option" @click="pickPart(l, p)">
-                      {{ p.name }} <span class="text-muted">· {{ p.qtyHundredths / 100 }} {{ p.unit }}</span>
+                      {{ p.name }} <span class="text-muted">· {{ qty(p.qtyHundredths, p.unit) }}</span>
                     </button>
                   </li>
                 </ul>

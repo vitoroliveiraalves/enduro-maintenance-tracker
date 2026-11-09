@@ -39,6 +39,22 @@ function serviceCost(r: OutboxRow): number {
   return ex.reduce((sum, e) => sum + (num(e.amountCents) ?? 0), 0)
 }
 
+/** Queued edits and count movements on one cached part row (movements add up, in hundredths). */
+function applyPartRows(p: Obj, rows: OutboxRow[]) {
+  const url = `/api/parts/${p.id as string}`
+  for (const r of rows) {
+    if (r.method === 'PATCH' && pathOf(r.url) === url) {
+      for (const k of ['name', 'unit', 'minHundredths', 'notes', 'bikeId', 'itemIds']) if (k in r.body) p[k] = r.body[k]
+      if ('bikeId' in r.body) p.bikeName = r.meta?.bikeName ?? null
+      p.pendingSync = true
+    }
+    if (isPost(r, `${url}/movements`)) {
+      p.qtyHundredths = (num(p.qtyHundredths) ?? 0) + (num(r.body.qtyHundredths) ?? 0)
+      p.pendingSync = true
+    }
+  }
+}
+
 export function overlay<T>(url: string, data: T, rows: OutboxRow[]): T {
   if (!rows.length || data === null || typeof data !== 'object') return data
   const out = JSON.parse(JSON.stringify(data)) as unknown
@@ -130,6 +146,30 @@ export function overlay<T>(url: string, data: T, rows: OutboxRow[]): T {
         pending: true,
       }))
     return [...add, ...out] as T
+  }
+
+  if (path === '/api/parts' && Array.isArray(out)) {
+    for (const p of out as Obj[]) applyPartRows(p, rows)
+    const add = rows
+      .filter((r) => isPost(r, '/api/parts'))
+      .map((r) => ({
+        id: `pending-${r.clientId}`,
+        name: str(r.body.name) ?? '',
+        unit: str(r.body.unit) ?? 'pcs',
+        qtyHundredths: num(r.body.qtyHundredths) ?? 0,
+        minHundredths: num(r.body.minHundredths),
+        notes: str(r.body.notes),
+        bikeId: str(r.body.bikeId),
+        bikeName: r.meta?.bikeName ?? null,
+        itemIds: Array.isArray(r.body.itemIds) ? r.body.itemIds : [],
+        pending: true,
+      }))
+    return [...out, ...add].sort((a, b) => String(a.name).localeCompare(String(b.name), 'pt')) as T
+  }
+
+  if (/^\/api\/parts\/[^/]+$/.test(path) && !Array.isArray(out)) {
+    applyPartRows(out as Obj, rows)
+    return out as T
   }
 
   if (path === '/api/reminders' && Array.isArray(out)) {
