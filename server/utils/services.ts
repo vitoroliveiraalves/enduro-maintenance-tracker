@@ -1,3 +1,4 @@
+import { keepCounted } from '../../shared/utils/meters'
 import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, expenseItems, expenses, maintenanceItems, meterReadings, partMovements, parts, serviceItems, services } from '../db/schema'
@@ -160,7 +161,7 @@ export async function deleteService(service: Service) {
 
 export async function listServices(userId: string, f: { bikeId?: string } = {}) {
   const rows = await db
-    .select({ s: services, bikeName: bikes.name })
+    .select({ s: services, bikeName: bikes.name, meters: bikes.meters })
     .from(services)
     .innerJoin(bikes, eq(services.bikeId, bikes.id))
     .where(and(eq(services.userId, userId), f.bikeId ? eq(services.bikeId, f.bikeId) : undefined))
@@ -178,14 +179,14 @@ export async function listServices(userId: string, f: { bikeId?: string } = {}) 
     .where(and(eq(expenses.userId, userId), inArray(expenses.serviceId, ids)))
     .groupBy(expenses.serviceId)
   const used = await partsUsedBy(userId, ids)
-  return rows.map(({ s, bikeName }) => ({
+  // Stored meters of a unit the bike no longer counts stay in the database, hidden here.
+  return rows.map(({ s, bikeName, meters }) => ({
     id: s.id,
     bikeId: s.bikeId,
     bikeName,
     at: s.at,
     atUnknown: s.atUnknown,
-    hoursTenths: s.hoursTenths,
-    km: s.km,
+    ...keepCounted(meters, s),
     by: s.by,
     garageName: s.garageName,
     notes: s.notes,

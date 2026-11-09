@@ -1,7 +1,8 @@
+import { keepCounted } from '../../shared/utils/meters'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { createError } from 'h3'
 import { db } from '../db/client'
-import { expenses, maintenanceItems, serviceItems, services } from '../db/schema'
+import { bikes, expenses, maintenanceItems, serviceItems, services } from '../db/schema'
 import { itemRows } from './bikes'
 import { partsUsedBy } from './services'
 import { isUuid } from './validate'
@@ -10,8 +11,9 @@ import { isUuid } from './validate'
 export async function itemHistory(itemId: string, userId: string) {
   if (!isUuid(itemId)) throw createError({ statusCode: 404, statusMessage: 'Not found' })
   const [found] = await db
-    .select({ bikeId: maintenanceItems.bikeId })
+    .select({ bikeId: maintenanceItems.bikeId, meters: bikes.meters })
     .from(maintenanceItems)
+    .innerJoin(bikes, eq(maintenanceItems.bikeId, bikes.id))
     .where(and(eq(maintenanceItems.id, itemId), eq(maintenanceItems.userId, userId)))
   const row = found && (await itemRows(found.bikeId, userId)).find((r) => r.id === itemId)
   if (!found || !row) throw createError({ statusCode: 404, statusMessage: 'Not found' })
@@ -38,8 +40,7 @@ export async function itemHistory(itemId: string, userId: string) {
       id: s.id,
       at: s.at,
       atUnknown: s.atUnknown,
-      hoursTenths: s.hoursTenths,
-      km: s.km,
+      ...keepCounted(found.meters, s),
       by: s.by,
       garageName: s.garageName,
       costCents: totals.find((t) => t.serviceId === s.id)?.total ?? 0,

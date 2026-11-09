@@ -37,6 +37,8 @@ export function subline(row: SubRow): string {
   const order = (['hours', 'km', 'months'] as const).filter((u) => every[u])
   const lead = status.driver ?? order[0]
   const list = [lead, ...order.filter((u) => u !== lead)].filter((u): u is 'hours' | 'km' | 'months' => !!u)
+  // Every interval is in a unit the bike doesn't count (e.g. hours on a bike switched to km only).
+  if (!list.length) return 'No interval for what this bike counts'
   const intervals = list.map((u) => every[u]).join(' or ')
   if (status.state === 'unknown' || !status.driver) return `Not logged yet (every ${intervals})`
   // Plain hours ridden first; multiplied (mud/sand/race) hours only when they differ.

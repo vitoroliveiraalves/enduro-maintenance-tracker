@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
 import { categories, documents, expenseItems, expenses, serviceItems, services, user } from '../../../server/db/schema'
 import { DEFAULT_CATEGORIES } from '../../../server/utils/categories-seed'
-import { createBike, itemRows } from '../../../server/utils/bikes'
+import { createBike, itemRows, patchBike } from '../../../server/utils/bikes'
+import { itemHistory } from '../../../server/utils/item-history'
 import { createCategory, deleteCategory, listCategories, renameCategory } from '../../../server/utils/categories'
 import { createExpense, listExpenses, patchExpense } from '../../../server/utils/expenses'
 import { createService, deleteService, listServices } from '../../../server/utils/services'
@@ -39,6 +40,20 @@ beforeEach(async () => {
   await db.insert(categories).values(DEFAULT_CATEGORIES.map((c) => ({ ...c, userId: uid })))
   cat = (await listCategories(uid))[0]!.id
   bike = await createBike(uid, bikeBody())
+})
+
+describe('switched meters', () => {
+  it('a bike switched to km lists its services without hours; item history too', async () => {
+    await svc()
+    await patchBike(bike, { meters: 'km' })
+    const list = await listServices(uid, { bikeId: bike.id })
+    expect(list[0]).toMatchObject({ hoursTenths: null, km: 3800 })
+    const it = await items()
+    const h = await itemHistory(it['Gearbox oil']!.id, uid)
+    expect(h.services.every((x) => x.hoursTenths === null)).toBe(true)
+    await patchBike({ ...bike, meters: 'km' }, { meters: 'hours_km' })
+    expect((await listServices(uid, { bikeId: bike.id }))[0]).toMatchObject({ hoursTenths: 1420, km: 3800 })
+  })
 })
 
 describe('createService', () => {
