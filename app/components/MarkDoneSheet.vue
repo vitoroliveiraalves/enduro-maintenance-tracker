@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { parseCents, parseDecimal, todayLocal } from '~/lib/parse-number'
 import { errorMessage } from '~/offline/outbox'
-import { mergeUseLines } from '~/lib/parts-used'
+import { mergeUseLines, overdrawn } from '~/lib/parts-used'
 import type { ShelfPart } from '~/lib/shelf'
 import type { ItemRowJson } from '../../server/domain/item-row'
 
@@ -39,6 +39,8 @@ const use = ref<Record<string, Use>>({})
 const addedIds = ref<string[]>([])
 const addQuery = ref('')
 const addOpen = ref(false)
+const shelfLoading = ref(false)
+let session = 0
 // One id per "mark done" intent: a double tap or a retry can never create two services.
 let clientId = crypto.randomUUID()
 
@@ -96,9 +98,12 @@ watch(
     addQuery.value = ''
     addOpen.value = false
     shelf.value = []
+    const mine = ++session
+    shelfLoading.value = true
     get<ShelfPart[]>('/api/parts')
-      .then((list) => { if (open.value) shelf.value = list.filter((p) => !p.pending && !p.id.startsWith('pending-')) })
+      .then((list) => { if (mine === session && open.value) shelf.value = list.filter((p) => !p.pending && !p.id.startsWith('pending-')) })
       .catch(() => {})
+      .finally(() => { if (mine === session) shelfLoading.value = false })
     try {
       categories.value = await get<Category[]>('/api/categories')
       categoryId.value = (categories.value.find((c) => c.kind === 'maintenance') ?? categories.value[0])?.id ?? ''
@@ -126,10 +131,14 @@ async function save() {
     if (!u?.on) continue
     const w = wanted(p)
     if (w === null) return void (error.value = `Enter how much ${p.name} you used.`)
-    if (w > p.qtyHundredths && !u.anyway) return void (error.value = `Only ${fmtQty(Math.max(p.qtyHundredths, 0), p.unit)} ${p.name} on the shelf. Use anyway to take it below zero.`)
     lines.push({ clientId: u.clientId, partId: p.id, qtyHundredths: w, partName: p.name })
   }
   const partsUsed = mergeUseLines(lines)
+  const counts = Object.fromEntries(shownParts.value.map((p) => [p.id, p.qtyHundredths]))
+  for (const id of overdrawn(partsUsed, counts)) {
+    const p = shownParts.value.find((x) => x.id === id)!
+    if (!use.value[id]?.anyway) return void (error.value = `Only ${fmtQty(Math.max(p.qtyHundredths, 0), p.unit)} ${p.name} on the shelf. Use anyway to take it below zero.`)
+  }
   busy.value = true
   try {
     const detail = await mutate<Detail>('/api/services', {
@@ -208,7 +217,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           <li v-for="p in shownParts" :key="p.id" class="text-sm text-white" data-testid="parts-used-row">
             <div class="flex items-center gap-2">
               <label class="flex min-h-11 min-w-0 flex-1 items-center gap-2">
-                <input v-model="use[p.id]!.on" type="checkbox" class="h-5 w-5 shrink-0 accent-accent" :aria-label="`Used ${p.name}`" data-testid="parts-used-check">
+                <input v-model="use[p.id]!.on" type="checkbox" class="h-5 w-5 shrink-0 accent-accent" :aria-label="`Used ${p.name}`" data-testid="parts-used-check" @change="use[p.id]!.anyway = false">
                 <span class="min-w-0">
                   <span class="block truncate">{{ p.name }}</span>
                   <span class="block text-xs" :class="p.qtyHundredths <= 0 ? 'text-danger-text' : 'text-muted'">{{ fmtQty(p.qtyHundredths, p.unit) }} on the shelf</span>
@@ -222,6 +231,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
                 :aria-label="`${p.name} quantity`"
                 data-testid="parts-used-qty"
                 class="min-h-11 w-16 shrink-0 rounded-lg bg-surface px-2 text-center text-base text-white outline-none focus:ring-2 focus:ring-accent"
+                @input="use[p.id]!.anyway = false"
               >
               <span v-if="use[p.id]?.on && p.unit !== 'pcs'" class="shrink-0 text-xs text-muted">{{ p.unit }}</span>
             </div>
@@ -266,7 +276,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </label>
       </div>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="md-error">{{ error }}</p>
-      <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60" data-testid="md-save">Save</button>
+      <button type="submit" :disabled="busy || shelfLoading" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60" data-testid="md-save">Save</button>
     </form>
   </Sheet>
 </template>

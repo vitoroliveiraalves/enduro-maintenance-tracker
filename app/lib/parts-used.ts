@@ -21,3 +21,8 @@ export function mergeUseLines(lines: UseLine[]): UseLine[] {
   }
   return [...byPart.values()]
 }
+
+/** Part ids whose (merged) quantity is more than the shelf count: these need "Use anyway". */
+export function overdrawn(lines: UseLine[], counts: Record<string, number>): string[] {
+  return mergeUseLines(lines).filter((l) => l.qtyHundredths > (counts[l.partId] ?? 0)).map((l) => l.partId)
+}

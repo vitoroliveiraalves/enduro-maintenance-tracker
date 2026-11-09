@@ -38,4 +38,9 @@ describe('overlay: parts', () => {
     const both = overlay('/api/parts', [part], [svc, row({ url: '/api/parts/p1/movements', body: { qtyHundredths: -50 } })]) as Array<typeof part>
     expect(both[0]!.qtyHundredths).toBe(50)
   })
+  it('changes nothing when the outbox is empty (the cached count is server truth)', () => {
+    const list = overlay('/api/parts', [part], []) as Array<typeof part>
+    expect(list).toEqual([part])
+    expect((overlay('/api/parts/p1', { ...part, history: [] }, []) as typeof part).qtyHundredths).toBe(200)
+  })
 })
