@@ -197,6 +197,8 @@
 - [ ] **Step 1:** Create fixtures and script; `node scripts/voice-spike.mjs` without a key prints "NUXT_OPENROUTER_API_KEY not set" and exits 1.
 - [ ] **Step 2: Commit** `chore(voice): model spike script and fixtures`.
 
+**Amendment (2026-11-09, meters):** voice runs after `docs/superpowers/plans/2026-11-09-meters.md`. Every bike has `meters` (`hours_km` | `km` | `hours`, `shared/utils/meters.ts`). The bike-list tool returns `meters` and only counted meter values; item-status tools omit uncounted units; the prompt states which meters each bike counts; log-ride and mark-done cards show only counted fields; hours or km sent for an uncounted meter are dropped by the server rules already, so the card never asks for them.
+
 ### Task 10: Read-only voice tools
 
 **Files:**
