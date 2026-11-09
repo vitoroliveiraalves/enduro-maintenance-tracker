@@ -285,3 +285,33 @@ test('mic on the bike screen, idle and recording', async ({ page }) => {
   await page.screenshot({ path: 'tests/e2e/__screenshots__/mic-recording.png' })
   await page.getByTestId('mic-cancel').click()
 })
+
+test('voice review card and a sourced answer', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      const ctx = new AudioContext()
+      const osc = ctx.createOscillator()
+      const dest = ctx.createMediaStreamDestination()
+      osc.connect(dest)
+      osc.start()
+      return dest.stream
+    }
+  })
+  await signUpFresh(page)
+  const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
+  await page.request.post('/api/parts', { data: { clientId: crypto.randomUUID(), startClientId: crypto.randomUUID(), name: 'Junta escape (exhaust gasket)', qtyHundredths: 200 } })
+  await page.goto(`/bikes/${id}`)
+  await page.getByTestId('mic').click()
+  await page.waitForTimeout(400)
+  await page.getByTestId('mic').click()
+  const t = page.getByTestId('voice-transcript')
+  await t.waitFor()
+  await t.fill('Changed the engine oil today at 143')
+  await page.getByTestId('voice-resend').click()
+  await page.getByTestId('voice-card').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/voice-review.png' })
+  await t.fill('How many exhaust gaskets do I have?')
+  await page.getByTestId('voice-resend').click()
+  await page.getByTestId('voice-source').first().waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/voice-answer.png' })
+})

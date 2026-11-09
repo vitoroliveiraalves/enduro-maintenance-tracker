@@ -1,16 +1,178 @@
 <script setup lang="ts">
-// The voice note's result. Task 13 adds the editable transcript, cards and sources.
+// Listening → editable transcript → answer (with the facts it used) and/or cards to review and save.
+import { draftFrom, requestFor, type CardCtx, type Draft } from '~/lib/voice-cards'
+import { sourceLines } from '~/lib/voice-sources'
+import { errorMessage } from '~/offline/outbox'
+
 const voice = useVoice()
+const { get, mutate } = useApi()
+const { syncTick } = useOffline()
 const open = computed({ get: () => voice.open.value, set: (v) => (v ? (voice.open.value = true) : voice.close()) })
+const result = computed(() => (voice.sheet.value.status === 'done' ? voice.sheet.value.result : undefined))
+
+const text = ref('')
+const cards = ref<Draft[]>([])
+const ctx = ref<CardCtx>({ bikes: [], parts: [], categories: [], today: '' })
+const items = ref<Record<string, Array<{ id: string; name: string }>>>({})
+const ctxError = ref('')
+const saving = ref(false)
+
+const localToday = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+async function loadItems(bikeId: string) {
+  if (!bikeId || items.value[bikeId]) return
+  try {
+    const detail = await get<{ items: Array<{ id: string; name: string }> }>(`/api/bikes/${bikeId}`)
+    items.value = { ...items.value, [bikeId]: detail.items.map((i) => ({ id: i.id, name: i.name })) }
+  } catch {
+    // the card still shows the bike; items appear when the detail loads
+  }
+}
+
+watch(result, async (r) => {
+  if (!r) return
+  text.value = r.transcript
+  cards.value = []
+  if (!r.proposals.length) return
+  ctxError.value = ''
+  try {
+    const [bikes, parts, categories] = await Promise.all([
+      get<CardCtx['bikes']>('/api/bikes'),
+      get<CardCtx['parts']>('/api/parts').catch(() => []),
+      get<CardCtx['categories']>('/api/categories').catch(() => []),
+    ])
+    ctx.value = { bikes, parts, categories, today: localToday() }
+  } catch (e) {
+    ctxError.value = errorMessage(e, "Couldn't load your bikes. Try again.")
+  }
+  cards.value = r.proposals.map((p) => draftFrom(p, ctx.value))
+  await Promise.all(ctx.value.bikes.map((b) => loadItems(b.id)))
+}, { immediate: true })
+
+const toSave = computed(() => cards.value.filter((c) => c.status !== 'saved'))
+
+/** One card at a time through the existing routes; each shows Saved or why it failed (Retry = Save again). */
+async function saveAll() {
+  if (saving.value) return
+  saving.value = true
+  let any = false
+  try {
+    for (const c of toSave.value) {
+      const req = requestFor(c, ctx.value)
+      if ('error' in req) {
+        Object.assign(c, { status: 'failed', error: req.error })
+        continue
+      }
+      c.status = 'saving'
+      try {
+        await mutate(req.url, req.body, { queue: true })
+        Object.assign(c, { status: 'saved', error: '' })
+        any = true
+      } catch (e) {
+        Object.assign(c, { status: 'failed', error: errorMessage(e, "Couldn't save this one. Try again.") })
+      }
+    }
+  } finally {
+    saving.value = false
+  }
+  if (any) syncTick.value++ // screens reload with the new records
+}
+
+// Speaker: the browser's own voice, no server.
+const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window
+const PT = /[ãõçáéíóúâêà]|\b(não|sim|tenho|fiz|troquei|óleo|quando|quanto|mudei)\b/i
+function speak(answer: string) {
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(answer)
+  u.lang = PT.test(result.value?.transcript ?? '') ? 'pt-PT' : 'en-GB'
+  window.speechSynthesis.speak(u)
+}
+
+// Follow-up question without leaving the sheet (previous turns go along, this sheet only).
+const rec = useRecorder()
+async function followUp() {
+  if (rec.state.value === 'recording') {
+    const wav = await rec.stop()
+    if (wav) await voice.sendAudio(wav)
+    return
+  }
+  await rec.start()
+}
+rec.onAutoStop((wav) => {
+  if (wav) void voice.sendAudio(wav)
+})
+watch(open, (v) => {
+  if (!v) rec.cancel()
+})
 </script>
 
 <template>
   <Sheet v-model:open="open" title="Voice note" testid="voice-sheet">
     <p v-if="voice.sheet.value.status === 'listening'" class="py-6 text-center text-sm text-muted" data-testid="voice-listening">Listening…</p>
     <p v-else-if="voice.sheet.value.status === 'error'" role="alert" class="text-sm text-danger" data-testid="voice-error">{{ voice.sheet.value.error }}</p>
-    <template v-else-if="voice.sheet.value.result">
-      <p class="text-sm text-muted" data-testid="voice-transcript">{{ voice.sheet.value.result.transcript }}</p>
-      <p v-if="voice.sheet.value.result.answer" class="mt-3 text-base text-white" data-testid="voice-answer">{{ voice.sheet.value.result.answer }}</p>
+
+    <template v-if="result">
+      <label class="block text-xs text-muted">What I heard
+        <textarea v-model="text" rows="2" maxlength="2000" class="mt-1 w-full rounded-lg border border-white/10 bg-bg px-2.5 py-2 text-base text-text outline-none focus:border-accent" data-testid="voice-transcript" />
+      </label>
+      <button
+        v-if="text.trim() && text.trim() !== result.transcript"
+        type="button"
+        class="mt-1 min-h-11 rounded-lg border border-white/15 px-3 text-sm font-semibold text-white"
+        data-testid="voice-resend"
+        @click="voice.sendTranscript(text.trim())"
+      >
+        Send again
+      </button>
+
+      <ul v-if="result.notes.length" class="mt-2 space-y-0.5 text-xs text-muted" data-testid="voice-notes">
+        <li v-for="n in result.notes" :key="n">{{ n }}</li>
+      </ul>
+
+      <section v-if="result.answer" class="mt-3 rounded-xl bg-bg p-3" data-testid="voice-answer">
+        <div class="flex items-start gap-2">
+          <p class="min-w-0 flex-1 text-base text-white" data-testid="voice-answer-text">{{ result.answer }}</p>
+          <button v-if="canSpeak" type="button" class="-mr-1 -mt-1 size-11 shrink-0 text-lg text-muted" aria-label="Read the answer aloud" data-testid="voice-speak" @click="speak(result.answer)">🔊</button>
+        </div>
+        <template v-if="result.sources.length">
+          <p class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-muted">From your records</p>
+          <ul class="mt-1 space-y-0.5 text-sm text-muted">
+            <template v-for="src in result.sources" :key="src.ref">
+              <li v-for="line in sourceLines(src)" :key="line" data-testid="voice-source">{{ line }}</li>
+            </template>
+          </ul>
+        </template>
+      </section>
+
+      <p v-if="ctxError" role="alert" class="mt-3 text-sm text-danger">{{ ctxError }}</p>
+      <ul v-if="cards.length" class="mt-3 space-y-2">
+        <VoiceProposalCard v-for="(c, i) in cards" :key="c.key" v-model="cards[i]!" :ctx="ctx" :items="items" @remove="cards.splice(i, 1)" />
+      </ul>
+      <button
+        v-if="toSave.length"
+        type="button"
+        :disabled="saving"
+        class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111] disabled:opacity-60"
+        data-testid="voice-save"
+        @click="saveAll"
+      >
+        {{ saving ? 'Saving…' : toSave.some((c) => c.status === 'failed') ? 'Retry' : toSave.length === 1 ? 'Save' : `Save ${toSave.length} changes` }}
+      </button>
+
+      <button
+        v-if="voice.available.value"
+        type="button"
+        class="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-semibold"
+        :class="rec.state.value === 'recording' ? 'border-danger text-danger' : 'border-white/15 text-white'"
+        data-testid="voice-followup"
+        @click="followUp"
+      >
+        {{ rec.state.value === 'recording' ? `Send · 0:${String(rec.seconds.value).padStart(2, '0')}` : '🎤 Ask a follow-up' }}
+      </button>
+      <p v-if="rec.state.value === 'denied'" class="mt-2 text-sm text-muted">The microphone is blocked for this app. Allow it in your browser's site settings, then try again.</p>
     </template>
   </Sheet>
 </template>

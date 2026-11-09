@@ -22,6 +22,8 @@ export function useRecorder() {
   let ctx: AudioContext | null = null
   let stream: MediaStream | null = null
   let node: AudioNode | null = null
+  // Held on purpose: Chrome can garbage-collect an unreferenced MediaStreamAudioSourceNode mid-recording.
+  let src: MediaStreamAudioSourceNode | null = null
   let chunks: Float32Array[] = []
   let timer: ReturnType<typeof setInterval> | null = null
   let startedAt = 0
@@ -38,6 +40,8 @@ export function useRecorder() {
   function teardown() {
     if (timer) clearInterval(timer)
     timer = null
+    src?.disconnect()
+    src = null
     node?.disconnect()
     node = null
     stream?.getTracks().forEach((t) => t.stop())
@@ -61,7 +65,7 @@ export function useRecorder() {
     }
     ctx = new Ctx()
     if (ctx.state === 'suspended') await ctx.resume().catch(() => {})
-    const src = ctx.createMediaStreamSource(stream)
+    src = ctx.createMediaStreamSource(stream)
     chunks = []
     try {
       const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }))
