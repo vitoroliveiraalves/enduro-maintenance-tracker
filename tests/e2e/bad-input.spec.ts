@@ -139,6 +139,41 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
     )
   }
 
+  // Shelf: bad ids in the path -> 404, bad name/unit/qty/min/notes/itemIds -> 400.
+  const part = (await (await request.post('/api/parts', { data: { clientId: uuid(), name: 'Plug' } })).json()) as { id: string }
+  for (const id of ['nope', '123', `${uuid()}x`, uuid()]) {
+    cases.push(
+      ['get', `/api/parts/${id}`, null, 404],
+      ['patch', `/api/parts/${id}`, { name: 'x' }, 404],
+      ['delete', `/api/parts/${id}`, null, 404],
+      ['post', `/api/parts/${id}/movements`, { clientId: uuid(), qtyHundredths: 100 }, 404],
+    )
+  }
+  const newPart = (over: object) => ({ clientId: uuid(), name: 'Plug', ...over })
+  const BAD_TEXT = ['', '   ', 5, null, {}]
+  const BAD_QTY = [HUGE, 1_000_001, -1, 1.5, '12', null]
+  for (const v of BAD_TEXT) cases.push(['post', '/api/parts', newPart({ name: v }), 400], ['patch', `/api/parts/${part.id}`, { name: v }, 400])
+  for (const v of [...BAD_TEXT.filter((x) => x !== null), 'x'.repeat(13)]) cases.push(['post', '/api/parts', newPart({ unit: v }), 400], ['patch', `/api/parts/${part.id}`, { unit: v }, 400])
+  cases.push(['post', '/api/parts', newPart({ name: 'x'.repeat(81) }), 400], ['patch', `/api/parts/${part.id}`, { name: 'x'.repeat(81) }, 400])
+  for (const v of ['x'.repeat(501), 5, {}]) cases.push(['post', '/api/parts', newPart({ notes: v }), 400], ['patch', `/api/parts/${part.id}`, { notes: v }, 400])
+  for (const v of BAD_QTY) {
+    cases.push(
+      ['post', '/api/parts', newPart({ qtyHundredths: v, startClientId: uuid() }), v === null ? 200 : 400],
+      ['post', '/api/parts', newPart({ minHundredths: v }), v === null ? 200 : 400],
+      ['patch', `/api/parts/${part.id}`, { minHundredths: v }, v === null ? 200 : 400],
+    )
+  }
+  for (const v of [HUGE, 1_000_001, -1_000_001, 0, 1.5, '12', null, undefined]) cases.push(['post', `/api/parts/${part.id}/movements`, { clientId: uuid(), qtyHundredths: v }, 400])
+  for (const id of ['nope', 123, null, undefined]) cases.push(['post', `/api/parts/${part.id}/movements`, { clientId: id, qtyHundredths: 100 }, 400])
+  cases.push(['post', '/api/parts', newPart({ qtyHundredths: 100 }), 400], ['post', '/api/parts', newPart({ qtyHundredths: 100, startClientId: 'nope' }), 400])
+  cases.push(['post', '/api/parts', { name: 'Plug' }, 400], ['post', '/api/parts', { clientId: 'nope', name: 'Plug' }, 400])
+  cases.push(['post', `/api/parts/${part.id}/movements`, { clientId: uuid(), qtyHundredths: 100, note: 'x'.repeat(501) }, 400])
+  for (const v of ['nope', 5, {}, [123], ['nope'], [uuid()], [itemId, itemId, 'x'], Array.from({ length: 201 }, uuid)]) {
+    cases.push(['post', '/api/parts', newPart({ itemIds: v }), 400], ['patch', `/api/parts/${part.id}`, { itemIds: v }, 400])
+  }
+  for (const v of [123, true, {}, []]) cases.push(['post', '/api/parts', newPart({ bikeId: v }), 400], ['patch', `/api/parts/${part.id}`, { bikeId: v }, 400])
+  for (const v of ['nope', uuid()]) cases.push(['post', '/api/parts', newPart({ bikeId: v }), 404], ['patch', `/api/parts/${part.id}`, { bikeId: v }, 404])
+
   const failures: string[] = []
   for (const [method, url, data, expected] of cases) {
     const res = await request.fetch(url, { method, ...(data === null ? {} : { data }) })
