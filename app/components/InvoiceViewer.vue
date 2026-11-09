@@ -84,7 +84,7 @@ function up(e: PointerEvent) {
         :key="p.page"
         type="button"
         class="size-9 rounded-lg text-sm font-semibold"
-        :class="p.page === current ? 'bg-accent text-black' : 'bg-bg text-muted'"
+        :class="p.page === current ? 'bg-accent text-on-accent' : 'bg-bg text-muted'"
         :aria-label="`Page ${p.page}`"
         :aria-current="p.page === current ? 'true' : undefined"
         @click="show(p.page)"

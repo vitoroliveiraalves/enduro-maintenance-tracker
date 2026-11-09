@@ -204,7 +204,7 @@ const SEG: Array<{ key: Period; label: string }> = [
           <li v-for="e in data.expenses" :key="e.id" class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]" data-testid="costs-expense">
             <span class="min-w-0">
               <span class="block truncate text-text">{{ e.description || e.categoryName }}</span>
-              <small class="block text-[11px] text-muted">{{ dayMonth(e.at) }} · {{ e.categoryName }}<template v-if="e.bikeName && !bikeId"> · {{ e.bikeName }}</template><template v-if="e.documentId"> · <NuxtLink :to="`/invoice/${e.documentId}`" class="-m-2 p-2" aria-label="Open invoice" data-testid="costs-invoice">🧾</NuxtLink></template></small>
+              <small class="block text-[11px] text-muted">{{ dayMonth(e.at) }} · {{ e.categoryName }}<template v-if="e.bikeName && !bikeId"> · {{ e.bikeName }}</template><template v-if="e.documentId"> · <NuxtLink :to="`/invoice/${e.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" aria-label="Open invoice" data-testid="costs-invoice"><Icon name="invoice" :size="15" /></NuxtLink></template></small>
             </span>
             <b class="shrink-0 text-white">{{ money(e.amountCents) }}</b>
           </li>

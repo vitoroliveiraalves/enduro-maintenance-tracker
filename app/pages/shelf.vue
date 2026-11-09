@@ -86,10 +86,10 @@ function open(p: ShelfPart | null) {
     </div>
 
     <div class="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1" role="group" aria-label="Shelf sections">
-      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'parts' ? 'bg-accent text-black' : 'text-muted'" :aria-pressed="tab === 'parts'" data-testid="shelf-tab-parts" @click="tab = 'parts'">Shelf</button>
-      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'buy' ? 'bg-accent text-black' : 'text-muted'" :aria-pressed="tab === 'buy'" data-testid="shelf-tab-buy" @click="tab = 'buy'">
+      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'parts' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'parts'" data-testid="shelf-tab-parts" @click="tab = 'parts'">Shelf</button>
+      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'buy' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'buy'" data-testid="shelf-tab-buy" @click="tab = 'buy'">
         To buy
-        <span v-if="buyCount" class="ml-1 rounded-full px-1.5 text-xs font-bold" :class="tab === 'buy' ? 'bg-black/20' : 'bg-accent text-black'" data-testid="buy-count">{{ buyCount }}</span>
+        <span v-if="buyCount" class="ml-1 rounded-full px-1.5 text-xs font-bold" :class="tab === 'buy' ? 'bg-black/20' : 'bg-accent text-on-accent'" data-testid="buy-count">{{ buyCount }}</span>
       </button>
     </div>
 
@@ -134,7 +134,7 @@ function open(p: ShelfPart | null) {
         {{ parts.length ? 'No part matches.' : 'Nothing on the shelf yet. Add the spares you keep.' }}
       </p>
 
-      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-black" data-testid="add-part" @click="open(null)">+ Add part</button>
+      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-on-accent" data-testid="add-part" @click="open(null)">+ Add part</button>
     </template>
 
     <template v-else>
@@ -165,7 +165,7 @@ function open(p: ShelfPart | null) {
               data-testid="buy-tick"
               @click="tick(e)"
             >
-              <span class="flex size-6 items-center justify-center rounded-md border-2 text-sm font-bold" :class="e.doneAt ? 'border-accent bg-accent text-black' : 'border-white/30'">{{ e.doneAt ? '✓' : '' }}</span>
+              <span class="flex size-6 items-center justify-center rounded-md border-2 text-sm font-bold" :class="e.doneAt ? 'border-accent bg-accent text-on-accent' : 'border-white/30'">{{ e.doneAt ? '✓' : '' }}</span>
             </button>
             <button type="button" class="min-h-14 min-w-0 flex-1 py-2 text-left" :class="e.doneAt ? 'opacity-50' : ''" :disabled="e.pending" data-testid="buy-edit" @click="addBuy(e)">
               <span class="block truncate font-semibold text-white" :class="e.doneAt ? 'line-through' : ''" data-testid="buy-text-row">{{ e.text }}</span>
@@ -178,7 +178,7 @@ function open(p: ShelfPart | null) {
           {{ list.auto.length || list.manual.length ? 'Nothing matches.' : 'Nothing to buy. Parts running low or needed for a service show up here.' }}
         </p>
       </section>
-      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-black" data-testid="buy-add" @click="addBuy(null)">+ Add to list</button>
+      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-on-accent" data-testid="buy-add" @click="addBuy(null)">+ Add to list</button>
     </template>
 
     <PartSheet v-model:open="sheetOpen" :part="editing" :bikes="store.bikes" @changed="load" />

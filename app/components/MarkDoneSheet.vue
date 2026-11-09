@@ -195,7 +195,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           :aria-checked="by === o.k"
           :data-testid="`md-by-${o.k}`"
           class="flex-1 rounded-full px-1 py-2 text-sm font-semibold"
-          :class="by === o.k ? 'bg-accent text-black' : 'bg-bg text-muted'"
+          :class="by === o.k ? 'bg-accent text-on-accent' : 'bg-bg text-muted'"
           @click="by = o.k"
         >
           {{ o.l }}
@@ -279,7 +279,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </label>
       </div>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger" data-testid="md-error">{{ error }}</p>
-      <button type="submit" :disabled="busy || shelfLoading" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60" data-testid="md-save">Save</button>
+      <button type="submit" :disabled="busy || shelfLoading" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="md-save">Save</button>
     </form>
   </Sheet>
 </template>

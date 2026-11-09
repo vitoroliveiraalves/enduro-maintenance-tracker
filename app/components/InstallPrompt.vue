@@ -15,7 +15,7 @@ const visible = computed(() => mode.value !== 'none')
     <p v-if="mode === 'ios'" class="mt-1 text-xs text-muted">Don't see Share? On newer iPhones it's in the ⋯ menu.</p>
     <template v-else-if="mode === 'prompt'">
       <p class="text-text">Install Enduro Tracker for quick access and notifications.</p>
-      <button type="button" class="mt-2 min-h-11 rounded-lg bg-accent px-3 py-2 text-sm font-bold text-[#111]" data-testid="install-button" @click="install">Install app</button>
+      <button type="button" class="mt-2 min-h-11 rounded-lg bg-accent px-3 py-2 text-sm font-bold text-on-accent" data-testid="install-button" @click="install">Install app</button>
     </template>
   </div>
 </template>

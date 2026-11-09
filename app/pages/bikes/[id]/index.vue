@@ -153,11 +153,11 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
   <main class="mx-auto max-w-md px-4 pb-6 pt-[18px]">
     <p v-if="error" role="alert" class="text-danger">{{ error }}</p>
     <div class="flex items-center justify-between text-[13px] text-muted">
-      <NuxtLink to="/" class="-m-2 p-2">‹ Garage</NuxtLink>
-      <NuxtLink to="/settings" class="-m-2 flex size-11 items-center justify-center text-lg" aria-label="Settings" data-testid="settings-link">⚙︎</NuxtLink>
+      <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">← GARAGE</NuxtLink>
+      <NuxtLink to="/settings" class="-m-2 flex size-11 items-center justify-center text-lg" aria-label="Settings" data-testid="settings-link"><Icon name="settings" :size="22" /></NuxtLink>
     </div>
     <template v-if="data">
-      <h1 class="mb-0.5 mt-1.5 text-xl font-bold text-white" data-testid="bike-name">{{ data.bike.name }}</h1>
+      <h1 class="mb-1 mt-2 text-[34px] text-white" data-testid="bike-name">{{ data.bike.name }}</h1>
       <div class="text-xs text-muted" data-testid="last-ride">{{ lastRide }}</div>
       <div v-if="chips.length" class="mt-2 flex flex-wrap gap-1.5">
         <NuxtLink
@@ -177,7 +177,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       </div>
       <button
         type="button"
-        class="mb-3.5 block w-full rounded-xl bg-accent p-[11px] text-sm font-bold text-[#111]"
+        class="brand-slant mb-3.5 block min-h-[52px] w-full bg-accent p-[11px] font-black uppercase tracking-[0.04em] text-on-accent" style="font-stretch: 125%"
         :class="data.latestReading ? '' : 'mt-3'"
         data-testid="log-ride"
         @click="sheetOpen = true"
@@ -187,7 +187,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" :meters="meters" @saved="onSaved" />
 
       <template v-if="data.items.length">
-        <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-[0.08em] text-muted">Maintenance · due soonest first</h2>
+        <h2 class="mb-2 mt-3 font-tag text-[11px] uppercase tracking-[0.12em] text-muted">Maintenance · due soonest first</h2>
         <ItemRow v-for="it in data.items" :key="it.id" :item="it" :to="`/bikes/${id}/items/${it.id}`" />
       </template>
 
@@ -214,7 +214,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           </div>
           <p v-if="addError" role="alert" class="mt-2 text-sm text-danger" data-testid="new-item-error">{{ addError }}</p>
           <p v-else-if="addNote" role="status" class="mt-2 text-sm text-warn-text" data-testid="new-item-queued">{{ addNote }}</p>
-          <button type="submit" :disabled="adding" class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-[#111] disabled:opacity-60" data-testid="new-item-save">Add item</button>
+          <button type="submit" :disabled="adding" class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60" data-testid="new-item-save">Add item</button>
         </form>
       </section>
 

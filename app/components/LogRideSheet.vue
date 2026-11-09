@@ -159,7 +159,7 @@ async function save(confirmBigJump = false) {
           :aria-checked="condition === c.key"
           :data-testid="`cond-${c.key}`"
           class="flex-1 rounded-full px-1 py-2 text-sm font-semibold"
-          :class="condition === c.key ? 'bg-accent text-black' : 'bg-bg text-muted'"
+          :class="condition === c.key ? 'bg-accent text-on-accent' : 'bg-bg text-muted'"
           @click="condition = c.key"
         >
           {{ c.label }}
@@ -169,11 +169,11 @@ async function save(confirmBigJump = false) {
       <div v-if="jump" class="mt-3 rounded-xl bg-bg p-3" data-testid="jump-prompt">
         <p class="text-sm text-warn">{{ jump }}</p>
         <div class="mt-2 flex gap-2">
-          <button type="button" class="flex-1 rounded-xl bg-accent py-2.5 font-bold text-black" :disabled="busy" @click="save(true)">Save anyway</button>
+          <button type="button" class="flex-1 rounded-xl bg-accent py-2.5 font-bold text-on-accent" :disabled="busy" @click="save(true)">Save anyway</button>
           <button type="button" class="flex-1 rounded-xl bg-surface py-2.5 font-semibold text-white" @click="jump = ''">Fix it</button>
         </div>
       </div>
-      <button v-if="!jump" type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-black disabled:opacity-60">Save</button>
+      <button v-if="!jump" type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60">Save</button>
     </form>
   </Sheet>
 </template>

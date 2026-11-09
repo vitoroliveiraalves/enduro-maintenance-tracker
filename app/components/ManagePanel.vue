@@ -51,7 +51,7 @@ function saveName() {
     <div v-else role="alert" class="mt-3 rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm">
       <p class="text-text">Remove {{ props.name }}? {{ props.removeNote }}</p>
       <div class="mt-2 flex gap-2">
-        <button type="button" class="min-h-11 rounded-lg bg-danger px-4 font-bold text-[#111]" :disabled="busy" :data-testid="`${props.what}-remove-confirm`" @click="run(props.remove)">Remove</button>
+        <button type="button" class="min-h-11 rounded-lg bg-danger px-4 font-bold text-on-danger" :disabled="busy" :data-testid="`${props.what}-remove-confirm`" @click="run(props.remove)">Remove</button>
         <button type="button" class="min-h-11 rounded-lg px-4 text-muted" @click="askRemove = false">Keep</button>
       </div>
     </div>
