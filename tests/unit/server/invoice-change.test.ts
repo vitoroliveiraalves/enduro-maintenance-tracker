@@ -127,6 +127,23 @@ describe('deleting an invoice', () => {
     expect(left!.qtyHundredths).toBe(-300)
   })
 
+  it('Change then Delete still removes the part that invoice created', async () => {
+    const doc = await makeDoc()
+    await confirmInvoice(doc, ktm, body(ktm.id, [shelfNew('Junta', 200)]))
+    const [part] = await db.select().from(parts)
+    await confirmInvoice(await fresh(doc.id), ktm, body(ktm.id, [{ description: 'Junta', amountCents: 900, categoryId: cat.parts, shelf: { clientId: uuid(), partId: part!.id, qtyHundredths: 100 } }], { replace: true }))
+    await deleteDocument(await fresh(doc.id))
+    expect(await db.select().from(parts)).toHaveLength(0)
+  })
+
+  it('a part the rider made before stays on Delete even if only this invoice stocked it', async () => {
+    const [mine] = await db.insert(parts).values({ userId: uid, clientId: uuid(), name: 'Grips', qtyHundredths: 0 }).returning()
+    const doc = await makeDoc()
+    await confirmInvoice(doc, ktm, body(ktm.id, [{ description: 'Grips', amountCents: 900, categoryId: cat.parts, shelf: { clientId: uuid(), partId: mine!.id, qtyHundredths: 100 } }]))
+    await deleteDocument(await fresh(doc.id))
+    expect((await db.select().from(parts)).map((p) => [p.name, p.qtyHundredths])).toEqual([['Grips', 0]])
+  })
+
   it('an unsaved document is deleted as before', async () => {
     const doc = await makeDoc()
     await deleteDocument(doc)

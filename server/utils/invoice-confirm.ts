@@ -121,6 +121,8 @@ export async function confirmInvoice(doc: Document, bike: Bike, raw: unknown): P
         const part =
           s.part ??
           (await createPart(tx, userId, { clientId: s.partClientId, name: s.name, ...(s.unit ? { unit: s.unit } : {}), bikeId: s.bikeId === undefined ? bike.id : s.bikeId }))
+        // Mark a part this very save created (created in this transaction), so deleting the invoice can take it away.
+        if (!s.part) await tx.update(parts).set({ createdByDocumentId: fresh.id }).where(and(eq(parts.id, part.id), eq(parts.userId, userId), sql`${parts.createdAt} = now()`))
         await applyMovement(tx, {
           userId, clientId: s.clientId, part, partName: part.name, unit: part.unit, kind: 'bought', qtyHundredths: s.qtyHundredths, at, expenseId: exp!.id, documentId: fresh.id,
         })
@@ -175,19 +177,15 @@ export async function undoInvoice(tx: Tx, doc: Document) {
 }
 
 /**
- * Delete a document of any status. A saved one first undoes what it created; a shelf part the
- * same save created (same transaction time) and nothing else ever touched goes too.
+ * Delete a document of any status. A saved one first undoes what it created; a shelf part one of
+ * its saves created (`createdByDocumentId`) that nothing else ever touched goes too.
  */
 export async function deleteDocument(doc: Document) {
   await db.transaction(async (tx) => {
     const [fresh] = await tx.select().from(documents).where(and(eq(documents.id, doc.id), eq(documents.userId, doc.userId))).for('update')
     if (!fresh) throw createError({ statusCode: 404, statusMessage: 'Not found' })
     if (fresh.status === 'confirmed') {
-      const made = await tx
-        .select({ partId: parts.id })
-        .from(partMovements)
-        .innerJoin(parts, eq(partMovements.partId, parts.id))
-        .where(and(ofDoc(fresh).movement, eq(parts.createdAt, partMovements.createdAt)))
+      const made = await tx.select({ partId: parts.id }).from(parts).where(and(eq(parts.createdByDocumentId, fresh.id), eq(parts.userId, fresh.userId)))
       await undoInvoice(tx, fresh)
       const ids = made.map((m) => m.partId)
       if (ids.length) {
