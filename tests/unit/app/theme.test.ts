@@ -30,3 +30,14 @@ describe('theme', () => {
     expect(() => saveTheme({ getItem: () => null, setItem: () => { throw new Error('full') } }, 'steel')).not.toThrow()
   })
 })
+
+describe('theme colour', () => {
+  it('points the theme-color meta at the look background', async () => {
+    const { applyThemeColor, THEME_COLORS } = await import('../../../app/lib/theme')
+    const attrs: Record<string, string> = {}
+    const doc = { querySelector: () => ({ setAttribute: (k: string, v: string) => void (attrs[k] = v) }) }
+    applyThemeColor(doc, 'tricolor')
+    expect(attrs.content).toBe(THEME_COLORS.tricolor)
+    expect(() => applyThemeColor({ querySelector: () => null }, 'steel')).not.toThrow()
+  })
+})

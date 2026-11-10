@@ -4,6 +4,8 @@ export const THEMES = [
   { id: 'tricolor', name: 'Old-school tricolor', hint: 'Red, white and blue, 80s motocross' },
 ] as const
 export type ThemeId = (typeof THEMES)[number]['id']
+/** Status bar / browser chrome colour per look: the look's `bg` token (main.css). */
+export const THEME_COLORS: Record<ThemeId, string> = { steel: '#0e0e0e', tricolor: '#0f1012' }
 export const DEFAULT_THEME: ThemeId = 'steel'
 const KEY = 'enduro.theme'
 
@@ -29,4 +31,9 @@ export function saveTheme(s: Store | null, id: ThemeId) {
 
 export function applyTheme(el: { dataset: Record<string, string | undefined> }, id: ThemeId) {
   el.dataset.theme = id
+}
+
+/** Point the `theme-color` meta at the look's background so the status bar matches. */
+export function applyThemeColor(doc: { querySelector(sel: string): { setAttribute(k: string, v: string): void } | null }, id: ThemeId) {
+  doc.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[id])
 }

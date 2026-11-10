@@ -1,4 +1,4 @@
-import { applyTheme, readTheme, saveTheme, THEMES, type ThemeId } from '~/lib/theme'
+import { applyTheme, applyThemeColor, readTheme, saveTheme, THEMES, type ThemeId } from '~/lib/theme'
 
 const storage = () => (typeof localStorage === 'undefined' ? null : localStorage)
 
@@ -9,6 +9,7 @@ export function useTheme() {
     theme.value = id
     saveTheme(storage(), id)
     applyTheme(document.documentElement, id)
+    applyThemeColor(document, id)
   }
   return { theme, set, themes: THEMES }
 }

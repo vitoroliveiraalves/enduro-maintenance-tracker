@@ -69,7 +69,9 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content' },
         { name: 'theme-color', content: '#121417' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: 'Enduro' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/pwa-192x192.png' },
@@ -96,6 +98,14 @@ export default defineNuxtConfig({
       background_color: '#121417',
       display: 'standalone',
       orientation: 'portrait',
+      id: '/',
+      categories: ['productivity', 'utilities', 'lifestyle'],
+      // Long-press the home-screen icon.
+      shortcuts: [
+        { name: 'Read an invoice', short_name: 'Invoice', url: '/invoice', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+        { name: 'Costs', url: '/costs', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+        { name: 'Parts shelf', short_name: 'Shelf', url: '/shelf', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+      ],
       start_url: '/',
       scope: '/',
       icons: [
