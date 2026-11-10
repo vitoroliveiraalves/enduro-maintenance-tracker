@@ -30,7 +30,8 @@ watch(syncTick, load)
     <h1 class="mt-4 text-[46px] text-white">Garage</h1>
     <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
 
-    <ul v-if="store.bikes.length" class="mt-4 space-y-3" data-testid="bike-list">
+    <Skeleton v-if="!store.loaded && !error" :rows="2" height="h-28" class="mt-4" />
+    <ul v-else-if="store.bikes.length" class="mt-4 space-y-3" data-testid="bike-list">
       <li v-for="b in store.bikes" :key="b.id">
         <NuxtLink :to="`/bikes/${b.id}`" class="bike-tag" :class="{ 'is-alert': b.counts.overdue }" data-testid="bike-card">
           <span class="bike-tag-stripe" aria-hidden="true" />

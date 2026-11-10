@@ -110,7 +110,8 @@ function open(p: ShelfPart | null) {
       </p>
       <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
 
-      <ul v-if="shown.length" class="mt-3 space-y-2" data-testid="part-list">
+      <Skeleton v-if="!loaded && !error" :rows="4" class="mt-3" />
+      <ul v-else-if="shown.length" class="mt-3 space-y-2" data-testid="part-list">
         <li v-for="p in shown" :key="p.id">
           <button
             type="button"
@@ -139,6 +140,7 @@ function open(p: ShelfPart | null) {
 
     <template v-else>
       <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
+      <Skeleton v-if="!loaded && !error" :rows="3" class="mt-3" />
       <section data-testid="buy-panel">
         <ul v-if="autoShown.length" class="mt-3 space-y-2">
           <li v-for="a in autoShown" :key="a.key">

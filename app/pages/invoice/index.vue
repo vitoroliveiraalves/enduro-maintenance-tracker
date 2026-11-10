@@ -219,6 +219,7 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
     <section class="mt-8" data-testid="invoice-list">
       <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted">Your invoices</h2>
       <p v-if="listError" role="alert" class="mt-2 text-sm text-danger-text">{{ listError }}</p>
+      <Skeleton v-else-if="!invoices" :rows="3" height="h-14" class="mt-2" />
       <p v-else-if="invoices && !invoices.length" class="mt-2 text-sm text-muted" data-testid="invoice-list-empty">No invoices yet.</p>
       <ul v-else-if="invoices" class="mt-2 divide-y divide-white/5 rounded-2xl bg-surface">
         <li v-for="r in invoices" :key="r.id">
