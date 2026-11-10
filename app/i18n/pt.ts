@@ -377,6 +377,7 @@ export const pt: Messages = {
 
   reminderSheet: {
     title: 'Novo lembrete',
+    editTitle: 'Editar lembrete',
     presets: { insurance: 'Seguro', iuc: 'IUC', inspection: 'Inspeção', licence: 'Carta de condução' },
     presetsLabel: 'Sugestões',
     needName: 'Dê um nome ao lembrete ou escolha um acima.',
@@ -389,6 +390,12 @@ export const pt: Messages = {
     name: 'Nome',
     dueOn: 'Data limite',
     bike: 'Veículo',
+    cost: 'Valor (€)',
+    costPh: 'ex. 185,00',
+    provider: 'Seguradora / Entidade',
+    providerPh: 'ex. Fidelidade, Tranquilidade',
+    policy: 'Nº de Apólice / Ref.',
+    policyPh: 'ex. 1234567',
     yearly: 'Repete todos os anos',
   },
 

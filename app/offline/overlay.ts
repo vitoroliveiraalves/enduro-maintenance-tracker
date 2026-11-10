@@ -222,6 +222,9 @@ export function overlay<T>(url: string, data: T, rows: OutboxRow[]): T {
         title: str(r.body.title) ?? '',
         dueOn: str(r.body.dueOn) ?? '',
         repeatYearly: r.body.repeatYearly === true,
+        amountCents: num(r.body.amountCents),
+        provider: str(r.body.provider),
+        policyNumber: str(r.body.policyNumber),
         pending: true,
       }))
     return [...kept, ...add].sort((a, b) => String(a.dueOn).localeCompare(String(b.dueOn))) as T

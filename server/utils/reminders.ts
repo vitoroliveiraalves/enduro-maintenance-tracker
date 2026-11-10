@@ -1,9 +1,9 @@
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { db } from '../db/client'
-import { bikes, notificationsSent, reminders } from '../db/schema'
+import { bikes, categories, expenses, notificationsSent, reminders } from '../db/schema'
 import type { Bike, Reminder } from '../db/schema'
 import { isObj, str } from './bikes'
-import { bad, day, uuid } from './validate'
+import { bad, day, int, uuid } from './validate'
 
 export const REMINDER_PRESETS = ['Insurance', 'IUC', 'Inspection', 'Licence'] as const
 
@@ -14,6 +14,9 @@ export type ReminderRow = {
   title: string
   dueOn: string
   repeatYearly: boolean
+  amountCents: number | null
+  provider: string | null
+  policyNumber: string | null
   doneAt: string | null
 }
 
@@ -42,6 +45,9 @@ const toRow = (r: Reminder, bikeName: string | null): ReminderRow => ({
   title: r.title,
   dueOn: r.dueOn,
   repeatYearly: r.repeatYearly,
+  amountCents: r.amountCents ?? null,
+  provider: r.provider ?? null,
+  policyNumber: r.policyNumber ?? null,
   doneAt: r.doneAt ? r.doneAt.toISOString() : null,
 })
 
@@ -83,7 +89,20 @@ export async function createReminder(userId: string, bike: Bike | null, raw: unk
   if (!isObj(raw)) throw bad('Invalid body')
   if (raw.bikeId != null && typeof raw.bikeId !== 'string') throw bad('Invalid bikeId')
   const clientId = uuid(raw.clientId)
-  const values = { userId, clientId, bikeId: bike?.id ?? null, title: str(raw.title, 'title'), dueOn: dueOn(raw.dueOn), repeatYearly: repeat(raw.repeatYearly) }
+  const amountCents = raw.amountCents !== undefined && raw.amountCents !== null && raw.amountCents !== '' ? int(raw.amountCents, 'amountCents', 0, 10_000_000) : null
+  const provider = typeof raw.provider === 'string' && raw.provider.trim() ? str(raw.provider, 'provider', 100) : null
+  const policyNumber = typeof raw.policyNumber === 'string' && raw.policyNumber.trim() ? str(raw.policyNumber, 'policyNumber', 50) : null
+  const values = {
+    userId,
+    clientId,
+    bikeId: bike?.id ?? null,
+    title: str(raw.title, 'title'),
+    dueOn: dueOn(raw.dueOn),
+    repeatYearly: repeat(raw.repeatYearly),
+    amountCents,
+    provider,
+    policyNumber,
+  }
   const [row] = await db.insert(reminders).values(values).onConflictDoNothing({ target: [reminders.userId, reminders.clientId] }).returning()
   if (row) return rowOf(userId, row.id)
   const [existing] = await db.select().from(reminders).where(and(eq(reminders.userId, userId), eq(reminders.clientId, clientId)))
@@ -97,6 +116,9 @@ export async function patchReminder(userId: string, r: Reminder, bike: Bike | nu
   if (raw.title !== undefined) set.title = str(raw.title, 'title')
   if (raw.dueOn !== undefined) set.dueOn = dueOn(raw.dueOn)
   if (raw.repeatYearly !== undefined) set.repeatYearly = repeat(raw.repeatYearly)
+  if (raw.amountCents !== undefined) set.amountCents = raw.amountCents === null || raw.amountCents === '' ? null : int(raw.amountCents, 'amountCents', 0, 10_000_000)
+  if (raw.provider !== undefined) set.provider = raw.provider === null || raw.provider === '' ? null : str(raw.provider, 'provider', 100)
+  if (raw.policyNumber !== undefined) set.policyNumber = raw.policyNumber === null || raw.policyNumber === '' ? null : str(raw.policyNumber, 'policyNumber', 50)
   if (raw.bikeId === null) set.bikeId = null
   else if (raw.bikeId !== undefined) {
     if (typeof raw.bikeId !== 'string' || !bike) throw bad('Invalid bikeId')
@@ -119,6 +141,32 @@ export async function markReminderDone(userId: string, r: Reminder | ReminderRow
   const [cur] = await db.select().from(reminders).where(and(eq(reminders.id, r.id), eq(reminders.userId, userId)))
   if (!cur) throw bad('Invalid reminder')
   if (seen !== cur.dueOn || cur.doneAt) return rowOf(userId, cur.id)
+
+  // Auto-log expense if reminder has an amountCents
+  if (cur.amountCents && cur.amountCents > 0) {
+    const [cat] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.userId, userId), eq(categories.kind, 'insurance')))
+      .limit(1)
+    if (cat) {
+      const parts = [cur.title]
+      if (cur.provider) parts.push(cur.provider)
+      if (cur.policyNumber) parts.push(`(${cur.policyNumber})`)
+      const desc = parts.join(' · ')
+      const at = new Date().toISOString().slice(0, 10)
+      await db.insert(expenses).values({
+        userId,
+        clientId: crypto.randomUUID(),
+        bikeId: cur.bikeId,
+        at,
+        amountCents: cur.amountCents,
+        categoryId: cat.id,
+        description: desc,
+      }).onConflictDoNothing()
+    }
+  }
+
   const set = cur.repeatYearly ? { dueOn: rollYear(cur.dueOn) } : { doneAt: new Date() }
   // Guard on the old dueOn so two concurrent taps roll only once.
   await db.update(reminders).set(set).where(and(eq(reminders.id, cur.id), eq(reminders.userId, userId), eq(reminders.dueOn, cur.dueOn), isNull(reminders.doneAt)))

@@ -359,7 +359,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       />
       <ReminderSheet
         v-model:open="reminderOpen"
-        :bikes="store.bikes.length ? store.bikes : [{ id: data.bike.id, name: data.bike.name }]"
+        :bikes="store.bikes.length ? store.bikes : [{ id: data.bike.id, name: data.bike.name, vehicleType: data.bike.vehicleType }]"
         :default-bike-id="data.bike.id"
         @saved="loadReminders"
       />

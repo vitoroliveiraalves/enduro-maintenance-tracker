@@ -92,6 +92,13 @@
       "when": 1794320100000,
       "tag": "0012_vehicle_type_plate",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794322000000,
+      "tag": "0013_reminder_cost_provider",
+      "breakpoints": true
     }
   ]
 }

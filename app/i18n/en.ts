@@ -284,6 +284,7 @@ export const en = {
 
   reminderSheet: {
     title: 'Add reminder',
+    editTitle: 'Edit reminder',
     presets: { insurance: 'Insurance', iuc: 'IUC', inspection: 'Inspection', licence: 'Licence' },
     presetsLabel: 'Presets',
     needName: 'Give the reminder a name, or pick one above.',
@@ -296,6 +297,12 @@ export const en = {
     name: 'Name',
     dueOn: 'Due on',
     bike: 'Vehicle',
+    cost: 'Cost (€)',
+    costPh: 'e.g. 185,00',
+    provider: 'Insurer / Provider',
+    providerPh: 'e.g. Fidelidade, Allianz',
+    policy: 'Policy / Ref.',
+    policyPh: 'e.g. 1234567',
     yearly: 'Repeats every year',
   },
 

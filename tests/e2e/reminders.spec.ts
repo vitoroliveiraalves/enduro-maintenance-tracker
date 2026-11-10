@@ -90,6 +90,42 @@ test('IUC reminder: add from Settings, chip on the bike screen, mark done rolls 
   await expect(page.getByTestId('reminder-row').filter({ hasText: 'Inspection' })).toHaveCount(0)
 })
 
+test('insurance reminder: motorcycle hides IPO preset, supports price/provider, done creates cost', async ({ page }) => {
+  await signUpFresh(page)
+  const bikeId = await seedBike(page, 'GasGas EC 300')
+  const due = dayFromNow(20)
+
+  await page.goto('/settings')
+  await page.getByTestId('add-reminder').click()
+
+  // For a motorcycle, Inspection (IPO) preset should NOT be visible
+  await expect(page.getByTestId('preset-Inspection')).toHaveCount(0)
+  await expect(page.getByTestId('preset-Insurance')).toBeVisible()
+  await expect(page.getByTestId('preset-IUC')).toBeVisible()
+
+  // Select Insurance and enter insurer provider and price
+  await page.getByTestId('preset-Insurance').click()
+  await page.getByTestId('rem-date').fill(due)
+  await page.getByTestId('rem-amount').fill('185,50')
+  await page.getByTestId('rem-provider').fill('Fidelidade')
+  await page.getByTestId('rem-policy').fill('POL-98765')
+  await page.getByTestId('rem-save').click()
+
+  const row = page.getByTestId('reminder-row').filter({ hasText: 'Insurance' })
+  await expect(row).toBeVisible()
+  await expect(row.getByTestId('reminder-provider-amount')).toContainText('Fidelidade')
+  await expect(row.getByTestId('reminder-provider-amount')).toContainText('185,50')
+
+  // Mark done -> rolls a year and automatically logs an expense
+  await row.getByTestId('reminder-done').click()
+
+  // Check Running costs page
+  await page.getByTestId('tab-costs').click()
+  await expect(page.getByRole('heading', { name: 'Running costs' })).toBeVisible()
+  await expect(page.locator('body')).toContainText('Insurance')
+  await expect(page.locator('body')).toContainText('185,50')
+})
+
 test('turning notifications on stores the subscription with the timezone; off removes it', async ({ page, context }) => {
   await context.grantPermissions(['notifications'])
   await fakePushManager(page)

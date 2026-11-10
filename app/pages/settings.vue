@@ -1,10 +1,22 @@
 <script setup lang="ts">
-import { formatDate } from '~/lib/format'
+import { formatDate, formatMoney } from '~/lib/format'
 import { errorMessage } from '~/offline/outbox'
 import { readSession } from '~/offline/session'
 import { daysUntil, dueText } from '~/lib/reminders'
 
-type Reminder = { id: string; bikeId: string | null; bikeName: string | null; title: string; dueOn: string; repeatYearly: boolean; pending?: boolean }
+type Reminder = {
+  id: string
+  bikeId: string | null
+  bikeName: string | null
+  title: string
+  dueOn: string
+  repeatYearly: boolean
+  amountCents?: number | null
+  provider?: string | null
+  policyNumber?: string | null
+  doneAt?: string | null
+  pending?: boolean
+}
 
 const { get, mutate } = useApi()
 const store = useBikesStore()
@@ -25,6 +37,17 @@ const isAdmin = ref(false)
 const reminders = ref<Reminder[]>([])
 const remError = ref('')
 const sheetOpen = ref(false)
+const reminderToEdit = ref<Reminder | null>(null)
+
+function editReminder(r: Reminder) {
+  reminderToEdit.value = r
+  sheetOpen.value = true
+}
+
+function openNewReminder() {
+  reminderToEdit.value = null
+  sheetOpen.value = true
+}
 
 type ApiTokenSummary = {
   id: string
@@ -309,10 +332,17 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
           <span class="text-sm font-semibold text-white" data-testid="reminder-title">{{ r.title }}</span>
           <span class="text-xs text-muted">{{ r.bikeName ?? t.common.allBikes }}{{ r.repeatYearly ? t.settings.yearly : '' }}<span v-if="r.pending" class="text-warn-text">{{ t.settings.pendingSync }}</span></span>
         </div>
+        <div v-if="r.provider || r.amountCents" class="mt-1 flex items-center gap-1.5 text-xs text-muted" data-testid="reminder-provider-amount">
+          <span v-if="r.provider" class="font-medium text-text">{{ r.provider }}</span>
+          <span v-if="r.provider && r.policyNumber" class="text-muted">({{ r.policyNumber }})</span>
+          <span v-if="r.provider && r.amountCents">·</span>
+          <span v-if="r.amountCents" class="font-tag font-bold text-accent-text">{{ formatMoney(r.amountCents) }}</span>
+        </div>
         <div class="mt-0.5 text-xs" :class="when(r).tone" data-testid="reminder-when">{{ when(r).text }}</div>
         <div v-if="!r.pending" class="mt-2 flex gap-2">
           <template v-if="askRemove !== r.id">
             <button type="button" class="min-h-11 rounded-lg bg-bg px-4 text-[13px] font-semibold text-ok-text" data-testid="reminder-done" :disabled="acting" @click="act(r, 'done')">{{ t.settings.done }}</button>
+            <button type="button" class="min-h-11 rounded-lg bg-bg px-3 text-[13px] font-semibold text-muted hover:text-white" data-testid="reminder-edit" :disabled="acting" @click="editReminder(r)">{{ t.common.edit }}</button>
             <button type="button" class="min-h-11 rounded-lg px-4 text-[13px] text-muted" data-testid="reminder-remove" :disabled="acting" @click="askRemove = r.id">{{ t.common.remove }}</button>
           </template>
           <template v-else>
@@ -323,9 +353,9 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
         </div>
       </div>
       <p v-if="remError" role="alert" class="mt-2 text-sm text-danger-text">{{ remError }}</p>
-      <button type="button" class="mt-1 w-full rounded-xl border border-dashed border-white/15 py-3 text-sm font-semibold text-accent-text" data-testid="add-reminder" @click="sheetOpen = true">{{ t.settings.addReminder }}</button>
+      <button type="button" class="mt-1 w-full rounded-xl border border-dashed border-white/15 py-3 text-sm font-semibold text-accent-text" data-testid="add-reminder" @click="openNewReminder">{{ t.settings.addReminder }}</button>
     </section>
-    <ReminderSheet v-model:open="sheetOpen" :bikes="store.bikes" @saved="loadReminders" />
+    <ReminderSheet v-model:open="sheetOpen" :bikes="store.bikes" :initial-reminder="reminderToEdit" @saved="loadReminders" />
 
     <h2 :class="h2">{{ t.settings.account }}</h2>
     <section class="rounded-xl bg-surface p-3">

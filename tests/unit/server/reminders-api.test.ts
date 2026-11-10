@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
-import { notificationsSent, user } from '../../../server/db/schema'
+import { categories, expenses, notificationsSent, user } from '../../../server/db/schema'
 import { createBike } from '../../../server/utils/bikes'
 import { createReminder, deleteReminder, listReminders, markReminderDone, patchReminder, rollYear } from '../../../server/utils/reminders'
 import { truncateUsers } from '../../support/truncate'
@@ -40,10 +41,10 @@ describe('rollYear', () => {
 describe('createReminder', () => {
   it('stores a bike-less reminder and replays on the same clientId', async () => {
     const clientId = crypto.randomUUID()
-    const a = await rem({ clientId })
+    const a = await rem({ clientId, amountCents: 18500, provider: 'Fidelidade', policyNumber: 'POL-123' })
     const b = await rem({ clientId })
     expect(b.id).toBe(a.id)
-    expect(a).toMatchObject({ title: 'IUC', dueOn: '2027-03-15', repeatYearly: true, bikeId: null, doneAt: null })
+    expect(a).toMatchObject({ title: 'IUC', dueOn: '2027-03-15', repeatYearly: true, bikeId: null, amountCents: 18500, provider: 'Fidelidade', policyNumber: 'POL-123', doneAt: null })
     expect(await listReminders(uid)).toHaveLength(1)
   })
 
@@ -94,6 +95,25 @@ describe('markReminderDone', () => {
     const done = await markReminderDone(uid, r, { dueOn: r.dueOn })
     expect(done.doneAt).not.toBeNull()
     expect(await listReminders(uid)).toHaveLength(0)
+  })
+
+  it('automatically logs an expense when marked done with an amountCents', async () => {
+    // Seed an insurance category for the user
+    const [cat] = await db
+      .insert(categories)
+      .values({ userId: uid, clientId: crypto.randomUUID(), name: 'Insurance', kind: 'insurance' })
+      .returning()
+    const r = await rem({ amountCents: 18500, provider: 'Tranquilidade', policyNumber: 'TR-99' }, uid, bike)
+    await markReminderDone(uid, r, { dueOn: r.dueOn })
+
+    const exp = await db.select().from(expenses).where(eq(expenses.userId, uid))
+    expect(exp).toHaveLength(1)
+    expect(exp[0]).toMatchObject({
+      amountCents: 18500,
+      bikeId: bike.id,
+      categoryId: cat!.id,
+      description: 'IUC · Tranquilidade · (TR-99)',
+    })
   })
 })
 
