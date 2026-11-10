@@ -105,7 +105,8 @@ export async function checkSession(fetchSession: () => Promise<SessionResult>, o
     return cached()
   }
   const status = res.error?.status
-  if (res.error && (!status || status >= 500)) return cached()
+  // No real answer (network, 5xx, or 429 rate limited): trust the cache; only a real "no session" signs out.
+  if (res.error && (!status || status >= 500 || status === 429)) return cached()
   const u = res.data?.user
   const prev = read()
   if (!u) {

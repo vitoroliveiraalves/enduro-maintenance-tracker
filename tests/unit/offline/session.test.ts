@@ -33,6 +33,7 @@ describe('checkSession (auth middleware offline)', () => {
     expect((await checkSession(boom, true)).user?.userId).toBe('u1')
     expect((await checkSession(async () => ({ data: null, error: { status: 0 } }), true)).user?.userId).toBe('u1')
     expect((await checkSession(async () => ({ data: null, error: { status: 502 } }), true)).user?.userId).toBe('u1')
+    expect((await checkSession(async () => ({ data: null, error: { status: 429 } }), true)).user?.userId).toBe('u1')
   })
 
   it('trusts the cache without calling the network when the browser is offline', async () => {
