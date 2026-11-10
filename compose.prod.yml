@@ -11,8 +11,8 @@
 name: enduro-prod
 
 x-app: &app
-  build: .
   image: ${APP_IMAGE:-ghcr.io/vitoroliveiraalves/enduro-maintenance-tracker:latest}
+  pull_policy: always
   env_file: ${ENV_FILE:-prod.env} # the same file as --env-file
   environment:
     # Built from the compose values, so prod.env can't point them elsewhere by mistake.
@@ -106,8 +106,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      DOCKER_API_VERSION: '1.44'
       WATCHTOWER_CLEANUP: 'true'
-      WATCHTOWER_POLL_INTERVAL: 300 # check every 5 minutes
+      WATCHTOWER_POLL_INTERVAL: '120' # check every 2 minutes
       WATCHTOWER_LABEL_ENABLE: 'true' # only update containers with com.centurylinklabs.watchtower.enable=true
     networks: [edge]
 
