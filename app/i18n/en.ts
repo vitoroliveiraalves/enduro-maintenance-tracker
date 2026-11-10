@@ -523,11 +523,11 @@ export const en = {
     allOk: 'ALL OK',
     hrs: 'HRS',
     km: 'KM',
-    empty: 'No bikes yet.',
+    empty: 'No vehicles yet.',
     pendingBike: "Waiting to sync — opens once you're back online",
     shelf: 'Shelf',
     shelfHint: 'PARTS · TO BUY →',
-    addBike: '+ Add bike',
+    addBike: '+ Add vehicle',
   },
 
   newBike: {

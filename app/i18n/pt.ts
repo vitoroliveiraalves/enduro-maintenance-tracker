@@ -616,11 +616,11 @@ export const pt: Messages = {
     allOk: 'TUDO OK',
     hrs: 'HORAS',
     km: 'KM',
-    empty: 'Ainda sem motas.',
+    empty: 'Ainda sem veículos.',
     pendingBike: 'À espera de sincronizar — abre quando voltar a estar online',
     shelf: 'Prateleira',
     shelfHint: 'PEÇAS · A COMPRAR →',
-    addBike: '+ Juntar mota',
+    addBike: '+ Juntar veículo',
   },
 
   newBike: {

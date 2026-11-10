@@ -15,7 +15,7 @@ test.describe('a Portuguese phone', () => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Garagem' })).toBeVisible()
     await expect(page.getByTestId('tab-history')).toHaveText('Histórico')
-    await expect(page.getByTestId('add-bike')).toHaveText('+ Juntar mota')
+    await expect(page.getByTestId('add-bike')).toHaveText('+ Juntar veículo')
 
     await page.goto('/settings')
     await expect(page.getByRole('heading', { name: 'Definições' })).toBeVisible()
