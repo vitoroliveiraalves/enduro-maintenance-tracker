@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { OfflineError } from '~/offline/outbox'
+import { categoryLabel } from '~/lib/server-text'
+const { t } = useI18n()
 
 type Period = 'month' | 'year' | 'all'
 type Costs = {
@@ -25,7 +27,7 @@ const { money, hours, km, dayMonth } = useFormatters()
 const store = useBikesStore()
 const { syncTick } = useOffline()
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const MONTHS = computed(() => t.value.chart.months)
 const today = new Date().toISOString().slice(0, 10)
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 
@@ -80,8 +82,8 @@ async function load() {
     if (e instanceof OfflineError) {
       // Offline and this period was never opened here: don't leave the previous period on screen.
       data.value = null
-      error.value = "You're offline — this period isn't saved on this phone yet."
-    } else error.value = 'Could not load costs.'
+      error.value = t.value.costs.offlinePeriod
+    } else error.value = t.value.costs.loadFailed
   }
 }
 watch(() => [period.value, date.value, bikeId.value], load)
@@ -93,40 +95,41 @@ onMounted(async () => {
 
 const isCurrentYear = computed(() => year.value === Number(today.slice(0, 4)))
 const label = computed(() => {
-  if (period.value === 'all') return 'All time'
-  if (period.value === 'year') return isCurrentYear.value ? `${year.value} so far` : String(year.value)
-  return MONTHS[month.value - 1]!
+  if (period.value === 'all') return t.value.costs.allTime
+  if (period.value === 'year') return isCurrentYear.value ? t.value.costs.soFar(year.value) : String(year.value)
+  return MONTHS.value[month.value - 1]!
 })
-const navLabel = computed(() => (period.value === 'year' ? String(year.value) : `${MONTHS[month.value - 1]!.slice(0, 3)} ${year.value}`))
+const navLabel = computed(() => (period.value === 'year' ? String(year.value) : `${MONTHS.value[month.value - 1]!.slice(0, 3)} ${year.value}`))
 const rideLine = computed(() => {
   const d = data.value
   if (!d) return ''
   // Hours when any bike in view counts them; otherwise (street bikes only) km.
   const parts = d.countsHours !== false
-    ? [d.hoursTenths ? `${hours(d.hoursTenths)} ridden` : '', d.perHourCents !== null ? `${money(d.perHourCents)}/h` : '']
-    : [d.km ? `${km(d.km)} ridden` : '', d.perKmCents !== null ? `${money(d.perKmCents)}/km` : '']
+    ? [d.hoursTenths ? t.value.costs.ridden(hours(d.hoursTenths)) : '', d.perHourCents !== null ? `${money(d.perHourCents)}/h` : '']
+    : [d.km ? t.value.costs.ridden(km(d.km)) : '', d.perKmCents !== null ? `${money(d.perKmCents)}/km` : '']
   return parts.filter(Boolean).join(' · ')
 })
 const compareLine = computed(() => {
   const c = data.value?.compare
   if (!c) return null
-  const when = isCurrentYear.value ? 'at this point' : 'overall'
-  if (c.pct === null) return { text: `Nothing spent in ${year.value - 1} ${when}`, cls: 'text-muted' }
-  if (c.pct === 0) return { text: `Same as ${year.value - 1} ${when}`, cls: 'text-muted' }
-  return { text: `${c.pct > 0 ? '▲' : '▼'} ${Math.abs(c.pct)}% vs ${year.value - 1} ${when}`, cls: c.pct > 0 ? 'text-warn-text' : 'text-ok-text' }
+  const now = isCurrentYear.value
+  const prev = year.value - 1
+  if (c.pct === null) return { text: t.value.costs.nothingIn(prev, now), cls: 'text-muted' }
+  if (c.pct === 0) return { text: t.value.costs.sameAs(prev, now), cls: 'text-muted' }
+  return { text: t.value.costs.vs(c.pct > 0 ? '▲' : '▼', Math.abs(c.pct), prev, now), cls: c.pct > 0 ? 'text-warn-text' : 'text-ok-text' }
 })
 const showBikes = computed(() => !bikeId.value && (data.value?.byBike.length ?? 0) > 0)
-const SEG: Array<{ key: Period; label: string }> = [
-  { key: 'month', label: 'Month' },
-  { key: 'year', label: 'Year' },
-  { key: 'all', label: 'All time' },
-]
+const SEG = computed<Array<{ key: Period; label: string }>>(() => [
+  { key: 'month', label: t.value.costs.month },
+  { key: 'year', label: t.value.costs.year },
+  { key: 'all', label: t.value.costs.allTime },
+])
 </script>
 
 <template>
   <main class="mx-auto max-w-md p-4 pb-24">
     <div class="flex items-center justify-between gap-2 text-[13px]">
-      <label class="sr-only" for="costs-bike">Bike</label>
+      <label class="sr-only" for="costs-bike">{{ t.costs.bike }}</label>
       <select
         id="costs-bike"
         :value="bikeId"
@@ -134,15 +137,15 @@ const SEG: Array<{ key: Period; label: string }> = [
         class="min-w-0 max-w-[55%] truncate rounded-lg bg-surface px-2.5 py-2 text-[13px] text-white"
         @change="go({ bikeId: ($event.target as HTMLSelectElement).value || undefined })"
       >
-        <option value="">All bikes</option>
+        <option value="">{{ t.common.allBikes }}</option>
         <option v-for="b in store.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
       </select>
-      <a :href="exportHref" download data-testid="export-csv" class="shrink-0 rounded-lg px-2.5 py-2 text-muted">⤓ Export CSV</a>
+      <a :href="exportHref" download data-testid="export-csv" class="shrink-0 rounded-lg px-2.5 py-2 text-muted">{{ t.costs.export }}</a>
     </div>
 
-    <h1 class="mb-2.5 mt-2 text-xl font-bold text-white">Running costs</h1>
+    <h1 class="mb-2.5 mt-2 text-xl font-bold text-white">{{ t.costs.title }}</h1>
 
-    <div role="group" aria-label="Period" class="mb-3 flex rounded-[10px] bg-surface p-[3px]">
+    <div role="group" :aria-label="t.costs.period" class="mb-3 flex rounded-[10px] bg-surface p-[3px]">
       <button
         v-for="s in SEG"
         :key="s.key"
@@ -158,9 +161,9 @@ const SEG: Array<{ key: Period; label: string }> = [
     </div>
 
     <div v-if="period !== 'all'" class="mb-3 flex items-center justify-between text-sm">
-      <button type="button" aria-label="Previous" data-testid="period-prev" class="h-9 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(-1)">‹</button>
+      <button type="button" :aria-label="t.costs.previous" data-testid="period-prev" class="h-9 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(-1)">‹</button>
       <span data-testid="period-label" class="font-semibold text-white">{{ navLabel }}</span>
-      <button type="button" aria-label="Next" data-testid="period-next" class="h-9 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(1)">›</button>
+      <button type="button" :aria-label="t.costs.next" data-testid="period-next" class="h-9 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(1)">›</button>
     </div>
 
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
@@ -175,37 +178,37 @@ const SEG: Array<{ key: Period; label: string }> = [
 
       <div class="mb-2.5 flex gap-2" data-testid="costs-kpis">
         <div v-if="data.countsHours !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted">Per hour</span>
+          <span class="text-[10px] uppercase tracking-wide text-muted">{{ t.costs.perHour }}</span>
           <b class="block text-[17px] text-white" data-testid="kpi-hour">{{ data.perHourCents === null ? '—' : money(data.perHourCents) }}</b>
         </div>
         <div v-if="data.countsKm !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted">Per km</span>
+          <span class="text-[10px] uppercase tracking-wide text-muted">{{ t.costs.perKm }}</span>
           <b class="block text-[17px] text-white" data-testid="kpi-km">{{ data.perKmCents === null ? '—' : money(data.perKmCents) }}</b>
         </div>
         <div v-if="data.countsHours !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted">Hours</span>
+          <span class="text-[10px] uppercase tracking-wide text-muted">{{ t.costs.hours }}</span>
           <b class="block text-[17px] text-white" data-testid="kpi-hours">{{ hours(data.hoursTenths) }}</b>
         </div>
         <div v-else class="flex-1 rounded-xl bg-surface px-2.5 py-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted">Km</span>
+          <span class="text-[10px] uppercase tracking-wide text-muted">{{ t.costs.km }}</span>
           <b class="block text-[17px] text-white" data-testid="kpi-km-total">{{ km(data.km) }}</b>
         </div>
       </div>
 
       <template v-if="data.byMonth">
-        <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-widest text-muted">By month</h2>
+        <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.byMonth }}</h2>
         <BarChart :months="data.byMonth" :current-month="isCurrentYear ? Number(today.slice(5, 7)) : 0" :future-after="isCurrentYear ? Number(today.slice(5, 7)) : year > Number(today.slice(0, 4)) ? 0 : 12" />
         <div class="h-3" />
       </template>
 
       <template v-if="data.expenses">
-        <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-widest text-muted">Spent this month</h2>
-        <p v-if="!data.expenses.length" class="text-sm text-muted" data-testid="costs-empty">Nothing spent in {{ label }}.</p>
+        <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.spentThisMonth }}</h2>
+        <p v-if="!data.expenses.length" class="text-sm text-muted" data-testid="costs-empty">{{ t.costs.nothingSpent(label) }}</p>
         <ul class="space-y-[7px]">
           <li v-for="e in data.expenses" :key="e.id" class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]" data-testid="costs-expense">
             <span class="min-w-0">
-              <span class="block truncate text-text">{{ e.description || e.categoryName }}</span>
-              <small class="block text-[11px] text-muted">{{ dayMonth(e.at) }} · {{ e.categoryName }}<template v-if="e.bikeName && !bikeId"> · {{ e.bikeName }}</template><template v-if="e.documentId"> · <NuxtLink :to="`/invoice/${e.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" aria-label="Open invoice" data-testid="costs-invoice"><Icon name="invoice" :size="15" /></NuxtLink></template></small>
+              <span class="block truncate text-text">{{ e.description || categoryLabel(e.categoryName) }}</span>
+              <small class="block text-[11px] text-muted">{{ dayMonth(e.at) }} · {{ categoryLabel(e.categoryName) }}<template v-if="e.bikeName && !bikeId"> · {{ e.bikeName }}</template><template v-if="e.documentId"> · <NuxtLink :to="`/invoice/${e.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" :aria-label="t.item.openInvoice" data-testid="costs-invoice"><Icon name="invoice" :size="15" /></NuxtLink></template></small>
             </span>
             <b class="shrink-0 text-white">{{ money(e.amountCents) }}</b>
           </li>
@@ -213,27 +216,27 @@ const SEG: Array<{ key: Period; label: string }> = [
       </template>
 
       <template v-if="data.upcoming && data.upcoming.length">
-        <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">Coming up · estimated</h2>
+        <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.comingUp }}</h2>
         <ul class="space-y-1.5" data-testid="costs-upcoming">
           <li v-for="u in data.upcoming" :key="u.itemId" class="flex justify-between text-[13px]" data-testid="upcoming-row">
-            <span>{{ u.name }} <small class="text-muted">· {{ u.state === 'overdue' ? 'due now' : 'soon' }}</small></span>
+            <span>{{ u.name }} <small class="text-muted">· {{ u.state === 'overdue' ? t.costs.dueNow : t.costs.soon }}</small></span>
             <span class="text-text">{{ u.estimateCents === null ? '—' : `~${money(u.estimateCents)}` }}</span>
           </li>
         </ul>
-        <p class="mt-1.5 text-xs text-muted">Estimates use the last price you paid.</p>
+        <p class="mt-1.5 text-xs text-muted">{{ t.costs.estimates }}</p>
       </template>
 
       <template v-if="data.byCategory.length">
-        <h2 class="mb-2 mt-4 text-[11px] uppercase tracking-widest text-muted">Where it went</h2>
+        <h2 class="mb-2 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.whereItWent }}</h2>
         <CategoryBars :rows="data.byCategory" />
       </template>
 
       <template v-if="showBikes">
-        <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">By bike</h2>
+        <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.byBike }}</h2>
         <ul class="space-y-[7px]">
           <li v-for="b in data.byBike" :key="b.bikeId ?? 'none'" class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]" data-testid="costs-bike-row">
             <span class="min-w-0">
-              <span class="block truncate text-text">{{ b.name }}</span>
+              <span class="block truncate text-text">{{ b.bikeId ? b.name : t.costs.noBike }}</span>
               <small v-if="b.bikeId" class="block text-[11px] text-muted">{{ [countsHours(b.meters ?? 'hours_km') ? hours(b.hoursTenths) : '', countsKm(b.meters ?? 'hours_km') ? km(b.km) : ''].filter(Boolean).join(' · ') }}</small>
             </span>
             <span class="shrink-0 text-right">

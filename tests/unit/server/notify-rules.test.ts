@@ -135,3 +135,20 @@ describe('isoWeek', () => {
     expect(isoWeek('2024-12-30')).toBe('2025-W01')
   })
 })
+
+describe('notificationsDue — language', () => {
+  it('words each notification for the device: Portuguese, with template item names translated', () => {
+    const [n] = notificationsDue(base({ items: [item('overdue')], locale: 'pt' }))
+    expect(n!.title).toBe('Óleo da caixa em atraso')
+    expect(n!.body).toBe('KTM 300: está na hora de tratar — óleo da caixa.')
+    const [r] = notificationsDue(base({ reminders: [{ id: 'r1', title: 'IUC', dueOn: new Date('2026-11-18T00:00:00Z') }], locale: 'pt' }))
+    expect(r!.body).toBe('IUC: faltam 7 dias.')
+  })
+
+  it('same keys whatever the language; unknown or missing language is English', () => {
+    const input = base({ items: [item('soon')] })
+    expect(notificationsDue({ ...input, locale: 'pt' }).map((n) => n.key)).toEqual(keys(input))
+    expect(notificationsDue({ ...input, locale: 'xx' })[0]!.title).toBe('Gearbox oil due soon')
+    expect(notificationsDue(input)[0]!.title).toBe('Gearbox oil due soon')
+  })
+})

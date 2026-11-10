@@ -1,3 +1,5 @@
+import { msgs } from './i18n'
+import { categoryLabel, itemLabel } from './server-text'
 import { formatDayMonth, formatHours, formatKm, formatMoney, formatQty } from './format'
 
 type O = Record<string, unknown>
@@ -22,16 +24,16 @@ export function sourceLines(src: { tool: string; data: unknown }): string[] {
       return list(isO(d) ? d.items : [], (i) => {
         const last = isO(i.lastDone) ? i.lastDone : null
         return join(
-          t(i.name),
-          last ? `last done ${join(day(last.at) ?? 'date unknown', ...meters(last))}` : 'never logged',
-          n(i.sinceHoursTenths) !== null && `${formatHours(n(i.sinceHoursTenths)!)} since`,
-          n(i.sinceKm) !== null && `${formatKm(n(i.sinceKm)!)} since`,
+          itemLabel(t(i.name)),
+          last ? msgs().voiceSources.lastDone(join(day(last.at) ?? msgs().common.dateUnknown, ...meters(last))) : msgs().voiceSources.neverLogged,
+          n(i.sinceHoursTenths) !== null && msgs().voiceSources.since(formatHours(n(i.sinceHoursTenths)!)),
+          n(i.sinceKm) !== null && msgs().voiceSources.since(formatKm(n(i.sinceKm)!)),
         )
       })
     case 'item_history':
-      return list(d, (s) => join(day(s.at) ?? 'date unknown', ...meters(s), s.by === 'garage' ? t(s.garageName) || 'garage' : 'DIY', n(s.totalCents) ? formatMoney(n(s.totalCents)!) : null))
+      return list(d, (s) => join(day(s.at) ?? msgs().common.dateUnknown, ...meters(s), s.by === 'garage' ? t(s.garageName) || msgs().common.garage : msgs().common.diy, n(s.totalCents) ? formatMoney(n(s.totalCents)!) : null))
     case 'search_shelf':
-      return list(d, (p) => join(t(p.name), `${formatQty(n(p.qtyHundredths) ?? 0, t(p.unit) || 'pcs')} in stock`))
+      return list(d, (p) => join(t(p.name), msgs().voiceSources.inStock(formatQty(n(p.qtyHundredths) ?? 0, t(p.unit) || 'pcs'))))
     case 'shopping_list': {
       if (!isO(d)) return []
       const auto = list(d.auto, (a) => join(t(a.partName), t(a.detail)))
@@ -39,9 +41,9 @@ export function sourceLines(src: { tool: string; data: unknown }): string[] {
     }
     case 'costs':
       if (!isO(d)) return []
-      return [`Total · ${formatMoney(n(d.totalCents) ?? 0)}`, ...list(d.byCategory, (c) => join(t(c.name), formatMoney(n(c.cents) ?? 0)))].slice(0, MAX_LINES)
+      return [msgs().voiceSources.total(formatMoney(n(d.totalCents) ?? 0)), ...list(d.byCategory, (c) => join(categoryLabel(t(c.name)), formatMoney(n(c.cents) ?? 0)))].slice(0, MAX_LINES)
     case 'reminders':
-      return list(d, (r) => join(t(r.title), `due ${day(r.dueOn)}`, t(r.bikeName)))
+      return list(d, (r) => join(t(r.title), msgs().voiceSources.due(day(r.dueOn) ?? ''), t(r.bikeName)))
     default:
       return []
   }

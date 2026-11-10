@@ -1,3 +1,4 @@
+import { activeLocale, msgs } from '~/lib/i18n'
 import { errorMessage, OfflineError } from '~/offline/outbox'
 import { isStandalone, onIos, urlBase64ToUint8Array } from '~/lib/platform'
 
@@ -54,7 +55,7 @@ export function usePush() {
   const error = ref('')
   let key = ''
 
-  const save = (sub: PushSubscription) => mutate('/api/push/subscribe', { ...(sub.toJSON() as Record<string, unknown>), timezone: timezone() })
+  const save = (sub: PushSubscription) => mutate('/api/push/subscribe', { ...(sub.toJSON() as Record<string, unknown>), timezone: timezone(), locale: activeLocale.value })
 
   async function init() {
     error.value = ''
@@ -92,7 +93,7 @@ export function usePush() {
       await save(sub)
       state.value = 'on'
     } catch (e) {
-      error.value = errorMessage(e, "Couldn't turn notifications on. Try again in a moment.", true)
+      error.value = errorMessage(e, msgs().push.onFailed, true)
     } finally {
       busy.value = false
     }
@@ -112,11 +113,19 @@ export function usePush() {
       }
       state.value = 'off'
     } catch (e) {
-      error.value = errorMessage(e, "Couldn't turn notifications off. Try again in a moment.", true)
+      error.value = errorMessage(e, msgs().push.offFailed, true)
     } finally {
       busy.value = false
     }
   }
 
-  return { state, busy, error, init, enable, disable }
+  /** The rider changed the app's language: pushes to this device follow it. */
+  async function resync() {
+    if (state.value !== 'on') return
+    const reg = await swReady(3000)
+    const sub = reg ? await reg.pushManager.getSubscription() : null
+    if (sub) await save(sub).catch(() => {})
+  }
+
+  return { state, busy, error, init, enable, disable, resync }
 }

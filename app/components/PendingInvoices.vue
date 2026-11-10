@@ -2,11 +2,12 @@
 // Invoice photos captured offline (Ruling R12): a reminder while they wait
 // (iOS: no Background Sync, and storage can be evicted), then a link to review
 // each one once it has uploaded.
+const { t } = useI18n()
 const route = useRoute()
 const { invoicesWaiting, uploaded, forgetUploaded } = useOffline()
 const HIDDEN = ['/login', '/register']
 const visible = computed(() => !HIDDEN.includes(route.path))
-const waitingText = computed(() => `${invoicesWaiting.value === 1 ? '1 invoice' : `${invoicesWaiting.value} invoices`} waiting to upload — keep the app open when online`)
+const waitingText = computed(() => t.value.pending.invoicesWaiting(invoicesWaiting.value))
 </script>
 
 <template>
@@ -22,7 +23,7 @@ const waitingText = computed(() => `${invoicesWaiting.value === 1 ? '1 invoice' 
       data-testid="invoice-uploaded"
       @click="forgetUploaded(id)"
     >
-      Invoice uploaded — review it ›
+      {{ t.pending.invoiceUploaded }}
     </NuxtLink>
   </div>
 </template>

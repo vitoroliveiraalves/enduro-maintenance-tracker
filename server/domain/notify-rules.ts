@@ -1,4 +1,7 @@
 import type { Status } from './maintenance-status'
+import { en, type Messages } from '../../app/i18n/en'
+import { pt } from '../../app/i18n/pt'
+import { DEFAULT_LOCALE, isLocale, type Locale } from '../../shared/utils/locale'
 
 export const DEFAULT_TIMEZONE = 'Europe/Lisbon'
 const MS_PER_DAY = 86_400_000
@@ -13,6 +16,8 @@ export type NotifyInput = {
   meters?: { hours: boolean; km: boolean }
   /** IANA zone of the subscription; unknown/empty → Europe/Lisbon. */
   timezone?: string | null
+  /** Language of the subscribed device; unknown/empty → English. */
+  locale?: string | null
 }
 
 export type DueNotification = { key: string; title: string; body: string; url: string }
@@ -60,23 +65,25 @@ export function isoWeek(day: string): string {
   return `${year}-W${String(week).padStart(2, '0')}`
 }
 
-const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+const meterWords = (m?: { hours: boolean; km: boolean }) => (!m || (m.hours && m.km) ? 'meters' : m.hours ? 'hours' : 'km')
+const DICTS: Record<Locale, Messages> = { en, pt }
 
-/** Everything that should be pushed right now; the caller dedupes by `key` via notificationsSent. */
-const meterWords = (m?: { hours: boolean; km: boolean }) =>
-  !m || (m.hours && m.km) ? 'hours and km' : m.hours ? 'hours' : 'km'
-
+/** Everything that should be pushed right now, worded for `input.locale`; the caller dedupes by `key` via notificationsSent. */
 export function notificationsDue(input: NotifyInput): DueNotification[] {
   const tz = validTimezone(input.timezone) ?? DEFAULT_TIMEZONE
+  const d = DICTS[isLocale(input.locale) ? input.locale : DEFAULT_LOCALE]
+  const t = d.notify
+  // Template item names were stored in English on older bikes: say them in the device's language.
+  const item = (name: string) => d.seeded.items[name] ?? name
   const local = localParts(input.now, tz)
   const out: DueNotification[] = []
 
   for (const it of input.items) {
     const url = `/bikes/${it.bikeId}/items/${it.itemId}`
     if (it.status.state === 'overdue') {
-      out.push({ key: `item:${it.itemId}:overdue:${it.lastServiceId ?? 'none'}`, title: `${it.itemName} is overdue`, body: `${it.bikeName}: time to do the ${it.itemName.toLowerCase()}.`, url })
+      out.push({ key: `item:${it.itemId}:overdue:${it.lastServiceId ?? 'none'}`, title: t.overdueTitle(item(it.itemName)), body: t.overdueBody(it.bikeName, item(it.itemName)), url })
     } else if (it.status.state === 'soon') {
-      out.push({ key: `item:${it.itemId}:soon`, title: `${it.itemName} due soon`, body: `${it.bikeName}: plan the ${it.itemName.toLowerCase()}.`, url })
+      out.push({ key: `item:${it.itemId}:soon`, title: t.soonTitle(item(it.itemName)), body: t.soonBody(it.bikeName, item(it.itemName)), url })
     }
   }
 
@@ -84,9 +91,9 @@ export function notificationsDue(input: NotifyInput): DueNotification[] {
     const days = Math.round((r.dueOn.getTime() - dayMs(local.day)) / MS_PER_DAY)
     const url = '/settings#reminders'
     if (days <= 0) {
-      out.push({ key: `reminder:${r.id}:0d`, title: `${r.title} is due`, body: days === 0 ? `${r.title} is due today.` : `${r.title} was due ${plural(-days, 'day')} ago.`, url })
+      out.push({ key: `reminder:${r.id}:0d`, title: t.reminderDueTitle(r.title), body: days === 0 ? t.reminderToday(r.title) : t.reminderWasDue(r.title, -days), url })
     } else if (days <= 7) {
-      out.push({ key: `reminder:${r.id}:7d`, title: `${r.title} coming up`, body: `${r.title} is due in ${plural(days, 'day')}.`, url })
+      out.push({ key: `reminder:${r.id}:7d`, title: t.reminderSoonTitle(r.title), body: t.reminderIn(r.title, days), url })
     }
   }
 
@@ -94,7 +101,7 @@ export function notificationsDue(input: NotifyInput): DueNotification[] {
   if (local.weekday === 1 && local.hour >= 9 && input.lastReadingAt) {
     const friday = addDays(local.day, -3)
     if (localParts(input.lastReadingAt, tz).day < friday) {
-      out.push({ key: `nudge:${isoWeek(local.day)}`, title: 'Ride this weekend?', body: `Update your ${meterWords(input.meters)} so maintenance stays on track.`, url: '/' })
+      out.push({ key: `nudge:${isoWeek(local.day)}`, title: t.nudgeTitle, body: t.nudgeBody(meterWords(input.meters)), url: '/' })
     }
   }
   return out

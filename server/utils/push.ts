@@ -4,6 +4,7 @@ import webpush from 'web-push'
 import { db } from '../db/client'
 import { bikes, meterReadings, notificationsSent, pushSubscriptions, reminders } from '../db/schema'
 import { DEFAULT_TIMEZONE, notificationsDue, validTimezone, type DueNotification, type NotifyInput } from '../domain/notify-rules'
+import { isLocale } from '../../shared/utils/locale'
 import { isObj, itemRows } from './bikes'
 import { bad } from './validate'
 
@@ -50,7 +51,7 @@ export function parseSubscription(raw: unknown) {
   if (typeof p256dh !== 'string' || typeof auth !== 'string' || !B64URL.test(p256dh) || !B64URL.test(auth) || p256dh.length > 200 || auth.length > 100) {
     throw bad('Invalid subscription')
   }
-  return { endpoint: raw.endpoint, p256dh, auth, timezone: validTimezone(raw.timezone) }
+  return { endpoint: raw.endpoint, p256dh, auth, timezone: validTimezone(raw.timezone), locale: isLocale(raw.locale) ? raw.locale : null }
 }
 
 export async function saveSubscription(userId: string, raw: unknown) {
@@ -59,7 +60,7 @@ export async function saveSubscription(userId: string, raw: unknown) {
   await db
     .insert(pushSubscriptions)
     .values({ userId, ...s })
-    .onConflictDoUpdate({ target: pushSubscriptions.endpoint, set: { userId, p256dh: s.p256dh, auth: s.auth, timezone: s.timezone } })
+    .onConflictDoUpdate({ target: pushSubscriptions.endpoint, set: { userId, p256dh: s.p256dh, auth: s.auth, timezone: s.timezone, locale: s.locale } })
 }
 
 export async function removeSubscription(userId: string, raw: unknown) {
@@ -130,8 +131,20 @@ async function notifyUser(userId: string, userSubs: Sub[], opts: { now: Date; se
   if (okKeys.length) await db.delete(notificationsSent).where(and(eq(notificationsSent.userId, userId), inArray(notificationsSent.key, okKeys)))
 
   const due = new Map<string, DueNotification>()
-  for (const tz of new Set(userSubs.map((s) => validTimezone(s.timezone) ?? DEFAULT_TIMEZONE))) {
+  const zones = new Set(userSubs.map((s) => validTimezone(s.timezone) ?? DEFAULT_TIMEZONE))
+  for (const tz of zones) {
     for (const n of notificationsDue({ ...input, timezone: tz })) if (!due.has(n.key)) due.set(n.key, n)
+  }
+  // The same notification in each device's language (keys don't depend on it).
+  const worded = new Map<string, Map<string, DueNotification>>()
+  const inLocale = (locale: string | null, n: DueNotification): DueNotification => {
+    const l = isLocale(locale) ? locale : 'en'
+    if (!worded.has(l)) {
+      const m = new Map<string, DueNotification>()
+      for (const tz of zones) for (const x of notificationsDue({ ...input, timezone: tz, locale: l })) if (!m.has(x.key)) m.set(x.key, x)
+      worded.set(l, m)
+    }
+    return worded.get(l)!.get(n.key) ?? n
   }
 
   let live = [...userSubs]
@@ -139,9 +152,10 @@ async function notifyUser(userId: string, userSubs: Sub[], opts: { now: Date; se
     if (!live.length) break
     const claimed = await db.insert(notificationsSent).values({ userId, key: n.key }).onConflictDoNothing().returning({ id: notificationsSent.id })
     if (!claimed.length) continue
-    const payload = JSON.stringify({ title: n.title, body: n.body, url: n.url, tag: n.key })
     let delivered = false
     for (const s of live) {
+      const w = inLocale(s.locale, n)
+      const payload = JSON.stringify({ title: w.title, body: w.body, url: w.url, tag: w.key })
       try {
         await opts.send(s, payload)
         delivered = true

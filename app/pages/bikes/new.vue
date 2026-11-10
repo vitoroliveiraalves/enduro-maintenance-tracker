@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { parseDecimal } from '~/lib/parse-number'
 import { errorMessage } from '~/offline/outbox'
+import { itemLabel } from '~/lib/server-text'
+const { t } = useI18n()
 
 type Draft = {
   key: number
@@ -36,36 +38,36 @@ let seq = 0
 
 const hasHours = computed(() => countsHours(form.meters))
 const hasKm = computed(() => countsKm(form.meters))
-const metersNeeded = computed(() => (hasHours.value && hasKm.value ? 'hours and km' : hasHours.value ? 'hours' : 'km'))
+const metersNeeded = computed(() => (hasHours.value && hasKm.value ? 'meters' : hasHours.value ? 'hours' : 'km'))
 
-const tenthsToText = (t?: number) => (t ? String(t / 10) : '')
+const tenthsToText = (v?: number) => (v ? String(v / 10) : '')
 function blank(over: Partial<Draft> = {}): Draft {
   return { key: ++seq, name: '', hours: '', km: '', months: '', multipliers: {}, lastAt: '', lastHours: '', lastKm: '', ...over }
 }
 
 async function next() {
   error.value = ''
-  if (!form.name.trim() || !form.make.trim() || !form.model.trim()) return void (error.value = 'Fill in name, make and model.')
+  if (!form.name.trim() || !form.make.trim() || !form.model.trim()) return void (error.value = t.value.newBike.needNames)
   const year = parseDecimal(form.year)
-  if (year === null || !Number.isInteger(year) || year < 1950 || year > 2100) return void (error.value = 'Enter a valid year.')
+  if (year === null || !Number.isInteger(year) || year < 1950 || year > 2100) return void (error.value = t.value.newBike.badYear)
   if ((hasHours.value && parseDecimal(form.hours) === null) || (hasKm.value && parseDecimal(form.km) === null)) {
-    return void (error.value = `Enter the current ${metersNeeded.value}.`)
+    return void (error.value = t.value.newBike.needMeters(metersNeeded.value))
   }
   busy.value = true
   try {
     const tpl = await get<Template[]>(`/api/templates/${form.stroke}?meters=${form.meters}`)
-    drafts.value = tpl.map((t) =>
+    drafts.value = tpl.map((it) =>
       blank({
-        name: t.name,
-        hours: tenthsToText(t.everyHoursTenths),
-        km: t.everyKm ? String(t.everyKm) : '',
-        months: t.everyMonths ? String(t.everyMonths) : '',
-        multipliers: t.conditionMultipliers,
+        name: itemLabel(it.name), // the rider's language; stored as typed
+        hours: tenthsToText(it.everyHoursTenths),
+        km: it.everyKm ? String(it.everyKm) : '',
+        months: it.everyMonths ? String(it.everyMonths) : '',
+        multipliers: it.conditionMultipliers,
       }),
     )
     step.value = 2
   } catch (e) {
-    error.value = errorMessage(e, 'Could not load the item list. Try again.', true)
+    error.value = errorMessage(e, t.value.newBike.loadFailed, true)
   } finally {
     busy.value = false
   }
@@ -75,7 +77,7 @@ function optional(text: string, label: string, scale = 1): number | null | undef
   if (!text.trim()) return null
   const n = parseDecimal(text)
   if (n === null || n < 0) {
-    error.value = `Invalid ${label}.`
+    error.value = t.value.newBike.invalid(label)
     return undefined
   }
   return Math.round(n * scale)
@@ -89,21 +91,22 @@ async function save() {
   error.value = ''
   const items = []
   for (const d of drafts.value) {
-    const label = d.name || 'item'
+    const label = d.name || t.value.newBike.item
+    const nb = t.value.newBike
     // Only the units the bike counts are sent (hidden fields never leak a stale value).
-    const everyHoursTenths = hasHours.value ? optional(d.hours, `hours interval for ${label}`, 10) : null
-    const everyKm = hasKm.value ? optional(d.km, `km interval for ${label}`) : null
-    const everyMonths = optional(d.months, `months interval for ${label}`)
+    const everyHoursTenths = hasHours.value ? optional(d.hours, nb.hoursFor(label), 10) : null
+    const everyKm = hasKm.value ? optional(d.km, nb.kmFor(label)) : null
+    const everyMonths = optional(d.months, nb.monthsFor(label))
     if (everyHoursTenths === undefined || everyKm === undefined || everyMonths === undefined) return
-    if (!d.name.trim()) return void (error.value = 'Every item needs a name.')
-    if (!everyHoursTenths && !everyKm && !everyMonths) return void (error.value = `${d.name}: set at least one interval.`)
+    if (!d.name.trim()) return void (error.value = nb.needItemName)
+    if (!everyHoursTenths && !everyKm && !everyMonths) return void (error.value = nb.needInterval(d.name))
     let lastDone: { at?: string; hoursTenths?: number; km?: number } | undefined
     // Whatever was typed counts, even if the section was folded again afterwards.
     const lastHours = hasHours.value ? d.lastHours : ''
     const lastKm = hasKm.value ? d.lastKm : ''
     if (lastHours.trim() || lastKm.trim() || d.lastAt.trim()) {
-      const lh = optional(lastHours, `last done hours for ${label}`, 10)
-      const lk = optional(lastKm, `last done km for ${label}`)
+      const lh = optional(lastHours, nb.lastHoursFor(label), 10)
+      const lk = optional(lastKm, nb.lastKmFor(label))
       if (lh === undefined || lk === undefined) return
       // No date given → none sent: the server records "date unknown", never a made-up today.
       lastDone = { ...(d.lastAt ? { at: d.lastAt } : {}), ...(lh !== null ? { hoursTenths: lh } : {}), ...(lk !== null ? { km: lk } : {}) }
@@ -133,10 +136,10 @@ async function save() {
     }, { queue: true })
     if (isQueued(bike)) return void (await navigateTo('/')) // shown in the garage as waiting to sync
     store.setLast(bike.id)
-    useToast().show(`${form.name.trim()} added`)
+    useToast().show(t.value.newBike.added(form.name.trim()))
     await navigateTo(`/bikes/${bike.id}`)
   } catch (err) {
-    error.value = errorMessage(err, 'Could not save the bike. Try again.')
+    error.value = errorMessage(err, t.value.newBike.failed)
   } finally {
     busy.value = false
   }
@@ -148,24 +151,24 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
 
 <template>
   <main class="mx-auto max-w-md p-4">
-    <NuxtLink to="/" class="text-sm text-muted">‹ Garage</NuxtLink>
-    <h1 class="mt-1.5 text-xl font-bold text-white">Add bike</h1>
-    <p class="mt-0.5 text-xs text-muted" data-testid="step-indicator">Step {{ step }} of 2 · {{ step === 1 ? 'the bike' : 'maintenance items' }}</p>
+    <NuxtLink to="/" class="text-sm text-muted">{{ t.newBike.garage }}</NuxtLink>
+    <h1 class="mt-1.5 text-xl font-bold text-white">{{ t.newBike.title }}</h1>
+    <p class="mt-0.5 text-xs text-muted" data-testid="step-indicator">{{ t.newBike.step(step) }}</p>
 
     <form v-if="step === 1" class="mt-4 space-y-4" @submit.prevent="next">
-      <label class="block"><span class="text-sm text-muted">Name</span>
+      <label class="block"><span class="text-sm text-muted">{{ t.newBike.name }}</span>
         <input v-model="form.name" :class="field" autocomplete="off"></label>
       <div class="grid grid-cols-2 gap-3">
-        <label class="block"><span class="text-sm text-muted">Make</span>
+        <label class="block"><span class="text-sm text-muted">{{ t.newBike.make }}</span>
           <input v-model="form.make" :class="field" autocomplete="off"></label>
-        <label class="block"><span class="text-sm text-muted">Model</span>
+        <label class="block"><span class="text-sm text-muted">{{ t.newBike.model }}</span>
           <input v-model="form.model" :class="field" autocomplete="off"></label>
       </div>
       <div class="grid grid-cols-2 gap-3">
-        <label class="block"><span class="text-sm text-muted">Year</span>
+        <label class="block"><span class="text-sm text-muted">{{ t.newBike.year }}</span>
           <input v-model="form.year" inputmode="numeric" :class="field"></label>
         <fieldset class="block">
-          <legend class="text-sm text-muted">Engine</legend>
+          <legend class="text-sm text-muted">{{ t.newBike.engine }}</legend>
           <div class="mt-1 flex gap-2">
             <label v-for="s in ['2T', '4T']" :key="s" class="flex-1 cursor-pointer rounded-lg border px-3 py-3 text-center" :class="form.stroke === s ? 'border-accent text-accent-text' : 'border-white/10 bg-surface'">
               <input v-model="form.stroke" type="radio" :value="s" class="sr-only">{{ s }}
@@ -175,45 +178,45 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
       </div>
       <MetersChoice v-model="form.meters" />
       <div class="grid gap-3" :class="hasHours && hasKm ? 'grid-cols-2' : 'grid-cols-1'">
-        <label v-if="hasHours" class="block"><span class="text-sm text-muted">Current hours</span>
-          <input v-model="form.hours" inputmode="decimal" placeholder="e.g. 142,5" :class="field"></label>
-        <label v-if="hasKm" class="block"><span class="text-sm text-muted">Current km</span>
-          <input v-model="form.km" inputmode="decimal" placeholder="e.g. 3812" :class="field"></label>
+        <label v-if="hasHours" class="block"><span class="text-sm text-muted">{{ t.newBike.currentHours }}</span>
+          <input v-model="form.hours" inputmode="decimal" :placeholder="t.newBike.hoursPh" :class="field"></label>
+        <label v-if="hasKm" class="block"><span class="text-sm text-muted">{{ t.newBike.currentKm }}</span>
+          <input v-model="form.km" inputmode="decimal" :placeholder="t.newBike.kmPh" :class="field"></label>
       </div>
       <p v-if="error" role="alert" class="text-sm text-danger-text">{{ error }}</p>
-      <button type="submit" :disabled="busy" class="w-full rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60">Next: maintenance items</button>
+      <button type="submit" :disabled="busy" class="w-full rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60">{{ t.newBike.next }}</button>
     </form>
 
     <section v-else class="mt-4">
-      <p class="text-sm text-muted">Adjust the service intervals. Open "Last done at" for anything you have already serviced; items without it show as unknown until you set it.</p>
+      <p class="text-sm text-muted">{{ t.newBike.adjust }}</p>
       <ul class="mt-4 space-y-3">
         <li v-for="d in drafts" :key="d.key" class="rounded-xl bg-surface p-3" data-testid="item-draft">
           <div class="flex items-center gap-2">
-            <input v-model="d.name" aria-label="Item name" class="min-w-0 flex-1 rounded-lg border border-white/10 bg-bg px-2 py-2 font-semibold text-white outline-none focus:border-accent">
-            <button type="button" class="size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" :aria-label="`Remove ${d.name}`" @click="drafts = drafts.filter((x) => x.key !== d.key)">×</button>
+            <input v-model="d.name" :aria-label="t.newBike.itemName" class="min-w-0 flex-1 rounded-lg border border-white/10 bg-bg px-2 py-2 font-semibold text-white outline-none focus:border-accent">
+            <button type="button" class="size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" :aria-label="t.newBike.removeNamed(d.name)" @click="drafts = drafts.filter((x) => x.key !== d.key)">×</button>
           </div>
           <div class="mt-2 grid gap-2 text-xs text-muted" :class="hasHours && hasKm ? 'grid-cols-3' : 'grid-cols-2'">
-            <label v-if="hasHours">Every … hours<input v-model="d.hours" inputmode="decimal" :aria-label="`${d.name} every hours`" :class="small"></label>
-            <label v-if="hasKm">{{ hasHours ? '… or km' : 'Every … km' }}<input v-model="d.km" inputmode="numeric" :aria-label="`${d.name} every km`" :class="small"></label>
-            <label>… or months<input v-model="d.months" inputmode="numeric" :aria-label="`${d.name} every months`" :class="small"></label>
+            <label v-if="hasHours">{{ t.newBike.everyHours }}<input v-model="d.hours" inputmode="decimal" :aria-label="t.newBike.ariaEveryHours(d.name)" :class="small"></label>
+            <label v-if="hasKm">{{ hasHours ? t.newBike.orKm : t.newBike.everyKm }}<input v-model="d.km" inputmode="numeric" :aria-label="t.newBike.ariaEveryKm(d.name)" :class="small"></label>
+            <label>{{ t.newBike.orMonths }}<input v-model="d.months" inputmode="numeric" :aria-label="t.newBike.ariaEveryMonths(d.name)" :class="small"></label>
           </div>
           <details class="mt-2">
-            <summary class="cursor-pointer text-sm text-accent-text">Last done at</summary>
+            <summary class="cursor-pointer text-sm text-accent-text">{{ t.newBike.lastDoneAt }}</summary>
             <div class="mt-2 grid gap-2 text-xs text-muted">
-              <label>Date <span class="normal-case">(leave empty if you don't know)</span><input v-model="d.lastAt" type="date" :aria-label="`${d.name} last done date`" :class="small"></label>
+              <label>{{ t.common.date }} <span class="normal-case">{{ t.newBike.dateUnknownHint }}</span><input v-model="d.lastAt" type="date" :aria-label="t.newBike.ariaLastDate(d.name)" :class="small"></label>
               <div class="grid gap-2" :class="hasHours && hasKm ? 'grid-cols-2' : 'grid-cols-1'">
-                <label v-if="hasHours">Hours<input v-model="d.lastHours" inputmode="decimal" :aria-label="`${d.name} last done hours`" :class="small"></label>
-                <label v-if="hasKm">Km<input v-model="d.lastKm" inputmode="numeric" :aria-label="`${d.name} last done km`" :class="small"></label>
+                <label v-if="hasHours">{{ t.common.hours }}<input v-model="d.lastHours" inputmode="decimal" :aria-label="t.newBike.ariaLastHours(d.name)" :class="small"></label>
+                <label v-if="hasKm">{{ t.common.km }}<input v-model="d.lastKm" inputmode="numeric" :aria-label="t.newBike.ariaLastKm(d.name)" :class="small"></label>
               </div>
             </div>
           </details>
         </li>
       </ul>
-      <button type="button" class="mt-3 w-full rounded-lg border border-white/15 py-3 text-sm font-semibold" @click="drafts.push(blank())">+ Add custom item</button>
+      <button type="button" class="mt-3 w-full rounded-lg border border-white/15 py-3 text-sm font-semibold" @click="drafts.push(blank())">{{ t.newBike.addCustom }}</button>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text">{{ error }}</p>
       <div class="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 -mx-4 mt-4 flex gap-3 bg-bg/95 px-4 py-3 backdrop-blur">
-        <button type="button" class="rounded-lg border border-white/15 px-4 py-3" @click="step = 1">Back</button>
-        <button type="button" :disabled="busy" class="flex-1 rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60" @click="save">Save bike</button>
+        <button type="button" class="rounded-lg border border-white/15 px-4 py-3" @click="step = 1">{{ t.newBike.back }}</button>
+        <button type="button" :disabled="busy" class="flex-1 rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60" @click="save">{{ t.newBike.save }}</button>
       </div>
     </section>
   </main>

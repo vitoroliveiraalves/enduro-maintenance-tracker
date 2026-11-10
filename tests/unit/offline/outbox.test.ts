@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CACHED_GET_TIMEOUT, createApi, isQueued, type Send } from '../../../app/offline/api'
 import { clearOfflineData, getDb } from '../../../app/offline/db'
-import { dismissFailed, listOutbox, OfflineError, OFFLINE_MESSAGE, retryFailed } from '../../../app/offline/outbox'
+import { dismissFailed, listOutbox, OfflineError, offlineMessage, retryFailed } from '../../../app/offline/outbox'
 import { listPhotos, queuePhotos, retryPhoto } from '../../../app/offline/photos'
 import { flushOutbox, MAX_ATTEMPTS } from '../../../app/offline/sync'
 
@@ -68,8 +68,8 @@ describe('mutate', () => {
     const send = recorder()
     const err = await api(send).mutate('/api/account', { confirm: 'DELETE' }, { method: 'DELETE' }).catch((e) => e)
     expect(err).toBeInstanceOf(OfflineError)
-    expect(err.message).toBe(OFFLINE_MESSAGE)
-    expect(OFFLINE_MESSAGE).toBe("You're offline — try again when you're back online.")
+    expect(err.message).toBe(offlineMessage())
+    expect(offlineMessage()).toBe("You're offline — try again when you're back online.")
     expect(send).not.toHaveBeenCalled()
     expect(await listOutbox()).toHaveLength(0)
   })

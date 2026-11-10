@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // Round mic above the tabs. Hold ≥ 300 ms: release sends. Shorter tap: tap again to send.
+const { t } = useI18n()
 const route = useRoute()
 const { openSheets } = useSheets()
 const { pending, failed, voiceWaiting, voiceReady } = useOffline()
@@ -54,7 +55,7 @@ const clock = computed(() => `0:${String(rec.seconds.value).padStart(2, '0')}`)
       <span class="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-bg" aria-hidden="true">
         <span class="block h-full rounded-full bg-accent transition-[width] duration-100" :style="{ width: `${Math.round(rec.level.value * 100)}%` }" />
       </span>
-      <button type="button" class="min-h-11 shrink-0 px-2 text-sm text-muted" data-testid="mic-cancel" @click="rec.cancel()">Cancel</button>
+      <button type="button" class="min-h-11 shrink-0 px-2 text-sm text-muted" data-testid="mic-cancel" @click="rec.cancel()">{{ t.common.cancel }}</button>
     </div>
     <p
       v-if="blocked && visible"
@@ -63,15 +64,15 @@ const clock = computed(() => `0:${String(rec.seconds.value).padStart(2, '0')}`)
       data-testid="mic-blocked"
       @click="blocked = false"
     >
-      <template v-if="rec.state.value === 'denied'">The microphone is blocked for this app. Allow it in your browser's site settings (the icon next to the address), then try again.</template>
-      <template v-else>This browser can't record here. You can still type everything in the app.</template>
+      <template v-if="rec.state.value === 'denied'">{{ t.mic.denied }}</template>
+      <template v-else>{{ t.mic.unsupported }}</template>
     </p>
     <button
       type="button"
       class="fixed right-3 z-30 flex size-14 touch-none select-none items-center justify-center rounded-full shadow-lg shadow-black/50"
       :class="['mic-btn', rec.state.value === 'recording' && 'is-recording']"
       :style="{ bottom: `calc(3.5rem + env(safe-area-inset-bottom) + ${badge ? '3.5rem' : '0.75rem'})` }"
-      :aria-label="rec.state.value === 'recording' ? 'Stop and send voice note' : 'Voice note: hold to talk'"
+      :aria-label="rec.state.value === 'recording' ? t.mic.stop : t.mic.hold"
       data-testid="mic"
       @pointerdown.prevent="down"
       @pointerup="up"

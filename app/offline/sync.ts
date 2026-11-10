@@ -1,3 +1,4 @@
+import { msgs } from '~/lib/i18n'
 import { getDb, notifyOutbox, offlineGeneration, type OutboxRow, type PendingPhoto } from './db'
 import { describeError, listOutbox, retryable, statusOf } from './outbox'
 import { listPhotos, photoForm } from './photos'
@@ -83,7 +84,7 @@ async function run({ send = defaultSend, now = Date.now, force = false, currentU
       const attempts = row.attempts + 1
       const firstFailedAt = row.firstFailedAt ?? now()
       if (attempts >= MAX_ATTEMPTS || now() - firstFailedAt >= MAX_AGE_MS) {
-        await db[table].update(row.id!, { attempts, firstFailedAt, error: `Couldn't reach the server after several tries (${status})` })
+        await db[table].update(row.id!, { attempts, firstFailedAt, error: msgs().errors.unreachable(status) })
         res.failed++
         return 'failed'
       }

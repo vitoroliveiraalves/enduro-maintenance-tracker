@@ -13,7 +13,8 @@ export default defineConfig({
   reporter: [['list']],
   use: { baseURL: WEB, trace: 'on-first-retry', serviceWorkers: 'block' },
   projects: [
-    { name: 'phone', use: { ...devices['Pixel 7'], viewport: { width: 380, height: 780 } } },
+    // English phone unless a test says otherwise (the app follows the phone's language).
+    { name: 'phone', use: { ...devices['Pixel 7'], viewport: { width: 380, height: 780 }, locale: 'en-US' } },
   ],
   webServer: {
     // Fresh enduro_e2e database (never the dev one) + the login user, then the production server.

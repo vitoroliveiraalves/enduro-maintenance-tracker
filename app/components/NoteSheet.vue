@@ -2,6 +2,7 @@
 import { downscaleImage } from '~/lib/image-downscale'
 import { errorMessage } from '~/offline/outbox'
 import { notePhotoUrl, type ItemNoteJson } from '~/lib/item-notes'
+const { t } = useI18n()
 
 const props = defineProps<{ itemId: string; note: ItemNoteJson | null }>()
 const open = defineModel<boolean>('open', { default: false })
@@ -13,11 +14,14 @@ type SpecDraft = { key: number; label: string; value: string }
 type NewPhoto = { key: number; clientId: string; blob: Blob; url: string }
 
 const MAX_PHOTOS = 6
-const STARTERS = [
-  { title: 'Torque specs', specs: ['', ''], body: '' },
-  { title: 'How to', specs: [], body: '1. ' },
-  { title: 'Parts & fluids', specs: ['', ''], body: '' },
-] as const
+const STARTERS = computed(() => {
+  const s = t.value.noteSheet.starters
+  return [
+    { title: s.torque, specs: ['', ''], body: '' },
+    { title: s.howTo, specs: [], body: '1. ' },
+    { title: s.parts, specs: ['', ''], body: '' },
+  ]
+})
 
 const title = ref('')
 const body = ref('')
@@ -54,7 +58,7 @@ watch(open, (isOpen) => {
   createdId = null
 }, { immediate: true })
 
-function useStarter(s: (typeof STARTERS)[number]) {
+function useStarter(s: (typeof STARTERS.value)[number]) {
   title.value = s.title
   if (!body.value.trim()) body.value = s.body
   if (!specs.value.length) specs.value = s.specs.map(() => ({ key: ++seq, label: '', value: '' }))
@@ -69,14 +73,14 @@ async function onPick(e: Event) {
   error.value = ''
   for (const f of files) {
     if (photoCount.value >= MAX_PHOTOS) {
-      error.value = `At most ${MAX_PHOTOS} photos per note.`
+      error.value = t.value.noteSheet.maxPhotos(MAX_PHOTOS)
       break
     }
     try {
       const blob = await downscaleImage(f)
       newPhotos.value.push({ key: ++seq, clientId: crypto.randomUUID(), blob, url: URL.createObjectURL(blob) })
     } catch {
-      error.value = 'That file could not be read as a photo.'
+      error.value = t.value.noteSheet.badPhoto
     }
   }
 }
@@ -89,10 +93,10 @@ function removeNew(key: number) {
 async function save() {
   if (busy.value) return
   error.value = ''
-  if (!title.value.trim()) return void (error.value = 'Give the note a title, or pick one above.')
+  if (!title.value.trim()) return void (error.value = t.value.noteSheet.needTitle)
   // A line with only a value is a typo; a line with only a label is a reminder to self.
   const lines = specs.value.filter((s) => s.label.trim() || s.value.trim())
-  if (lines.some((s) => !s.label.trim())) return void (error.value = 'Each spec line needs a name, like "Axle nut".')
+  if (lines.some((s) => !s.label.trim())) return void (error.value = t.value.noteSheet.specName)
   const payload = { title: title.value.trim(), body: body.value, specs: lines.map((s) => ({ label: s.label.trim(), value: s.value.trim() })) }
   busy.value = true
   try {
@@ -117,7 +121,7 @@ async function save() {
     open.value = false
     emit('saved', payload.title)
   } catch (e) {
-    error.value = errorMessage(e, "Couldn't save the note. Try again.")
+    error.value = errorMessage(e, t.value.noteSheet.failed)
   } finally {
     busy.value = false
   }
@@ -131,7 +135,7 @@ async function remove() {
     open.value = false
     emit('deleted', props.note.title)
   } catch (e) {
-    error.value = errorMessage(e, "Couldn't delete the note. Try again.")
+    error.value = errorMessage(e, t.value.noteSheet.deleteFailed)
   } finally {
     busy.value = false
   }
@@ -144,7 +148,7 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
 </script>
 
 <template>
-  <Sheet v-model:open="open" :title="editing ? 'Edit note' : 'Add note'" testid="note-sheet">
+  <Sheet v-model:open="open" :title="editing ? t.noteSheet.edit : t.noteSheet.add" testid="note-sheet">
     <form @submit.prevent="save" @input="error = ''">
       <div v-if="!editing" class="mb-3 flex flex-wrap gap-2">
         <button
@@ -160,35 +164,35 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
       </div>
 
       <label :class="label">
-        Title
+        {{ t.noteSheet.title }}
         <input v-model="title" autocomplete="off" maxlength="120" data-testid="note-title" :class="field">
       </label>
 
       <fieldset class="mt-4 min-w-0">
-        <legend :class="label">Specs <span class="normal-case tracking-normal">· torque, capacities, part numbers</span></legend>
+        <legend :class="label">{{ t.noteSheet.specs }} <span class="normal-case tracking-normal">{{ t.noteSheet.specsHint }}</span></legend>
         <div v-for="(s, i) in specs" :key="s.key" class="mt-2 flex items-center gap-2" data-testid="note-spec-row">
-          <input v-model="s.label" autocomplete="off" maxlength="80" :placeholder="i === 0 ? 'e.g. Axle nut' : ''" :aria-label="`Spec ${i + 1} name`" class="min-w-0 flex-[3] rounded-xl bg-bg px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-accent">
-          <input v-model="s.value" autocomplete="off" maxlength="120" :placeholder="i === 0 ? 'e.g. 90 Nm' : ''" :aria-label="`Spec ${i + 1} value`" class="min-w-0 flex-[2] rounded-xl bg-bg px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-accent">
-          <button type="button" class="size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" :aria-label="`Remove spec ${i + 1}`" @click="specs = specs.filter((x) => x.key !== s.key)">×</button>
+          <input v-model="s.label" autocomplete="off" maxlength="80" :placeholder="i === 0 ? t.noteSheet.specLabelPh : ''" :aria-label="t.noteSheet.specName_(i + 1)" class="min-w-0 flex-[3] rounded-xl bg-bg px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-accent">
+          <input v-model="s.value" autocomplete="off" maxlength="120" :placeholder="i === 0 ? t.noteSheet.specValuePh : ''" :aria-label="t.noteSheet.specValue(i + 1)" class="min-w-0 flex-[2] rounded-xl bg-bg px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-accent">
+          <button type="button" class="size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" :aria-label="t.noteSheet.removeSpec(i + 1)" @click="specs = specs.filter((x) => x.key !== s.key)">×</button>
         </div>
-        <button type="button" class="mt-2 min-h-11 text-sm font-semibold text-accent-text" data-testid="note-add-spec" @click="addSpec">+ Add spec line</button>
+        <button type="button" class="mt-2 min-h-11 text-sm font-semibold text-accent-text" data-testid="note-add-spec" @click="addSpec">{{ t.noteSheet.addSpec }}</button>
       </fieldset>
 
       <label class="mt-3" :class="label">
-        Notes &amp; steps
+        {{ t.noteSheet.body }}
         <textarea v-model="body" rows="5" maxlength="8000" data-testid="note-body" :class="field" class="resize-y leading-snug" />
       </label>
 
       <div class="mt-4">
-        <p :class="label">Photos <span class="normal-case tracking-normal">· up to {{ MAX_PHOTOS }}</span></p>
+        <p :class="label">{{ t.noteSheet.photos }} <span class="normal-case tracking-normal">{{ t.noteSheet.upTo(MAX_PHOTOS) }}</span></p>
         <div class="mt-2 grid grid-cols-3 gap-2">
           <div v-for="p in keptPhotos" :key="p.id" class="relative aspect-square overflow-hidden rounded-xl bg-bg">
             <img :src="notePhotoUrl(props.note!.id, p.id)" alt="" class="size-full object-cover">
-            <button type="button" class="absolute right-0 top-0 size-11 text-xl font-bold text-white [text-shadow:0_1px_3px_#000]" aria-label="Remove photo" data-testid="note-photo-remove" @click="keptPhotos = keptPhotos.filter((x) => x.id !== p.id)">×</button>
+            <button type="button" class="absolute right-0 top-0 size-11 text-xl font-bold text-white [text-shadow:0_1px_3px_#000]" :aria-label="t.noteSheet.removePhoto" data-testid="note-photo-remove" @click="keptPhotos = keptPhotos.filter((x) => x.id !== p.id)">×</button>
           </div>
           <div v-for="p in newPhotos" :key="p.key" class="relative aspect-square overflow-hidden rounded-xl bg-bg" data-testid="note-photo-new">
             <img :src="p.url" alt="" class="size-full object-cover">
-            <button type="button" class="absolute right-0 top-0 size-11 text-xl font-bold text-white [text-shadow:0_1px_3px_#000]" aria-label="Remove photo" @click="removeNew(p.key)">×</button>
+            <button type="button" class="absolute right-0 top-0 size-11 text-xl font-bold text-white [text-shadow:0_1px_3px_#000]" :aria-label="t.noteSheet.removePhoto" @click="removeNew(p.key)">×</button>
           </div>
           <button
             v-if="photoCount < MAX_PHOTOS"
@@ -197,7 +201,7 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
             data-testid="note-add-photo"
             @click="picker?.click()"
           >
-            <span class="text-2xl leading-none">+</span>Photo
+            <span class="text-2xl leading-none">+</span>{{ t.noteSheet.photo }}
           </button>
         </div>
         <input ref="picker" type="file" accept="image/jpeg,image/png,image/*" multiple class="sr-only" tabindex="-1" aria-hidden="true" data-testid="note-photo-input" @change="onPick">
@@ -205,18 +209,18 @@ const label = 'block text-[11px] uppercase tracking-wider text-muted'
 
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="note-error">{{ error }}</p>
       <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="note-save">
-        {{ busy ? 'Saving…' : 'Save note' }}
+        {{ busy ? t.common.saving : t.noteSheet.save }}
       </button>
 
       <template v-if="editing">
         <div v-if="confirmDelete" class="mt-3 rounded-xl bg-danger/10 p-3" data-testid="note-delete-confirm">
-          <p class="text-sm text-white">Delete “{{ props.note!.title }}” and its photos?</p>
+          <p class="text-sm text-white">{{ t.noteSheet.deleteAsk(props.note!.title) }}</p>
           <div class="mt-2 flex gap-2">
-            <button type="button" :disabled="busy" class="min-h-11 flex-1 rounded-xl bg-danger font-bold text-on-danger disabled:opacity-60" data-testid="note-delete-yes" @click="remove">Delete</button>
-            <button type="button" class="min-h-11 flex-1 rounded-xl border border-white/15" @click="confirmDelete = false">Keep</button>
+            <button type="button" :disabled="busy" class="min-h-11 flex-1 rounded-xl bg-danger font-bold text-on-danger disabled:opacity-60" data-testid="note-delete-yes" @click="remove">{{ t.common.delete }}</button>
+            <button type="button" class="min-h-11 flex-1 rounded-xl border border-white/15" @click="confirmDelete = false">{{ t.common.keep }}</button>
           </div>
         </div>
-        <button v-else type="button" class="mt-2 min-h-11 w-full text-sm text-danger-text" data-testid="note-delete" @click="confirmDelete = true">Delete note</button>
+        <button v-else type="button" class="mt-2 min-h-11 w-full text-sm text-danger-text" data-testid="note-delete" @click="confirmDelete = true">{{ t.noteSheet.deleteNote }}</button>
       </template>
     </form>
   </Sheet>

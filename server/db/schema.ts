@@ -357,6 +357,8 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
   auth: text('auth').notNull(),
   /** IANA zone sent by the client at subscribe time; null → Europe/Lisbon. */
   timezone: text('timezone'),
+  /** App language of the device ('en' | 'pt'), sent at subscribe time; null → English. */
+  locale: text('locale'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })

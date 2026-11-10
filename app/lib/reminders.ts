@@ -1,3 +1,5 @@
+import { msgs } from './i18n'
+
 const MS_PER_DAY = 86_400_000
 
 /** Whole calendar days from the rider's local today to `dueOn` ("YYYY-MM-DD"); negative = past. */
@@ -9,10 +11,11 @@ export function daysUntil(dueOn: string, today: Date = new Date()): number {
 }
 
 export function dueText(days: number): string {
-  if (days < 0) return 'overdue'
-  if (days === 0) return 'today'
-  if (days === 1) return 'tomorrow'
-  return `in ${days} days`
+  const t = msgs().reminders
+  if (days < 0) return t.overdue
+  if (days === 0) return t.today
+  if (days === 1) return t.tomorrow
+  return t.inDays(days)
 }
 
 export const CHIP_DAYS = 30

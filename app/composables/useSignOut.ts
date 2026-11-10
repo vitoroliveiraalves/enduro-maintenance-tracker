@@ -1,3 +1,4 @@
+import { msgs } from '~/lib/i18n'
 import { authClient } from '~/lib/auth-client'
 import { clearOfflineData } from '~/offline/db'
 import { OfflineError } from '~/offline/outbox'
@@ -29,7 +30,7 @@ export async function signOutEverywhere() {
     throw new OfflineError()
   }
   // 401 = already signed out on the server: still forget this device.
-  if (res.error && res.error.status !== 401) throw new Error("Couldn't sign out. Try again.")
+  if (res.error && res.error.status !== 401) throw new Error(msgs().signOut.failed)
   await forgetThisDevice()
   await navigateTo('/login')
 }

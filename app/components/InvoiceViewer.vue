@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n()
 /** The invoice's own pages: tap a page number, pinch or use +/− to zoom, drag to pan. */
 const props = defineProps<{ docId: string; pages: Array<{ page: number; mime: string }> }>()
 
@@ -60,7 +61,7 @@ function up(e: PointerEvent) {
     >
       <img
         :src="src(page.page)"
-        :alt="`Invoice page ${page.page}`"
+        :alt="t.viewer.invoicePage(page.page)"
         draggable="false"
         class="h-full w-full select-none object-contain"
         :style="{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }"
@@ -75,7 +76,7 @@ function up(e: PointerEvent) {
       class="flex h-40 items-center justify-center rounded-xl bg-black/40 font-semibold text-accent-text"
       data-testid="viewer-pdf"
     >
-      Open the PDF ↗
+      {{ t.viewer.openPdf }}
     </a>
     <div class="mt-2 flex items-center gap-1.5">
       <button
@@ -85,7 +86,7 @@ function up(e: PointerEvent) {
         type="button"
         class="size-9 rounded-lg text-sm font-semibold"
         :class="p.page === current ? 'bg-accent text-on-accent' : 'bg-bg text-muted'"
-        :aria-label="`Page ${p.page}`"
+        :aria-label="t.viewer.page(p.page)"
         :aria-current="p.page === current ? 'true' : undefined"
         @click="show(p.page)"
       >
@@ -93,8 +94,8 @@ function up(e: PointerEvent) {
       </button>
       <span class="flex-1" />
       <template v-if="page?.mime.startsWith('image/')">
-        <button type="button" class="size-9 rounded-lg bg-bg text-lg" aria-label="Zoom out" :disabled="scale <= 1" @click="setScale(scale - 0.75)">−</button>
-        <button type="button" class="size-9 rounded-lg bg-bg text-lg" aria-label="Zoom in" :disabled="scale >= 5" @click="setScale(scale + 0.75)">+</button>
+        <button type="button" class="size-9 rounded-lg bg-bg text-lg" :aria-label="t.viewer.zoomOut" :disabled="scale <= 1" @click="setScale(scale - 0.75)">−</button>
+        <button type="button" class="size-9 rounded-lg bg-bg text-lg" :aria-label="t.viewer.zoomIn" :disabled="scale >= 5" @click="setScale(scale + 0.75)">+</button>
       </template>
     </div>
   </section>
