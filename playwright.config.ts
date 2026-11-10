@@ -30,6 +30,8 @@ export default defineConfig({
       NUXT_INVOICE_READER: 'mock',
       // Canned voice reader: fixed rules on the transcript (see mockVoice in server/utils/voice.ts).
       NUXT_VOICE_READER: 'mock',
+      // Canned photo scan reader.
+      NUXT_SCAN_READER: 'mock',
       // The admin account (tests/support/e2e-prepare.ts creates it).
       NUXT_ADMIN_EMAILS: 'admin@example.com',
       // Fresh throwaway key pair per run (push is never actually delivered in tests).

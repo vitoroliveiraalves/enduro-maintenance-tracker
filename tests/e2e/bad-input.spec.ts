@@ -89,6 +89,7 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
       ['get', `/api/costs?bikeId=${id}`, null, 404],
       ['get', `/api/expenses?bikeId=${id}`, null, 404],
       ['post', '/api/readings', rd({ bikeId: id }), 404],
+      ['post', '/api/readings/scan', { bikeId: id }, 400],
       ['post', '/api/bikes', { ...bikeBody('X', []), clientId: id }, 400],
       ['post', '/api/readings', rd({ clientId: id }), 400],
       ['delete', `/api/bikes/${bike.id}/latest-reading`, { readingId: id }, 400],
@@ -239,5 +240,15 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   }
   const json = await request.post('/api/voice', { data: {} })
   if (json.status() !== 400) failures.push(`POST /api/voice json → ${json.status()}`)
+
+  // Scan readings: missing file (400), unowned bike (404), invalid file (400)
+  const fakeJpg = { name: 'f.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff]) }
+  const scanNoFile = await request.post('/api/readings/scan', { multipart: { bikeId: bike.id } })
+  if (scanNoFile.status() !== 400) failures.push(`POST /api/readings/scan no file → ${scanNoFile.status()} (want 400)`)
+  const scan404 = await request.post('/api/readings/scan', { multipart: { bikeId: uuid(), file: fakeJpg } })
+  if (scan404.status() !== 404) failures.push(`POST /api/readings/scan 404 → ${scan404.status()} (want 404)`)
+  const scanBadMime = await request.post('/api/readings/scan', { multipart: { bikeId: bike.id, file: { name: 'f.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') } } })
+  if (scanBadMime.status() !== 400) failures.push(`POST /api/readings/scan bad mime → ${scanBadMime.status()} (want 400)`)
+
   expect(failures).toEqual([])
 })
