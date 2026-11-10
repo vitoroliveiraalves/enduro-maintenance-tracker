@@ -266,3 +266,31 @@ html:not([data-theme='tricolor']) :is(button, a).bg-danger {
   padding-left: 8px;
   font-weight: 600;
 }
+
+/* Screen changes: a quick fade with a small rise; the tab bar stays put. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: 120ms ease-out both vt-out;
+  }
+  ::view-transition-new(root) {
+    animation: 180ms ease-out both vt-in;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+@keyframes vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
