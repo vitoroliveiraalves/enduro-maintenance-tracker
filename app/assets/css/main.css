@@ -312,6 +312,24 @@ button:not(:disabled):active,
   transform: scale(0.93);
 }
 
+/* Mic recording pulsating radar effect */
+@keyframes mic-radar {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+.mic-radar-wave {
+  animation: mic-radar 1.6s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+}
+.mic-radar-wave-delay {
+  animation: mic-radar 1.6s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 0.55s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
