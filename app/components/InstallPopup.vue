@@ -64,7 +64,7 @@ async function onInstall() {
 </script>
 
 <template>
-  <Sheet v-model:open="open" title="Install Enduro Tracker" testid="install-popup">
+  <Sheet v-model:open="open" title="Install Dirt Garage" testid="install-popup">
     <template v-if="mode === 'ios'">
       <p class="text-sm text-text">Add it to your Home Screen to open it like an app, use it offline in the garage, and get service reminders.</p>
       <ol class="mt-3 space-y-2 text-sm text-text" data-testid="install-popup-ios">
@@ -80,7 +80,7 @@ async function onInstall() {
         </li>
         <li class="flex items-center gap-3">
           <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-bg text-xs font-bold text-accent-text">3</span>
-          <span>Open Enduro from your Home Screen.</span>
+          <span>Open Dirt Garage from your Home Screen.</span>
         </li>
       </ol>
       <button type="button" class="mt-4 min-h-11 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent" data-testid="install-popup-ok" @click="open = false">Got it</button>

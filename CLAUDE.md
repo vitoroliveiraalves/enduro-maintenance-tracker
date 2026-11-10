@@ -1,4 +1,6 @@
-# Enduro Tracker
+# Dirt Garage
+
+(Repo, package, Docker image, Dexie db and storage keys keep the old `enduro` names on purpose: renaming them would drop riders' offline data and settings.)
 
 Nuxt 4 SPA (`ssr: false`) PWA for enduro bike maintenance and costs. Postgres + drizzle + better-auth on the Nitro server.
 

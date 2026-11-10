@@ -1,46 +1,41 @@
-// Renders the PWA icons from a small SVG mark: an orange knobby tyre on the
-// app background. Run with `pnpm pwa:icons`; outputs go to public/.
+// Renders the PWA icons from a small SVG mark: a knobby tyre with a red and blue
+// rim, cropped from the corner, on the tricolor background (Dirt Garage).
+// Run with `pnpm pwa:icons`; outputs go to public/.
 import { mkdir } from 'node:fs/promises'
 import sharp from 'sharp'
 
-const BG = '#121417'
-const ACCENT = '#ff6a00'
+const BG = '#0f1012' // tricolor `bg` (app/assets/css/main.css)
+const WHITE = '#f4f1ea'
+const RED = '#d21f2a'
+const BLUE = '#1f3fa8'
 
-/** The tyre mark centred in a 512 box, scaled by `scale` (maskable icons need a safe zone). */
-function svg(scale, rounded) {
-  const knobs = Array.from({ length: 16 }, (_, i) => {
-    const a = (i * 360) / 16
-    return `<rect x="-17" y="-196" width="34" height="40" rx="6" transform="rotate(${a})"/>`
-  }).join('')
-  const spokes = Array.from({ length: 6 }, (_, i) => `<rect x="-7" y="-98" width="14" height="58" rx="5" transform="rotate(${i * 60})"/>`).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="${BG}" ${rounded ? 'rx="96"' : ''}/>
-  <g transform="translate(256 256) scale(${scale})" fill="${ACCENT}">
+/** The tyre on a 120 grid, hub at (hub, hub); hub > 120 crops it from the bottom-right corner. */
+function tyre(hub, { rim = true, fill = WHITE } = {}) {
+  const knobs = Array.from({ length: 34 }, (_, i) => `<rect x="-5.5" y="-108" width="11" height="12" transform="rotate(${(i * 360) / 34})"/>`).join('')
+  return `<g transform="translate(${hub} ${hub})" fill="${fill}">
+    ${rim ? `<circle r="60" fill="none" stroke="${BLUE}" stroke-width="8"/><circle r="70" fill="none" stroke="${RED}" stroke-width="8"/>` : ''}
+    <circle r="86" fill="none" stroke="${fill}" stroke-width="18"/>
     ${knobs}
-    <circle r="160" fill="none" stroke="${ACCENT}" stroke-width="44"/>
-    <circle r="104" fill="none" stroke="${ACCENT}" stroke-width="10" opacity="0.55"/>
-    ${spokes}
-    <circle r="40"/>
-    <circle r="16" fill="${BG}"/>
-  </g>
+  </g>`
+}
+
+function svg(hub) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120">
+  <rect width="120" height="120" fill="${BG}"/>${tyre(hub)}
 </svg>`
 }
 
 /** Notification badge: Android masks it by alpha only, so a solid white mark on transparent (an opaque icon shows as a white square). */
 function badgeSvg() {
-  const knobs = Array.from({ length: 16 }, (_, i) => `<rect x="-17" y="-196" width="34" height="40" rx="6" transform="rotate(${(i * 360) / 16})"/>`).join('')
-  const spokes = Array.from({ length: 6 }, (_, i) => `<rect x="-9" y="-98" width="18" height="58" rx="5" transform="rotate(${i * 60})"/>`).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <g transform="translate(256 256) scale(1.12)" fill="#fff">${knobs}<circle r="160" fill="none" stroke="#fff" stroke-width="48"/>${spokes}<circle r="44"/></g>
-</svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120">${tyre(100, { rim: false, fill: '#fff' })}</svg>`
 }
 
 const out = [
-  ['public/pwa-192x192.png', 192, svg(1, false)],
-  ['public/pwa-512x512.png', 512, svg(1, false)],
-  // Maskable: the mark stays inside the central 80 % safe zone.
-  ['public/maskable-512x512.png', 512, svg(0.74, false)],
-  ['public/apple-touch-icon.png', 180, svg(0.92, false)],
+  ['public/pwa-192x192.png', 192, svg(124)],
+  ['public/pwa-512x512.png', 512, svg(124)],
+  // Maskable: launchers crop to a circle (central 80 % safe zone), which would cut the corner off; pull the hub in.
+  ['public/maskable-512x512.png', 512, svg(104)],
+  ['public/apple-touch-icon.png', 180, svg(124)],
   ['public/badge-96x96.png', 96, badgeSvg()],
 ]
 

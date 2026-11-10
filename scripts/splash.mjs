@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises'
 import sharp from 'sharp'
 import { SPLASH, splashFile } from './splash-sizes.mjs'
 
-const BG = '#121417' // = manifest background_color and the icon's own background
+const BG = '#0f1012' // = manifest background_color and the icon's own background
 await mkdir('public/splash', { recursive: true })
 for (const [w, h, r] of SPLASH) {
   const W = w * r, H = h * r, icon = Math.round(W * 0.3)

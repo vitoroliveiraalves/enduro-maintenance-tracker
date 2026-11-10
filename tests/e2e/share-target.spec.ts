@@ -5,7 +5,7 @@ import { signUpFresh } from './helpers/login'
 // Needs the real service worker: it receives the OS share (a multipart POST) and hands the file to /invoice.
 test.use({ serviceWorkers: 'allow' })
 
-test('Share → Enduro: the worker parks the file and the Invoice screen reads it', async ({ page }) => {
+test('Share → Dirt Garage: the worker parks the file and the Invoice screen reads it', async ({ page }) => {
   await signUpFresh(page)
   await page.goto('/invoice')
   await page.evaluate(async () => {

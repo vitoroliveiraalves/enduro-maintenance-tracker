@@ -175,7 +175,7 @@ export async function extractInvoice(
   try {
     res = await fetchImpl(OPENROUTER_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json', 'X-Title': 'Enduro Tracker' },
+      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json', 'X-Title': 'Dirt Garage' },
       body: JSON.stringify(buildRequest(docs, cfg.model)),
       signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS),
     })

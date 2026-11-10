@@ -9,7 +9,7 @@ const baseURL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3010'
 const authMax = Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10)
 
 export const auth = betterAuth({
-  appName: 'Enduro Tracker',
+  appName: 'Dirt Garage',
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
   database: drizzleAdapter(db, {

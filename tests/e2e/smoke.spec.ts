@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('home loads and shows the app name', async ({ page }) => {
   const res = await page.goto('/')
   expect(res?.status()).toBe(200)
-  await expect(page.getByText('Enduro Tracker').first()).toBeVisible()
+  await expect(page.getByText('Dirt Garage').first()).toBeVisible()
   // The tracked screenshot is taken only with SCREENSHOTS=1 (screenshots.spec.ts).
 })
 

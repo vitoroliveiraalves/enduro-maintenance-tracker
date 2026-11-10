@@ -1,4 +1,4 @@
-/** The app's looks. Chosen per device in Settings; Stamped Steel unless the rider picks another. */
+/** The app's looks. Chosen per device in Settings; the tricolor unless the rider picks another. */
 export const THEMES = [
   { id: 'steel', name: 'Stamped Steel', hint: 'Black and white, workshop tags' },
   { id: 'tricolor', name: 'Old-school tricolor', hint: 'Red, white and blue, 80s motocross' },
@@ -6,7 +6,7 @@ export const THEMES = [
 export type ThemeId = (typeof THEMES)[number]['id']
 /** Status bar / browser chrome colour per look: the look's `bg` token (main.css). */
 export const THEME_COLORS: Record<ThemeId, string> = { steel: '#0e0e0e', tricolor: '#0f1012' }
-export const DEFAULT_THEME: ThemeId = 'steel'
+export const DEFAULT_THEME: ThemeId = 'tricolor'
 const KEY = 'enduro.theme'
 
 type Store = Pick<Storage, 'getItem' | 'setItem'>

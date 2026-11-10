@@ -143,7 +143,7 @@ test.describe('iPhone in Safari (not installed)', () => {
 
     await page.goto('/settings')
     await expect(page.getByTestId('push-ios')).toHaveText('Add to Home Screen first, then turn notifications on.')
-    await expect(page.getByTestId('install-ios')).toHaveText("To get notifications, add Enduro Tracker to your Home Screen: tap Share , then 'Add to Home Screen'.")
+    await expect(page.getByTestId('install-ios')).toHaveText("To get notifications, add Dirt Garage to your Home Screen: tap Share , then 'Add to Home Screen'.")
     await expect(page.getByTestId('push-toggle')).toHaveCount(0)
   })
 

@@ -1,4 +1,4 @@
-# Enduro Tracker
+# Dirt Garage
 
 A phone-first PWA for enduro (and street) riders: log rides, see which maintenance
 items are due, record services and costs, and read garage invoices (QR code first,
