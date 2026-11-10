@@ -160,23 +160,13 @@ html[data-theme='tricolor'] .mic-btn.is-recording {
   box-shadow: none;
 }
 
-/* The brand mark: a stamped square, red in tricolor. */
+/* The brand mark: the app icon's quarter tyre on a surface tile (BrandMark.vue). */
 .brand-mark {
-  display: inline-flex;
+  display: block;
   width: 34px;
   height: 34px;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-text);
-  color: var(--color-bg);
-  font-weight: 900;
-  font-stretch: 125%;
-  font-size: 15px;
-}
-html[data-theme='tricolor'] .brand-mark {
-  background: var(--color-accent);
-  color: var(--color-text);
-  font-style: italic;
+  flex: none;
+  background: var(--color-surface);
 }
 
 /* Garage bike card: an outlined tag; a bike with something overdue is the filled tag. */
