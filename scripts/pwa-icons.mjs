@@ -19,9 +19,10 @@ function tyre(hub, { rim = true, fill = WHITE } = {}) {
   </g>`
 }
 
-function svg(hub) {
+/** `zoom` < 1 shrinks the art around the centre: Android shows only the middle 72/108 of a maskable icon. */
+function svg(hub, zoom = 1) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120">
-  <rect width="120" height="120" fill="${BG}"/>${tyre(hub)}
+  <rect width="120" height="120" fill="${BG}"/><g transform="translate(60 60) scale(${zoom}) translate(-60 -60)">${tyre(hub)}</g>
 </svg>`
 }
 
@@ -33,8 +34,9 @@ function badgeSvg() {
 const out = [
   ['public/pwa-192x192.png', 192, svg(124)],
   ['public/pwa-512x512.png', 512, svg(124)],
-  // Maskable: launchers crop to a circle (central 80 % safe zone), which would cut the corner off; pull the hub in.
-  ['public/maskable-512x512.png', 512, svg(104)],
+  // Maskable: the launcher keeps only the middle two-thirds (72 of 108 dp) and masks it to its own shape,
+  // so the same quarter tyre is drawn at 2/3 size; what shows matches the plain icon.
+  ['public/maskable-512x512.png', 512, svg(124, 72 / 108)],
   ['public/apple-touch-icon.png', 180, svg(124)],
   ['public/badge-96x96.png', 96, badgeSvg()],
 ]
