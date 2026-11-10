@@ -8,7 +8,7 @@ type VoiceResult = { transcript: string; answer: string | null; sources: Array<{
 test('voice API with the mock reader: proposal, sourced answer, honest "don\'t know"', async ({ page }) => {
   await signUpFresh(page)
   const req = page.request
-  expect((await (await req.get('/api/voice/status')).json())).toEqual({ available: true })
+  expect((await (await req.get('/api/voice/status')).json())).toEqual({ available: true, off: false })
 
   const bike = (await (await req.post('/api/bikes', { data: bikeBody('Voice KTM', [{ name: 'Gearbox oil', everyHoursTenths: 200 }, { name: 'Air filter', everyHoursTenths: 50 }]) })).json()) as { id: string }
   const part = await req.post('/api/parts', { data: { clientId: crypto.randomUUID(), startClientId: crypto.randomUUID(), name: 'Exhaust gasket', qtyHundredths: 200 } })

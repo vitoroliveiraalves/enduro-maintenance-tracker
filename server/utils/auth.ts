@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth'
+import { eq } from 'drizzle-orm'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { db, schema } from '../db/client'
 import { ipAddressOptions } from './auth-ip'
@@ -48,6 +49,13 @@ export const auth = betterAuth({
           await db
             .insert(schema.categories)
             .values(DEFAULT_CATEGORIES.map((c) => ({ ...c, userId: user.id })))
+        },
+      },
+    },
+    session: {
+      create: {
+        after: async (session) => {
+          await db.update(schema.user).set({ lastLoginAt: new Date() }).where(eq(schema.user.id, session.userId))
         },
       },
     },

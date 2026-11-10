@@ -732,6 +732,9 @@ export const en = {
     voice: 'Voice notes',
     voiceOn: 'Hold the round mic button to log a ride, a service or a cost, or to ask about your bike.',
     voiceOff: "Voice isn't set up on this server.",
+    voiceOffAccount: 'Voice notes are off for this account.',
+    admin: 'Admin',
+    adminHint: 'Riders and their AI features',
     aiNote: "Invoice photos and voice notes are sent to an AI service (via OpenRouter) to read them; voice notes aren't kept.",
     reminders: 'Reminders',
     noReminders: 'No reminders yet — insurance, IUC, inspection…',
@@ -747,6 +750,21 @@ export const en = {
     deleteTitle: 'Delete my account and data',
     deleteHint: "Removes your bikes, readings, services, costs, invoice photos and reminders for good. This can't be undone.",
     typeDelete: 'Type DELETE to confirm',
+  },
+
+  admin: {
+    back: '← SETTINGS',
+    title: 'Riders',
+    summary: (n: number, on: number) => `${n === 1 ? '1 account' : `${n} accounts`} · AI on for ${on}`,
+    lastLogin: (when: string) => `Last login ${when}`,
+    never: 'never',
+    joined: (d: string) => `Joined ${d}`,
+    you: 'You',
+    ai: 'AI',
+    aiFor: (email: string) => `AI features for ${email}`,
+    counts: { bikes: 'bikes', services: 'services', expenses: 'expenses', invoices: 'invoices', readings: 'readings', parts: 'parts' },
+    loadFailed: "Couldn't load the riders — check your connection.",
+    saveFailed: "Couldn't change the AI switch — try again.",
   },
 
   invoice: {

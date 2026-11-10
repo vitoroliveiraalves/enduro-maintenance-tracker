@@ -1,7 +1,8 @@
 import { createError, defineEventHandler, getHeader, readMultipartFormData } from 'h3'
 import { requireUser } from '../../utils/require-user'
 import { assertVoiceAllowed } from '../../utils/rate-limit'
-import { mockVoice, MAX_AUDIO_BYTES, NOT_SET_UP, parseVoiceInput, runVoice, transcribe, voiceAvailable, voiceConfig } from '../../utils/voice'
+import { aiEnabled } from '../../utils/admin'
+import { AI_OFF, mockVoice, MAX_AUDIO_BYTES, NOT_SET_UP, parseVoiceInput, runVoice, transcribe, voiceAvailable, voiceConfig } from '../../utils/voice'
 
 const MAX_REQUEST_BYTES = MAX_AUDIO_BYTES + 64 * 1024
 
@@ -10,6 +11,7 @@ export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const cfg = voiceConfig(event)
   if (!voiceAvailable(cfg)) throw createError({ statusCode: 503, statusMessage: NOT_SET_UP })
+  if (!(await aiEnabled(user.id))) throw createError({ statusCode: 403, statusMessage: AI_OFF })
   const len = Number(getHeader(event, 'content-length'))
   if (!Number.isFinite(len) || len > MAX_REQUEST_BYTES) throw createError({ statusCode: 400, statusMessage: 'Voice note too long — keep it under a minute.' })
   const parts = ((await readMultipartFormData(event)) ?? []).slice(0, 6).map((p) => ({ name: p.name, data: Buffer.from(p.data) }))

@@ -7,6 +7,7 @@ import type { Document } from '../db/schema'
 import { extractInvoice, readErrorMessage } from './invoice-extract'
 import type { ExtractDoc, ExtractOutcome } from './invoice-extract'
 import { assertReadAllowed } from './rate-limit'
+import { aiEnabled } from './admin'
 
 /** A read still "reading" after this long is given up on (GET flips it to manual). */
 export const STUCK_MS = 120_000
@@ -33,6 +34,12 @@ export function readerConfig(event: H3Event): ReaderCfg {
     dailyCap: Number(c.invoiceDailyCap) || 30,
     globalDailyCap: Number(c.invoiceGlobalDailyCap) || 300,
   }
+}
+
+/** The reader for this rider: an account with AI switched off reads like a server without a key (QR only, manual lines). */
+export async function readerConfigFor(event: H3Event, userId: string): Promise<ReaderCfg> {
+  const cfg = readerConfig(event)
+  return (await aiEnabled(userId)) ? cfg : { ...cfg, apiKey: '', reader: '' }
 }
 
 const MOCK_FAIL = Buffer.from('MOCK-FAIL')

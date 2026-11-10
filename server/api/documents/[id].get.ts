@@ -4,7 +4,7 @@ import { db } from '../../db/client'
 import { categories, documentFiles, expenses } from '../../db/schema'
 import { ownedDocument } from '../../utils/owned'
 import { savedForm, stockWarnings } from '../../utils/invoice-confirm'
-import { flipIfStuck, readerConfig, readingAvailable } from '../../utils/invoice-read'
+import { flipIfStuck, readerConfigFor, readingAvailable } from '../../utils/invoice-read'
 
 export default defineEventHandler(async (event) => {
   const doc = await flipIfStuck(await ownedDocument(event, getRouterParam(event, 'id') ?? ''))
@@ -24,5 +24,5 @@ export default defineEventHandler(async (event) => {
           .orderBy(asc(expenses.documentLine))
       : []
   const [form, warnings] = await Promise.all([savedForm(doc), stockWarnings(doc)])
-  return { ...doc, pages, saved, form, stockWarnings: warnings, canRead: readingAvailable(readerConfig(event)) }
+  return { ...doc, pages, saved, form, stockWarnings: warnings, canRead: readingAvailable(await readerConfigFor(event, doc.userId)) }
 })

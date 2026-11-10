@@ -1,7 +1,7 @@
 import { createError, defineEventHandler, getHeader, readMultipartFormData } from 'h3'
 import { requireUser } from '../../utils/require-user'
 import { saveDocument } from '../../utils/documents'
-import { readerConfig, readingAvailable } from '../../utils/invoice-read'
+import { readerConfigFor, readingAvailable } from '../../utils/invoice-read'
 import { assertContentLength, MAX_PARTS, validateUploadFiles } from '../../utils/upload-guard'
 import { isUuid } from '../../utils/validate'
 
@@ -19,6 +19,6 @@ export default defineEventHandler(async (event) => {
   return saveDocument(
     user.id,
     { files, qrRaw: field('qrRaw').slice(0, 2000) || null, clientId: isUuid(clientIdRaw) ? clientIdRaw : null },
-    readingAvailable(readerConfig(event)),
+    readingAvailable(await readerConfigFor(event, user.id)),
   )
 })

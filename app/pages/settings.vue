@@ -21,6 +21,7 @@ function chooseLanguage(c: (typeof LANG_CHOICES)[number]) {
 }
 
 const email = ref('')
+const isAdmin = ref(false)
 const reminders = ref<Reminder[]>([])
 const remError = ref('')
 const sheetOpen = ref(false)
@@ -40,6 +41,9 @@ onMounted(async () => {
   store.fetchBikes().catch(() => {})
   // The auth middleware just checked (or, offline, trusted) this session.
   email.value = readSession()?.email ?? ''
+  get<{ admin: boolean }>('/api/account')
+    .then((a) => (isAdmin.value = a.admin))
+    .catch(() => {})
 })
 watch(syncTick, loadReminders)
 
@@ -194,6 +198,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
     <h2 :class="h2">{{ t.settings.voice }}</h2>
     <section class="rounded-xl bg-surface p-3 text-sm" data-testid="voice-section">
       <p v-if="voice.available.value" class="text-white" data-testid="voice-on">{{ t.settings.voiceOn }}</p>
+      <p v-else-if="voice.off.value" class="text-muted" data-testid="voice-off-account">{{ t.settings.voiceOffAccount }}</p>
       <p v-else class="text-muted" data-testid="voice-off">{{ t.settings.voiceOff }}</p>
       <p class="mt-2 text-xs leading-relaxed text-muted">{{ t.settings.aiNote }}</p>
     </section>
@@ -233,6 +238,19 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
       <button type="button" class="mt-2 w-full rounded-xl bg-bg py-3 text-sm font-semibold text-white" data-testid="sign-out" @click="signOut">{{ t.settings.signOut }}</button>
       <p v-if="signOutError" role="alert" class="mt-2 text-sm text-danger-text" data-testid="sign-out-error">{{ signOutError }}</p>
     </section>
+
+    <NuxtLink
+      v-if="isAdmin"
+      to="/admin"
+      class="mt-3 flex min-h-14 items-center justify-between gap-3 rounded-xl bg-surface p-3"
+      data-testid="admin-link"
+    >
+      <span>
+        <span class="block text-sm font-semibold text-white">{{ t.settings.admin }}</span>
+        <span class="block text-xs text-muted">{{ t.settings.adminHint }}</span>
+      </span>
+      <span class="shrink-0 text-muted"><Icon name="chevron-right" /></span>
+    </NuxtLink>
 
     <section class="mt-3 rounded-xl border border-danger/40 bg-surface p-3" data-testid="delete-account">
       <p class="text-sm font-semibold text-danger-text">{{ t.settings.deleteTitle }}</p>

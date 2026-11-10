@@ -216,6 +216,9 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   for (const v of [123, 'nope']) cases.push(['post', `/api/documents/${docId}/confirm`, shelfConfirm({ bikeId: v }), 400])
   cases.push(['post', `/api/documents/${docId}/confirm`, confirm({ lines: [{ description: 'Plug', amountCents: 100, categoryId, shelf: 'x' }] }), 400])
 
+  // Admin routes do not exist for a rider.
+  cases.push(['get', '/api/admin/users', null, 404], ['patch', `/api/admin/users/${uuid()}`, { aiEnabled: false }, 404], ['patch', '/api/admin/users/nope', { aiEnabled: false }, 404])
+
   const failures: string[] = []
   for (const [method, url, data, expected] of cases) {
     const res = await request.fetch(url, { method, ...(data === null ? {} : { data }) })

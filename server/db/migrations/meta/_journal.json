@@ -64,6 +64,13 @@
       "when": 1794303075089,
       "tag": "0008_push_locale",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794307273080,
+      "tag": "0009_admin_ai_flag",
+      "breakpoints": true
     }
   ]
 }

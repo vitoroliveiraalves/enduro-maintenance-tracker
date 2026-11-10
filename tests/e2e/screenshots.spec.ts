@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test } from '@playwright/test'
-import { loginAs, signUpFresh } from './helpers/login'
+import { E2E_ADMIN, loginAs, signUpFresh } from './helpers/login'
 import { bikeBody, seedMockupBike } from './helpers/seed'
 
 test.skip(!process.env.SCREENSHOTS, 'screenshots only with SCREENSHOTS=1')
@@ -427,4 +427,16 @@ test.describe('in Portuguese (pt-PT phone)', () => {
     await page.getByTestId('language-section').scrollIntoViewIfNeeded()
     await page.screenshot({ path: 'tests/e2e/__screenshots__/pt-settings-language.png' })
   })
+})
+
+test('admin riders', async ({ page, browser }) => {
+  const ctx = await browser.newContext()
+  const rider = await ctx.newPage()
+  await signUpFresh(rider)
+  await rider.request.post('/api/bikes', { data: bikeBody("KTM 300 EXC '23", [{ name: 'Gearbox oil', everyHoursTenths: 150 }]) })
+  await ctx.close()
+  await loginAs(page, E2E_ADMIN)
+  await page.goto('/admin')
+  await page.getByTestId('admin-rider').first().waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/admin-riders.png' })
 })
