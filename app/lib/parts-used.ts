@@ -1,3 +1,4 @@
+import { msgs } from '~/lib/i18n'
 import { formatQty } from '~/lib/format'
 
 export type PartUsedLine = { name: string; qtyHundredths: number; unit: string }
@@ -8,7 +9,7 @@ export function partsLine(list: PartUsedLine[] | undefined): string {
   if (!list?.length) return ''
   const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name, 'pt'))
   const one = (p: PartUsedLine) => (p.unit === 'pcs' && p.qtyHundredths === 100 ? p.name : `${formatQty(p.qtyHundredths, p.unit)} ${p.name}`)
-  return `Parts: ${sorted.map(one).join(', ')}`
+  return msgs().parts.line(sorted.map(one).join(', '))
 }
 
 /** One line per part (the server rejects a repeated part): quantities add up, the first line's clientId stays. */

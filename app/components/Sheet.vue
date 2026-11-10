@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { t } = useI18n()
 const props = defineProps<{ title: string; testid?: string }>()
 const open = defineModel<boolean>('open', { default: false })
 
@@ -118,7 +119,7 @@ function onKey(e: KeyboardEvent) {
     >
       <div class="mb-3 flex items-start justify-between gap-2">
         <h2 :id="titleId" class="pt-2.5 text-base font-bold text-white">{{ props.title }}</h2>
-        <button type="button" class="-mr-2 -mt-1 size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" aria-label="Close" data-testid="sheet-close" @click="open = false">×</button>
+        <button type="button" class="-mr-2 -mt-1 size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" :aria-label="t.common.close" data-testid="sheet-close" @click="open = false">×</button>
       </div>
       <slot />
     </div>

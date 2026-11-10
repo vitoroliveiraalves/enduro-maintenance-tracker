@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
-import { OFFLINE_MESSAGE } from '~/offline/outbox'
+import { offlineMessage } from '~/offline/outbox'
+const { t } = useI18n()
 
 const email = ref('')
 const password = ref('')
@@ -11,15 +12,15 @@ const busy = ref(false)
 async function submit() {
   error.value = ''
   if (password.value.length < 8) {
-    error.value = 'Password must be at least 8 characters'
+    error.value = t.value.register.tooShort
     return
   }
   if (password.value !== confirm.value) {
-    error.value = 'Passwords do not match'
+    error.value = t.value.register.noMatch
     return
   }
   // Auth is online-only: say so instead of "wrong password".
-  if (navigator.onLine === false) return void (error.value = OFFLINE_MESSAGE)
+  if (navigator.onLine === false) return void (error.value = offlineMessage())
   busy.value = true
   const addr = email.value.trim()
   let res: Awaited<ReturnType<typeof authClient.signUp.email>>
@@ -27,16 +28,16 @@ async function submit() {
     res = await authClient.signUp.email({ email: addr, password: password.value, name: addr.split('@')[0]! })
   } catch {
     busy.value = false
-    return void (error.value = OFFLINE_MESSAGE)
+    return void (error.value = offlineMessage())
   }
   const err = res.error
   busy.value = false
   if (err) {
-    if (err.status === 429) error.value = 'Too many attempts — wait a minute and try again'
+    if (err.status === 429) error.value = t.value.login.tooMany
     else if (err.code === 'USER_ALREADY_EXISTS' || /already exists/i.test(err.message ?? ''))
-      error.value = 'An account with this email already exists'
-    else if (err.code === 'PASSWORD_TOO_SHORT') error.value = 'Password must be at least 8 characters'
-    else error.value = err.message || 'Could not create the account'
+      error.value = t.value.register.exists
+    else if (err.code === 'PASSWORD_TOO_SHORT') error.value = t.value.register.tooShort
+    else error.value = t.value.register.failed
     return
   }
   await navigateTo('/')
@@ -45,12 +46,12 @@ async function submit() {
 
 <template>
   <main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-8">
-    <h1 class="text-3xl font-bold text-accent-text">Create account</h1>
-    <p class="mt-1 text-sm text-muted">Dirt Garage keeps your bikes, service and costs.</p>
+    <h1 class="text-3xl font-bold text-accent-text">{{ t.register.title }}</h1>
+    <p class="mt-1 text-sm text-muted">{{ t.register.intro }}</p>
 
     <form class="mt-8 space-y-4" @submit.prevent="submit">
       <label class="block">
-        <span class="text-sm text-muted">Email</span>
+        <span class="text-sm text-muted">{{ t.login.email }}</span>
         <input
           v-model="email"
           type="email"
@@ -60,7 +61,7 @@ async function submit() {
         >
       </label>
       <label class="block">
-        <span class="text-sm text-muted">Password (min. 8 characters)</span>
+        <span class="text-sm text-muted">{{ t.register.passwordMin }}</span>
         <input
           v-model="password"
           type="password"
@@ -70,7 +71,7 @@ async function submit() {
         >
       </label>
       <label class="block">
-        <span class="text-sm text-muted">Confirm password</span>
+        <span class="text-sm text-muted">{{ t.register.confirm }}</span>
         <input
           v-model="confirm"
           type="password"
@@ -85,17 +86,17 @@ async function submit() {
         :disabled="busy"
         class="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-accent disabled:opacity-60"
       >
-        Create account
+        {{ t.register.title }}
       </button>
     </form>
 
     <p class="mt-5 rounded-lg bg-surface p-3 text-xs leading-relaxed text-muted">
-      Your bikes, costs and invoice photos are stored on our server. Invoice photos and voice notes are sent to an AI service (via OpenRouter) to read them; voice notes aren't kept.
+      {{ t.register.privacy }}
     </p>
 
     <p class="mt-6 text-center text-sm text-muted">
-      Already have an account?
-      <NuxtLink to="/login" class="text-accent-text underline">Sign in</NuxtLink>
+      {{ t.register.haveAccount }}
+      <NuxtLink to="/login" class="text-accent-text underline">{{ t.login.signIn }}</NuxtLink>
     </p>
   </main>
 </template>

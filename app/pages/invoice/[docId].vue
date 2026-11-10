@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { categoryLabel, itemLabel, serverText } from '~/lib/server-text'
 import { defaultCategory, matchLineToItems } from '../../../server/domain/invoice-match'
 import type { LineKind } from '../../../server/domain/invoice-match'
 import type { BikeSummary } from '../../../server/domain/item-row'
 import { parseCents, parseDecimal, todayLocal } from '~/lib/parse-number'
 import { errorMessage, statusOf } from '~/offline/outbox'
+import { msgs } from '~/lib/i18n'
+const { t } = useI18n()
 
 type Doc = {
   id: string
@@ -56,7 +59,7 @@ const newLine = (key: number, over: Partial<Line> & Pick<Line, 'description' | '
   shelf: false,
   shelfName: over.description.slice(0, 80),
   shelfQtyText: '1',
-  shelfUnit: 'pcs',
+  shelfUnit: msgs().common.pcs,
   shelfPart: null,
   pickQuery: '',
   movementId: crypto.randomUUID(),
@@ -64,13 +67,17 @@ const newLine = (key: number, over: Partial<Line> & Pick<Line, 'description' | '
   ...over,
 })
 
-const MANUAL_NOTICE = "Couldn't read this invoice automatically. The photos are saved — add the lines yourself."
 const POLL_MS = 2000
 
 const route = useRoute()
 const id = route.params.docId as string
 const duplicate = route.query.duplicate === '1'
-const qrNotice = typeof route.query.qrNotice === 'string' ? route.query.qrNotice : ''
+// The server explains a QR of another document type in English: say it in the rider's language.
+const qrNoticeRaw = typeof route.query.qrNotice === 'string' ? route.query.qrNotice : ''
+const qrNotice = computed(() => {
+  const m = /\(document type ([A-Z0-9-]+)\)/.exec(qrNoticeRaw)
+  return m ? t.value.qr.notInvoice(m[1]!) : qrNoticeRaw
+})
 const { get, mutate } = useApi()
 const { money, date, qty } = useFormatters()
 const store = useBikesStore()
@@ -170,7 +177,7 @@ async function loadBike() {
       get<{ items: Item[] }>(`/api/bikes/${bikeId.value}`),
       get<Reading[]>(`/api/readings/${bikeId.value}`),
     ])
-    items.value = detail.items.map((i) => ({ id: i.id, name: i.name }))
+    items.value = detail.items.map((i) => ({ id: i.id, name: itemLabel(i.name) }))
     readings.value = rd
   } catch {
     items.value = []
@@ -195,8 +202,8 @@ function defaultMeters() {
   const endOfDay = new Date(`${at.value}T23:59:59.999`).getTime()
   let best: Reading | null = null
   for (const r of readings.value) {
-    const t = new Date(r.at).getTime()
-    if (t <= endOfDay && (!best || t > new Date(best.at).getTime())) best = r
+    const ts = new Date(r.at).getTime()
+    if (ts <= endOfDay && (!best || ts > new Date(best.at).getTime())) best = r
   }
   hoursText.value = hasHours.value && best?.hoursTenths != null ? (best.hoursTenths / 10).toFixed(1) : ''
   kmText.value = hasKm.value && best?.km != null ? String(best.km) : ''
@@ -258,8 +265,8 @@ function toggleItem(l: Line, itemId: string) {
 
 const confirmLabel = computed(() => {
   const n = lines.value.length
-  const verb = changing.value ? 'Save changes' : 'Save'
-  return n ? `${verb} · ${n} line${n === 1 ? '' : 's'} · ${money(linesCents.value)}`.replace(/^Save ·/, 'Save') : verb
+  const verb = changing.value ? t.value.review.saveChanges : t.value.common.save
+  return n ? t.value.review.confirmLabel(verb, n, money(linesCents.value)) : verb
 })
 
 const linesCents = computed(() => lines.value.reduce((s, l) => s + (parseCents(l.amountText) ?? 0), 0))
@@ -267,8 +274,8 @@ const totals = computed(() => {
   const total = doc.value?.totalCents
   if (total == null || !lines.value.length) return null
   const diff = linesCents.value - total
-  if (Math.abs(diff) <= Math.max(50, Math.round(total / 100))) return { ok: true, text: 'Lines match the invoice total ✓' }
-  return { ok: false, text: `Lines are ${money(Math.abs(diff))} ${diff < 0 ? 'short of' : 'over'} the total` }
+  if (Math.abs(diff) <= Math.max(50, Math.round(total / 100))) return { ok: true, text: t.value.review.linesMatch }
+  return { ok: false, text: t.value.review.linesOff(money(Math.abs(diff)), diff < 0) }
 })
 
 async function startChange() {
@@ -321,10 +328,10 @@ async function deleteInvoice() {
   error.value = ''
   try {
     await mutate(`/api/documents/${id}`, {}, { method: 'DELETE' })
-    useToast().show('Invoice deleted')
+    useToast().show(t.value.review.deleted)
     await navigateTo('/invoice')
   } catch (e) {
-    error.value = errorMessage(e, 'Could not delete. Try again.')
+    error.value = errorMessage(e, t.value.review.deleteFailed)
     askDelete.value = false
   } finally {
     busy.value = false
@@ -334,10 +341,11 @@ const deleteWhat = computed(() => {
   const f = doc.value?.form
   if (!f) return ''
   const n = f.lines.length
-  const parts = [`its ${n} cost${n === 1 ? '' : 's'} (${money(f.lines.reduce((s, l) => s + l.amountCents, 0))})`]
-  if (f.lines.some((l) => !l.shelf && l.itemIds.length)) parts.push('the garage service')
-  if (f.lines.some((l) => l.shelf)) parts.push('the shelf stock it added')
-  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`
+  const r = t.value.review
+  const parts = [r.itsCosts(n, money(f.lines.reduce((s, l) => s + l.amountCents, 0)))]
+  if (f.lines.some((l) => !l.shelf && l.itemIds.length)) parts.push(r.theService)
+  if (f.lines.some((l) => l.shelf)) parts.push(r.theStock)
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')}${r.and}${parts.at(-1)}`
 })
 
 async function retryRead() {
@@ -353,7 +361,7 @@ async function retryRead() {
     } else await load()
   } catch (e) {
     const { data } = e as { data?: { statusMessage?: string } }
-    error.value = data?.statusMessage ?? 'Could not start reading. Try again.'
+    error.value = data?.statusMessage ? serverText(data.statusMessage) : t.value.review.readFailed
     await load()
   } finally {
     busy.value = false
@@ -364,30 +372,31 @@ async function confirm(force = false) {
   if (busy.value) return
   error.value = ''
   if (!force) mismatch.value = null
-  if (!bikeId.value) return void (error.value = 'Pick a bike.')
-  if (!lines.value.length) return void (error.value = 'Add at least one line.')
+  const r = t.value.review
+  if (!bikeId.value) return void (error.value = r.pickBike)
+  if (!lines.value.length) return void (error.value = r.oneLine)
   const out = []
   for (const [i, l] of lines.value.entries()) {
     const cents = parseCents(l.amountText)
-    if (!l.description.trim()) return void (error.value = `Line ${i + 1}: add a description.`)
-    if (cents === null) return void (error.value = `Line ${i + 1}: enter the amount, like 24,90.`)
-    if (!l.categoryId) return void (error.value = `Line ${i + 1}: pick a category.`)
+    if (!l.description.trim()) return void (error.value = r.lineDesc(i + 1))
+    if (cents === null) return void (error.value = r.lineAmount(i + 1))
+    if (!l.categoryId) return void (error.value = r.lineCategory(i + 1))
     let shelf
     if (l.shelf) {
       const q = parseDecimal(l.shelfQtyText)
-      if (q === null || Math.round(q * 100) <= 0) return void (error.value = `Line ${i + 1}: enter the quantity, like 1,5.`)
-      if (!l.shelfPart && !l.shelfName.trim()) return void (error.value = `Line ${i + 1}: name the part.`)
+      if (q === null || Math.round(q * 100) <= 0) return void (error.value = r.lineQty(i + 1))
+      if (!l.shelfPart && !l.shelfName.trim()) return void (error.value = r.lineName(i + 1))
       shelf = l.shelfPart
         ? { clientId: l.movementId, partId: l.shelfPart.id, qtyHundredths: Math.round(q * 100) }
-        : { clientId: l.movementId, partClientId: l.partClientId, name: l.shelfName.trim(), unit: l.shelfUnit.trim() || 'pcs', qtyHundredths: Math.round(q * 100) }
+        : { clientId: l.movementId, partClientId: l.partClientId, name: l.shelfName.trim(), unit: l.shelfUnit.trim() === t.value.common.pcs ? 'pcs' : l.shelfUnit.trim() || 'pcs', qtyHundredths: Math.round(q * 100) }
     }
     out.push({ description: l.description.trim(), amountCents: cents, categoryId: l.categoryId, itemIds: l.shelf ? [] : l.itemIds, ...(shelf ? { shelf } : {}) })
   }
   // Only the meters the chosen bike counts are sent.
   const h = hasHours.value && hoursText.value.trim() ? parseDecimal(hoursText.value) : undefined
   const k = hasKm.value && kmText.value.trim() ? parseDecimal(kmText.value) : undefined
-  if (h === null || (h != null && h < 0)) return void (error.value = 'Enter the hours as a number, like 142,5.')
-  if (k === null || (k != null && k < 0)) return void (error.value = 'Enter the km as a whole number.')
+  if (h === null || (h != null && h < 0)) return void (error.value = r.hoursNumber)
+  if (k === null || (k != null && k < 0)) return void (error.value = r.kmNumber)
   busy.value = true
   try {
     await mutate(`/api/documents/${id}/confirm`, {
@@ -404,14 +413,14 @@ async function confirm(force = false) {
     })
     confirmClientId = crypto.randomUUID()
     if (changing.value) {
-      useToast().show(`Invoice changed · ${out.length} line${out.length === 1 ? '' : 's'} · ${money(out.reduce((t, l) => t + l.amountCents, 0))}`)
+      useToast().show(r.changed(out.length, money(out.reduce((sum, l) => sum + l.amountCents, 0))))
       store.setLast(bikeId.value)
       changing.value = false
       formFor = null
       await load()
       return
     }
-    useToast().show(`Invoice saved · ${out.length} line${out.length === 1 ? '' : 's'} · ${money(out.reduce((t, l) => t + l.amountCents, 0))}`)
+    useToast().show(r.saved(out.length, money(out.reduce((sum, l) => sum + l.amountCents, 0))))
     store.setLast(bikeId.value)
     await navigateTo(`/bikes/${bikeId.value}`)
   } catch (e) {
@@ -419,10 +428,10 @@ async function confirm(force = false) {
     if (data?.error === 'totals-mismatch') mismatch.value = data.diffCents ?? 0
     else if (statusOf(e) === 409) {
       // Saved already (a retry after a lost answer, or another tab): that is what the rider wanted.
-      useToast().show('Invoice already saved')
+      useToast().show(r.alreadySaved)
       store.setLast(bikeId.value)
       await navigateTo(`/bikes/${bikeId.value}`)
-    } else error.value = errorMessage(e, 'Could not save. Try again.')
+    } else error.value = errorMessage(e, r.saveFailed)
   } finally {
     busy.value = false
   }
@@ -434,7 +443,7 @@ async function discard() {
     await mutate(`/api/documents/${id}/discard`, {}, { method: 'DELETE' })
     await navigateTo('/invoice')
   } catch (e) {
-    error.value = errorMessage(e, 'Could not discard. Try again.')
+    error.value = errorMessage(e, t.value.review.discardFailed)
     askDiscard.value = false
   } finally {
     busy.value = false
@@ -444,27 +453,27 @@ async function discard() {
 
 <template>
   <main class="mx-auto max-w-md p-4 pb-28">
-    <NuxtLink to="/invoice" class="-m-2 inline-block p-2 text-[13px] text-muted">‹ Invoices</NuxtLink>
-    <h1 class="mt-1.5 text-xl font-bold text-white">{{ doc?.status === 'confirmed' ? 'Invoice' : 'Review invoice' }}</h1>
+    <NuxtLink to="/invoice" class="-m-2 inline-block p-2 text-[13px] text-muted">{{ t.review.back }}</NuxtLink>
+    <h1 class="mt-1.5 text-xl font-bold text-white">{{ doc?.status === 'confirmed' ? t.review.invoice : t.review.reviewTitle }}</h1>
 
-    <p v-if="notFound" role="alert" class="mt-4 text-danger-text">Invoice not found.</p>
+    <p v-if="notFound" role="alert" class="mt-4 text-danger-text">{{ t.review.notFound }}</p>
     <template v-else-if="doc">
       <p v-if="duplicate" role="status" data-testid="duplicate-notice" class="mt-3 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn-text">
-        This invoice was already uploaded
+        {{ t.review.duplicate }}
       </p>
       <p v-if="qrNotice" role="status" data-testid="qr-notice" class="mt-3 rounded-lg border border-white/15 bg-surface p-3 text-sm text-muted">
-        {{ qrNotice }} The photos are kept; fill in the details below.
+        {{ qrNotice }} {{ t.review.qrKept }}
       </p>
 
       <InvoiceViewer class="mt-3" :doc-id="doc.id" :pages="doc.pages" />
 
       <p v-if="doc.status === 'reading'" role="status" data-testid="reading-status" class="mt-4 flex items-center gap-2 rounded-lg bg-surface p-3 text-sm">
-        <span class="size-2.5 animate-pulse rounded-full bg-accent" /> Reading the invoice… this takes a few seconds.
+        <span class="size-2.5 animate-pulse rounded-full bg-accent" /> {{ t.review.readingNow }}
       </p>
 
       <div v-if="doc.status === 'manual'" role="status" data-testid="manual-notice" class="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm">
-        <p class="text-warn-text">{{ MANUAL_NOTICE }}</p>
-        <p v-if="doc.error" class="mt-1 text-muted" data-testid="manual-reason">{{ doc.error }}</p>
+        <p class="text-warn-text">{{ t.review.manual }}</p>
+        <p v-if="doc.error" class="mt-1 text-muted" data-testid="manual-reason">{{ serverText(doc.error) }}</p>
         <button
           v-if="doc.canRead"
           type="button"
@@ -473,52 +482,52 @@ async function discard() {
           data-testid="retry-read"
           @click="retryRead"
         >
-          Try reading again
+          {{ t.review.tryAgain }}
         </button>
       </div>
 
       <!-- Header -->
       <section class="mt-4 rounded-2xl bg-surface p-4" data-testid="invoice-header">
         <div class="flex items-center justify-between">
-          <h2 class="font-semibold">Invoice</h2>
-          <span v-if="doc.qrRaw" class="rounded bg-ok/15 px-2 py-0.5 text-xs text-ok-text" data-testid="qr-badge">From QR code</span>
+          <h2 class="font-semibold">{{ t.review.invoice }}</h2>
+          <span v-if="doc.qrRaw" class="rounded bg-ok/15 px-2 py-0.5 text-xs text-ok-text" data-testid="qr-badge">{{ t.review.fromQr }}</span>
         </div>
         <template v-if="savedView || doc.status === 'reading'">
           <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt class="text-muted">Garage</dt>
+            <dt class="text-muted">{{ t.review.garage }}</dt>
             <dd data-testid="supplier-name">{{ doc.supplierName ?? '—' }}</dd>
-            <dt class="text-muted">NIF</dt>
+            <dt class="text-muted">{{ t.review.nif }}</dt>
             <dd data-testid="supplier-nif">{{ doc.supplierNif ?? '—' }}</dd>
-            <dt class="text-muted">Number</dt>
+            <dt class="text-muted">{{ t.review.number }}</dt>
             <dd data-testid="invoice-number">{{ doc.number ?? '—' }}</dd>
-            <dt class="text-muted">Date</dt>
+            <dt class="text-muted">{{ t.common.date }}</dt>
             <dd>{{ doc.issuedAt ? date(doc.issuedAt) : '—' }}</dd>
-            <dt class="text-muted">Total</dt>
-            <dd data-testid="invoice-total">{{ doc.totalCents != null ? money(doc.totalCents) : doc.saved.length ? money(doc.saved.reduce((t, l) => t + l.amountCents, 0)) : '—' }}</dd>
+            <dt class="text-muted">{{ t.review.total }}</dt>
+            <dd data-testid="invoice-total">{{ doc.totalCents != null ? money(doc.totalCents) : doc.saved.length ? money(doc.saved.reduce((sum, l) => sum + l.amountCents, 0)) : '—' }}</dd>
           </dl>
         </template>
         <div v-else class="mt-3 grid gap-3">
           <label :class="label">
-            Garage name
+            {{ t.review.garageName }}
             <input v-model="garageName" autocomplete="off" maxlength="80" data-testid="inv-garage" :class="field">
           </label>
           <div class="grid grid-cols-2 gap-2.5">
             <label :class="label">
-              NIF
+              {{ t.review.nif }}
               <input v-model="nif" :disabled="isQr" inputmode="numeric" maxlength="11" autocomplete="off" data-testid="supplier-nif" :class="field">
             </label>
             <label :class="label">
-              Date
+              {{ t.common.date }}
               <input v-model="at" type="date" :max="todayLocal()" :disabled="isQr && !!doc.issuedAt" data-testid="inv-date" :class="field">
             </label>
           </div>
           <div class="grid grid-cols-2 gap-2.5">
             <label :class="label">
-              Number
+              {{ t.review.number }}
               <input v-model="number" :disabled="isQr" maxlength="60" autocomplete="off" data-testid="invoice-number" :class="field">
             </label>
             <div :class="label">
-              Total
+              {{ t.review.total }}
               <p class="mt-1 rounded-xl px-1 py-2.5 text-base normal-case text-white" data-testid="invoice-total">
                 {{ doc.totalCents != null ? money(doc.totalCents) : '—' }}
               </p>
@@ -529,34 +538,34 @@ async function discard() {
 
       <!-- Saved invoice -->
       <section v-if="savedView" class="mt-4 rounded-2xl bg-surface p-4" data-testid="saved-lines">
-        <h2 class="font-semibold text-ok-text">Saved ✓</h2>
+        <h2 class="font-semibold text-ok-text">{{ t.review.savedTick }}</h2>
         <ul class="mt-2 divide-y divide-white/5 text-sm">
           <li v-for="s in doc.saved" :key="s.line ?? s.description" class="flex justify-between gap-3 py-2">
-            <span>{{ s.description || '—' }} <span class="block text-xs text-muted">{{ s.categoryName }}</span></span>
+            <span>{{ s.description || '—' }} <span class="block text-xs text-muted">{{ categoryLabel(s.categoryName) }}</span></span>
             <span class="shrink-0 tabular-nums">{{ money(s.amountCents) }}</span>
           </li>
         </ul>
         <NuxtLink v-if="doc.saved[0]?.bikeId" :to="`/bikes/${doc.saved[0].bikeId}`" class="mt-2 inline-block text-sm text-accent-text underline" data-testid="saved-bike">
-          {{ bikes.find((b) => b.id === doc!.saved[0]!.bikeId)?.name ?? 'Open the bike' }} ›
+          {{ bikes.find((b) => b.id === doc!.saved[0]!.bikeId)?.name ?? t.review.openBike }} ›
         </NuxtLink>
       </section>
 
       <template v-if="savedView">
         <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="inv-error">{{ error }}</p>
         <button v-if="doc.form" type="button" class="mt-4 w-full rounded-xl border border-white/15 bg-surface py-3 text-base font-semibold text-white" data-testid="change" @click="startChange">
-          Change
+          {{ t.review.change }}
         </button>
         <button v-if="!askDelete" type="button" class="mt-3 w-full py-2 text-sm text-muted underline" data-testid="delete" @click="askDelete = true">
-          Delete invoice
+          {{ t.review.deleteInvoice }}
         </button>
         <div v-else role="alert" class="mt-3 rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm" data-testid="delete-ask">
-          <p>Delete this invoice, its photos, {{ deleteWhat }}? This can't be undone.</p>
+          <p>{{ t.review.deleteAsk(deleteWhat ?? '') }}</p>
           <p v-for="w in doc.stockWarnings" :key="w.name" class="mt-1 text-warn-text" data-testid="stock-warning">
-            {{ w.name }} will go to {{ qty(w.afterHundredths, w.unit) }} on the shelf.
+            {{ t.review.stockWarning(w.name, qty(w.afterHundredths, w.unit)) }}
           </p>
           <div class="mt-2 flex gap-2">
-            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-on-danger" :disabled="busy" data-testid="delete-confirm" @click="deleteInvoice">Delete</button>
-            <button type="button" class="rounded-lg border border-white/15 px-3 py-1.5" @click="askDelete = false">Keep</button>
+            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-on-danger" :disabled="busy" data-testid="delete-confirm" @click="deleteInvoice">{{ t.common.delete }}</button>
+            <button type="button" class="rounded-lg border border-white/15 px-3 py-1.5" @click="askDelete = false">{{ t.common.keep }}</button>
           </div>
         </div>
       </template>
@@ -564,60 +573,60 @@ async function discard() {
       <template v-if="editable">
         <!-- Bike and meters at the time -->
         <section class="mt-4 rounded-2xl bg-surface p-4">
-          <h2 class="font-semibold">Bike</h2>
+          <h2 class="font-semibold">{{ t.review.bike }}</h2>
           <p v-if="!bikes.length" class="mt-2 text-sm text-muted">
-            <NuxtLink to="/bikes/new" class="text-accent-text underline">Add a bike</NuxtLink> first to save this invoice.
+            <NuxtLink to="/bikes/new" class="text-accent-text underline">{{ t.review.addBike }}</NuxtLink>{{ t.review.addBikeFirst }}
           </p>
           <template v-else>
             <label :class="[label, 'mt-3']">
-              Bike
+              {{ t.review.bike }}
               <select v-model="bikeId" data-testid="inv-bike" :class="field">
                 <option v-for="b in bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
               </select>
             </label>
             <div class="mt-3 grid gap-2.5" :class="hasHours && hasKm ? 'grid-cols-2' : 'grid-cols-1'">
               <label v-if="hasHours" :class="label">
-                Hours at the time
+                {{ t.review.hoursAtTime }}
                 <input v-model="hoursText" inputmode="decimal" autocomplete="off" data-testid="inv-hours" :class="field" @input="metersTouched = true">
               </label>
               <label v-if="hasKm" :class="label">
-                Km at the time
+                {{ t.review.kmAtTime }}
                 <input v-model="kmText" inputmode="numeric" autocomplete="off" data-testid="inv-km" :class="field" @input="metersTouched = true">
               </label>
             </div>
-            <p v-if="(hoursText || kmText) && !metersTouched" class="mt-1.5 text-xs text-muted" data-testid="meters-hint">From your last reading before {{ date(at) }}</p>
+            <p v-if="(hoursText || kmText) && !metersTouched" class="mt-1.5 text-xs text-muted" data-testid="meters-hint">{{ t.review.fromReading(date(at)) }}</p>
             <p v-else-if="!hoursText && !kmText && !metersTouched && readings.length" class="mt-1.5 text-xs text-muted" data-testid="meters-missing">
-              No reading on or before {{ date(at) }}: the {{ hasHours ? 'hours' : 'km' }} will be taken from your next reading. Enter them if you know them.
+              {{ t.review.noReading(date(at), hasHours) }}
             </p>
           </template>
         </section>
 
         <!-- Lines -->
-        <section class="mt-4" aria-label="Invoice lines">
-          <h2 class="px-1 font-semibold">Lines</h2>
-          <p v-if="!lines.length" class="mt-2 px-1 text-sm text-muted" data-testid="no-lines">No lines yet — add what's on the invoice.</p>
+        <section class="mt-4" :aria-label="t.review.linesLabel">
+          <h2 class="px-1 font-semibold">{{ t.review.lines }}</h2>
+          <p v-if="!lines.length" class="mt-2 px-1 text-sm text-muted" data-testid="no-lines">{{ t.review.noLines }}</p>
           <ul class="mt-2 grid gap-3">
             <li v-for="(l, i) in lines" :key="l.key" class="rounded-2xl bg-surface p-3" data-testid="inv-line" :data-line-key="l.key">
               <div class="flex items-start gap-2">
                 <label class="flex-1" :class="label">
-                  Line {{ i + 1 }}
-                  <input v-model="l.description" maxlength="200" autocomplete="off" placeholder="Description" data-testid="line-desc" :class="field" @change="l.itemIds = l.itemIds.length ? l.itemIds : matchLineToItems(l.description, items)">
+                  {{ t.review.line(i + 1) }}
+                  <input v-model="l.description" maxlength="200" autocomplete="off" :placeholder="t.review.descriptionPh" data-testid="line-desc" :class="field" @change="l.itemIds = l.itemIds.length ? l.itemIds : matchLineToItems(l.description, items)">
                 </label>
-                <button type="button" class="mt-5 size-10 shrink-0 rounded-lg text-xl text-muted" :aria-label="`Remove line ${i + 1}`" @click="removeLine(l.key)">×</button>
+                <button type="button" class="mt-5 size-10 shrink-0 rounded-lg text-xl text-muted" :aria-label="t.review.removeLine(i + 1)" @click="removeLine(l.key)">×</button>
               </div>
               <div class="mt-2 grid grid-cols-[7.5rem_1fr] gap-2">
                 <label :class="label">
-                  Amount (€)
+                  {{ t.review.amount }}
                   <input v-model="l.amountText" inputmode="decimal" autocomplete="off" data-testid="line-amount" :class="field">
                 </label>
                 <label :class="label">
-                  Category
+                  {{ t.review.category }}
                   <select v-model="l.categoryId" data-testid="line-category" :class="field">
-                    <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                    <option v-for="c in categories" :key="c.id" :value="c.id">{{ categoryLabel(c.name) }}</option>
                   </select>
                 </label>
               </div>
-              <div class="mt-2.5 grid grid-cols-2 gap-1 rounded-xl bg-bg p-1" role="group" :aria-label="`Line ${i + 1} destination`">
+              <div class="mt-2.5 grid grid-cols-2 gap-1 rounded-xl bg-bg p-1" role="group" :aria-label="t.review.destination(i + 1)">
                 <button
                   type="button"
                   class="min-h-11 rounded-lg text-sm font-semibold"
@@ -626,7 +635,7 @@ async function discard() {
                   data-testid="line-used"
                   @click="setShelf(l, false)"
                 >
-                  Used now
+                  {{ t.review.usedNow }}
                 </button>
                 <button
                   type="button"
@@ -636,31 +645,31 @@ async function discard() {
                   data-testid="line-shelf"
                   @click="setShelf(l, true)"
                 >
-                  To the shelf
+                  {{ t.review.toShelf }}
                 </button>
               </div>
               <div v-if="l.shelf" class="mt-2.5 grid gap-2" data-testid="line-shelf-fields">
                 <p v-if="l.shelfPart" class="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2 text-sm" data-testid="line-shelf-picked">
-                  <span>Adds to <b>{{ l.shelfPart.name }}</b></span>
-                  <button type="button" class="size-11 shrink-0 text-xl text-muted" :aria-label="`Don't add to ${l.shelfPart.name}`" @click="pickPart(l, null)">×</button>
+                  <span>{{ t.review.addsTo }} <b>{{ l.shelfPart.name }}</b></span>
+                  <button type="button" class="size-11 shrink-0 text-xl text-muted" :aria-label="t.review.dontAddTo(l.shelfPart.name)" @click="pickPart(l, null)">×</button>
                 </p>
                 <label v-else :class="label">
-                  Part name
+                  {{ t.review.partName }}
                   <input v-model="l.shelfName" maxlength="80" autocomplete="off" data-testid="line-shelf-name" :class="field">
                 </label>
                 <div class="grid grid-cols-[1fr_6rem] gap-2">
                   <label :class="label">
-                    Quantity
+                    {{ t.review.quantity }}
                     <input v-model="l.shelfQtyText" inputmode="decimal" autocomplete="off" data-testid="line-shelf-qty" :class="field">
                   </label>
                   <label :class="label">
-                    Unit
+                    {{ t.review.unit }}
                     <input v-model="l.shelfUnit" maxlength="12" autocomplete="off" :disabled="!!l.shelfPart" data-testid="line-shelf-unit" :class="field">
                   </label>
                 </div>
                 <label v-if="!l.shelfPart" :class="label">
-                  Same as a part on the shelf
-                  <input v-model="l.pickQuery" autocomplete="off" placeholder="Search your parts" data-testid="line-shelf-pick" :class="field">
+                  {{ t.review.sameAs }}
+                  <input v-model="l.pickQuery" autocomplete="off" :placeholder="t.review.searchParts" data-testid="line-shelf-pick" :class="field">
                 </label>
                 <ul v-if="pickMatches(l).length" class="grid gap-1">
                   <li v-for="p in pickMatches(l)" :key="p.id">
@@ -690,7 +699,7 @@ async function discard() {
                   data-testid="link-items"
                   @click="l.open = !l.open"
                 >
-                  {{ l.itemIds.length ? 'Items' : 'Resets an item?' }} {{ l.open ? '▴' : '▾' }}
+                  {{ l.itemIds.length ? t.review.items : t.review.resets }} {{ l.open ? '▴' : '▾' }}
                 </button>
               </div>
               <div v-if="l.open && !l.shelf" class="mt-2 flex flex-wrap gap-1.5">
@@ -709,7 +718,7 @@ async function discard() {
             </li>
           </ul>
           <button type="button" class="mt-3 w-full rounded-xl border border-dashed border-white/20 py-3 font-semibold text-muted" data-testid="add-line" @click="addLine">
-            + Add line
+            {{ t.review.addLine }}
           </button>
         </section>
 
@@ -724,8 +733,8 @@ async function discard() {
         </p>
 
         <div v-if="mismatch !== null" role="alert" class="mt-3 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm" data-testid="totals-mismatch">
-          <p class="text-warn-text">The lines are {{ money(Math.abs(mismatch)) }} {{ mismatch < 0 ? 'short of' : 'over' }} the invoice total. Save anyway?</p>
-          <button type="button" class="mt-2 rounded-lg bg-warn px-3 py-1.5 font-semibold text-on-warn" :disabled="busy" data-testid="force-save" @click="confirm(true)">Save anyway</button>
+          <p class="text-warn-text">{{ t.review.mismatch(money(Math.abs(mismatch)), mismatch < 0) }}</p>
+          <button type="button" class="mt-2 rounded-lg bg-warn px-3 py-1.5 font-semibold text-on-warn" :disabled="busy" data-testid="force-save" @click="confirm(true)">{{ t.review.saveAnyway }}</button>
         </div>
         <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="inv-error">{{ error }}</p>
 
@@ -736,22 +745,22 @@ async function discard() {
           data-testid="confirm"
           @click="confirm(false)"
         >
-          {{ busy ? 'Saving…' : confirmLabel }}
+          {{ busy ? t.common.saving : confirmLabel }}
         </button>
         <button v-if="changing" type="button" class="mt-3 w-full py-2 text-sm text-muted underline" data-testid="change-cancel" @click="cancelChange">
-          Cancel — keep it as saved
+          {{ t.review.cancelChange }}
         </button>
       </template>
 
       <template v-if="doc.status !== 'confirmed'">
         <button v-if="!askDiscard" type="button" class="mt-3 w-full py-2 text-sm text-muted underline" data-testid="discard" @click="askDiscard = true">
-          Discard invoice
+          {{ t.review.discardInvoice }}
         </button>
         <div v-else role="alert" class="mt-3 rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm" data-testid="discard-ask">
-          <p>Discard this invoice and its photos? This can't be undone.</p>
+          <p>{{ t.review.discardAsk }}</p>
           <div class="mt-2 flex gap-2">
-            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-on-danger" :disabled="busy" data-testid="discard-confirm" @click="discard">Discard</button>
-            <button type="button" class="rounded-lg border border-white/15 px-3 py-1.5" @click="askDiscard = false">Keep</button>
+            <button type="button" class="rounded-lg bg-danger px-3 py-1.5 font-semibold text-on-danger" :disabled="busy" data-testid="discard-confirm" @click="discard">{{ t.review.discard }}</button>
+            <button type="button" class="rounded-lg border border-white/15 px-3 py-1.5" @click="askDiscard = false">{{ t.common.keep }}</button>
           </div>
         </div>
       </template>

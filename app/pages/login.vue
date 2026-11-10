@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
-import { OFFLINE_MESSAGE } from '~/offline/outbox'
+import { offlineMessage } from '~/offline/outbox'
+const { t } = useI18n()
 
 const email = ref('')
 const password = ref('')
@@ -11,18 +12,18 @@ const deleted = useRoute().query.deleted === '1'
 async function submit() {
   error.value = ''
   // Auth is online-only: say so instead of "wrong password".
-  if (navigator.onLine === false) return void (error.value = OFFLINE_MESSAGE)
+  if (navigator.onLine === false) return void (error.value = offlineMessage())
   busy.value = true
   let err: { status?: number } | null
   try {
     ;({ error: err } = await authClient.signIn.email({ email: email.value.trim(), password: password.value }))
   } catch {
     busy.value = false
-    return void (error.value = OFFLINE_MESSAGE)
+    return void (error.value = offlineMessage())
   }
   busy.value = false
   if (err) {
-    error.value = err.status === 429 ? 'Too many attempts — wait a minute and try again' : 'Wrong email or password'
+    error.value = err.status === 429 ? t.value.login.tooMany : t.value.login.wrong
     return
   }
   await navigateTo('/')
@@ -32,12 +33,12 @@ async function submit() {
 <template>
   <main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-8">
     <h1 class="text-3xl font-bold text-accent-text">Dirt Garage</h1>
-    <p class="mt-1 text-sm text-muted">Sign in to your garage.</p>
-    <p v-if="deleted" role="status" class="mt-4 rounded-lg bg-surface p-3 text-sm text-text" data-testid="deleted-notice">Your account and data were deleted.</p>
+    <p class="mt-1 text-sm text-muted">{{ t.login.intro }}</p>
+    <p v-if="deleted" role="status" class="mt-4 rounded-lg bg-surface p-3 text-sm text-text" data-testid="deleted-notice">{{ t.login.deleted }}</p>
 
     <form class="mt-8 space-y-4" @submit.prevent="submit">
       <label class="block">
-        <span class="text-sm text-muted">Email</span>
+        <span class="text-sm text-muted">{{ t.login.email }}</span>
         <input
           v-model="email"
           type="email"
@@ -47,7 +48,7 @@ async function submit() {
         >
       </label>
       <label class="block">
-        <span class="text-sm text-muted">Password</span>
+        <span class="text-sm text-muted">{{ t.login.password }}</span>
         <input
           v-model="password"
           type="password"
@@ -62,13 +63,13 @@ async function submit() {
         :disabled="busy"
         class="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-accent disabled:opacity-60"
       >
-        Sign in
+        {{ t.login.signIn }}
       </button>
     </form>
 
     <p class="mt-6 text-center text-sm text-muted">
-      New here?
-      <NuxtLink to="/register" class="text-accent-text underline">Create an account</NuxtLink>
+      {{ t.login.newHere }}
+      <NuxtLink to="/register" class="text-accent-text underline">{{ t.login.create }}</NuxtLink>
     </p>
   </main>
 </template>

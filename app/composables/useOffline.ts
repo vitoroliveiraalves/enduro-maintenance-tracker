@@ -1,3 +1,4 @@
+import { msgs } from '~/lib/i18n'
 import { ref } from 'vue'
 import { authClient } from '~/lib/auth-client'
 import { onOutboxChange } from '~/offline/db'
@@ -35,10 +36,10 @@ async function refresh() {
       key: `p${p.id}`,
       kind: 'photos' as const,
       id: p.id!,
-      label: `Invoice · ${p.files.length} ${p.files.length === 1 ? 'page' : 'pages'}`,
+      label: msgs().outbox.invoicePages(p.files.length),
       error: p.error,
     })),
-    ...voice.filter((v) => v.error).map((v) => ({ key: `v${v.id}`, kind: 'voice' as const, id: v.id!, label: 'Voice note', error: v.error })),
+    ...voice.filter((v) => v.error).map((v) => ({ key: `v${v.id}`, kind: 'voice' as const, id: v.id!, label: msgs().outbox.voiceNote, error: v.error })),
   ]
   failed.value = items.filter((i) => i.error)
   waiting.value = items.filter((i) => !i.error && i.kind === 'write')

@@ -2,6 +2,7 @@
 import { formatHoursLong } from '~/lib/format'
 import { parseDecimal } from '~/lib/parse-number'
 import { errorMessage } from '~/offline/outbox'
+const { t } = useI18n()
 
 type Detail = Record<string, unknown>
 type Meters = { hoursTenths: number | null; km: number | null }
@@ -18,19 +19,15 @@ const online = useOnline()
 // Conditions only weigh hours, so a km-only bike never sees them.
 const hasHours = computed(() => countsHours(props.meters))
 const hasKm = computed(() => countsKm(props.meters))
-const title = computed(() => `Log ride / update ${hasHours.value && hasKm.value ? 'meters' : hasHours.value ? 'hours' : 'km'}`)
+const what = computed(() => (hasHours.value && hasKm.value ? 'meters' : hasHours.value ? 'hours' : 'km'))
+const title = computed(() => t.value.logRide.title(what.value))
 
-const CONDITIONS = [
-  { key: 'normal', label: 'Normal' },
-  { key: 'mud', label: 'Mud' },
-  { key: 'sand', label: 'Sand' },
-  { key: 'dust', label: 'Dust' },
-  { key: 'race', label: 'Race' },
-] as const
+const CONDITION_KEYS = ['normal', 'mud', 'sand', 'dust', 'race'] as const
+const CONDITIONS = computed(() => CONDITION_KEYS.map((key) => ({ key, label: t.value.logRide.conditions[key] })))
 
 const hoursText = ref('')
 const kmText = ref('')
-const condition = ref<(typeof CONDITIONS)[number]['key']>('normal')
+const condition = ref<(typeof CONDITION_KEYS)[number]>('normal')
 const error = ref('')
 const jump = ref('')
 const busy = ref(false)
@@ -54,7 +51,7 @@ function jumpText(last: Meters, next: Meters): string {
   const parts: string[] = []
   if (diff(next.hoursTenths, last.hoursTenths) > 500) parts.push(formatHoursLong(diff(next.hoursTenths, last.hoursTenths)))
   if (diff(next.km, last.km) > 1500) parts.push(km(diff(next.km, last.km)))
-  return `That's ${parts.join(' and ')} more than last time. Save anyway?`
+  return t.value.logRide.jump(parts)
 }
 
 async function save(confirmBigJump = false) {
@@ -64,19 +61,19 @@ async function save(confirmBigJump = false) {
   const k = hasKm.value ? parseDecimal(kmText.value) : 0
   if (h === null || h < 0 || k === null || k < 0) {
     jump.value = ''
-    return void (error.value = `Enter ${hasHours.value && hasKm.value ? 'hours and km' : hasHours.value ? 'hours' : 'km'} as numbers.`)
+    return void (error.value = t.value.logRide.asNumbers(what.value))
   }
   const next: Meters = { hoursTenths: hasHours.value ? Math.round(h * 10) : null, km: hasKm.value ? Math.round(k) : null }
   if ((next.hoursTenths ?? 0) > 10_000_000 || (next.km ?? 0) > 10_000_000) {
     jump.value = ''
-    return void (error.value = 'That is more than any bike has done. Check the number.')
+    return void (error.value = t.value.correctTotal.tooBig)
   }
   // Offline the server can't check it now: run the same checks against the last
   // synced reading, so the rider fixes a typo here rather than after it syncs.
   const last = props.current
   if (!online.value && last) {
-    if (diff(next.hoursTenths, last.hoursTenths) < 0) return void ((jump.value = ''), (error.value = `Hours can't go down (last: ${hours(last.hoursTenths!)})`))
-    if (diff(next.km, last.km) < 0) return void ((jump.value = ''), (error.value = `Km can't go down (last: ${km(last.km!)})`))
+    if (diff(next.hoursTenths, last.hoursTenths) < 0) return void ((jump.value = ''), (error.value = t.value.errors.hoursDown(hours(last.hoursTenths!))))
+    if (diff(next.km, last.km) < 0) return void ((jump.value = ''), (error.value = t.value.errors.kmDown(km(last.km!))))
     if (!confirmBigJump && (diff(next.hoursTenths, last.hoursTenths) > 500 || diff(next.km, last.km) > 1500)) return void (jump.value = jumpText(last, next))
   }
   busy.value = true
@@ -104,18 +101,18 @@ async function save(confirmBigJump = false) {
       jump.value = jumpText(last, next)
     } else if (data?.error === 'hours-decreased' && last?.hoursTenths != null) {
       jump.value = ''
-      error.value = `Hours can't go down (last: ${hours(last.hoursTenths)})`
+      error.value = t.value.errors.hoursDown(hours(last.hoursTenths))
     } else if (data?.error === 'km-decreased' && last?.km != null) {
       jump.value = ''
-      error.value = `Km can't go down (last: ${km(last.km)})`
+      error.value = t.value.errors.kmDown(km(last.km))
     } else if (data?.error === 'hours-exceed-later' && last?.hoursTenths != null) {
       jump.value = ''
-      error.value = `Hours can't be above a later reading (${hours(last.hoursTenths)})`
+      error.value = t.value.errors.hoursAboveLater(hours(last.hoursTenths))
     } else if (data?.error === 'km-exceed-later' && last?.km != null) {
       jump.value = ''
-      error.value = `Km can't be above a later reading (${km(last.km)})`
+      error.value = t.value.errors.kmAboveLater(km(last.km))
     } else {
-      error.value = errorMessage(e, 'Could not save the reading. Try again.', true)
+      error.value = errorMessage(e, t.value.logRide.failed, true)
     }
   } finally {
     busy.value = false
@@ -128,7 +125,7 @@ async function save(confirmBigJump = false) {
     <form @submit.prevent="save(false)">
       <div class="flex gap-2.5">
         <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-          Hours
+          {{ t.common.hours }}
           <input
             v-model="hoursText"
             inputmode="decimal"
@@ -139,7 +136,7 @@ async function save(confirmBigJump = false) {
           >
         </label>
         <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-          Km
+          {{ t.common.km }}
           <input
             v-model="kmText"
             inputmode="decimal"
@@ -150,7 +147,7 @@ async function save(confirmBigJump = false) {
           >
         </label>
       </div>
-      <div v-if="hasHours" class="mt-3 flex gap-1.5" role="radiogroup" aria-label="Conditions">
+      <div v-if="hasHours" class="mt-3 flex gap-1.5" role="radiogroup" :aria-label="t.logRide.conditionsLabel">
         <button
           v-for="c in CONDITIONS"
           :key="c.key"
@@ -169,11 +166,11 @@ async function save(confirmBigJump = false) {
       <div v-if="jump" class="mt-3 rounded-xl bg-bg p-3" data-testid="jump-prompt">
         <p class="text-sm text-warn-text">{{ jump }}</p>
         <div class="mt-2 flex gap-2">
-          <button type="button" class="flex-1 rounded-xl bg-accent py-2.5 font-bold text-on-accent" :disabled="busy" @click="save(true)">Save anyway</button>
-          <button type="button" class="flex-1 rounded-xl bg-surface py-2.5 font-semibold text-white" @click="jump = ''">Fix it</button>
+          <button type="button" class="flex-1 rounded-xl bg-accent py-2.5 font-bold text-on-accent" :disabled="busy" @click="save(true)">{{ t.logRide.saveAnyway }}</button>
+          <button type="button" class="flex-1 rounded-xl bg-surface py-2.5 font-semibold text-white" @click="jump = ''">{{ t.logRide.fixIt }}</button>
         </div>
       </div>
-      <button v-if="!jump" type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60">Save</button>
+      <button v-if="!jump" type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60">{{ t.common.save }}</button>
     </form>
   </Sheet>
 </template>

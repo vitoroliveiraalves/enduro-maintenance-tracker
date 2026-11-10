@@ -4,6 +4,7 @@
 // - waiting writes, each with "Discard this change" (confirmed in the sheet).
 // No Background Sync on iOS, so it also says to keep the app open once back online.
 import type { PendingItem } from '~/composables/useOffline'
+const { t } = useI18n()
 
 const route = useRoute()
 const { online, pending, waiting, failed, voiceWaiting, voiceReady, flush, remove, retry } = useOffline()
@@ -13,17 +14,14 @@ const HIDDEN = ['/login', '/register']
 const open = ref(false)
 const syncing = ref(false)
 const confirmKey = ref<string | null>(null)
-const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`)
 
 const visible = computed(() => !HIDDEN.includes(route.path) && (pending.value > 0 || failed.value.length > 0 || voiceWaiting.value > 0 || voiceReady.value.length > 0))
 const label = computed(() => {
-  if (failed.value.length) return `${plural(failed.value.length, 'change', 'changes')} couldn't be saved`
-  if (voiceReady.value.length) return voiceReady.value.length === 1 ? 'Voice note ready' : `${voiceReady.value.length} voice notes ready`
-  const parts = [
-    ...(pending.value ? [plural(pending.value, 'change', 'changes')] : []),
-    ...(voiceWaiting.value ? [plural(voiceWaiting.value, 'voice note', 'voice notes')] : []),
-  ]
-  return `${parts.join(', ')} waiting`
+  const p = t.value.pending
+  if (failed.value.length) return p.notSaved(failed.value.length)
+  if (voiceReady.value.length) return p.voiceReady(voiceReady.value.length)
+  const parts = [...(pending.value ? [p.changes(pending.value)] : []), ...(voiceWaiting.value ? [p.voiceNotes(voiceWaiting.value)] : [])]
+  return p.waiting(parts.join(', '))
 })
 
 /** A ready voice note and nothing else to show: the tap opens it straight away. */
@@ -68,9 +66,9 @@ watch(open, () => (confirmKey.value = null))
     >
       {{ label }}
     </button>
-    <Sheet v-model:open="open" title="Changes on this phone" testid="pending-sheet">
+    <Sheet v-model:open="open" :title="t.pending.sheetTitle" testid="pending-sheet">
       <section v-if="failed.length" data-testid="pending-failed">
-        <p class="text-sm font-semibold text-danger-text">{{ plural(failed.length, 'change', 'changes') }} couldn't be saved:</p>
+        <p class="text-sm font-semibold text-danger-text">{{ t.pending.notSavedList(failed.length) }}</p>
         <ul class="mt-2 space-y-2">
           <li v-for="r in failed" :key="r.key" class="rounded-xl bg-bg p-3" data-testid="pending-failed-row">
             <p class="text-sm text-white" data-testid="pending-failed-reason">{{ r.error }}</p>
@@ -83,10 +81,10 @@ watch(open, () => (confirmKey.value = null))
                 data-testid="pending-retry"
                 @click="retry(r)"
               >
-                Retry
+                {{ t.common.retry }}
               </button>
               <button type="button" class="rounded-lg bg-surface px-3 py-1.5 text-[13px] font-semibold text-white" data-testid="pending-dismiss" @click="remove(r)">
-                Dismiss
+                {{ t.pending.dismiss }}
               </button>
             </div>
           </li>
@@ -95,27 +93,27 @@ watch(open, () => (confirmKey.value = null))
       <section v-if="voiceReady.length || voiceWaiting" :class="failed.length ? 'mt-4' : ''" data-testid="pending-voice">
         <ul class="space-y-2">
           <li v-for="v in voiceReady" :key="v.id" class="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2">
-            <span class="text-sm text-white">Voice note ready</span>
-            <button type="button" class="min-h-11 shrink-0 rounded-lg bg-accent px-3 text-[13px] font-semibold text-on-accent" data-testid="pending-voice-open" @click="openVoice(v)">Open</button>
+            <span class="text-sm text-white">{{ t.pending.voiceNoteReady }}</span>
+            <button type="button" class="min-h-11 shrink-0 rounded-lg bg-accent px-3 text-[13px] font-semibold text-on-accent" data-testid="pending-voice-open" @click="openVoice(v)">{{ t.pending.open }}</button>
           </li>
         </ul>
-        <p v-if="voiceWaiting" class="mt-2 text-xs text-muted">{{ plural(voiceWaiting, 'voice note', 'voice notes') }} kept on this phone, answered when you're back online with the app open.</p>
+        <p v-if="voiceWaiting" class="mt-2 text-xs text-muted">{{ t.pending.voiceKept(voiceWaiting) }}</p>
       </section>
       <section v-if="pending" :class="failed.length || voiceReady.length || voiceWaiting ? 'mt-4' : ''" data-testid="pending-waiting">
-        <p class="text-sm font-semibold text-warn-text">{{ plural(pending, 'change', 'changes') }} waiting to sync</p>
+        <p class="text-sm font-semibold text-warn-text">{{ t.pending.waitingToSync(pending) }}</p>
         <p class="mt-1 text-xs text-muted">
-          Saved on this phone. {{ online ? 'Sending now — keep the app open for a moment.' : "They're sent when you're back online with the app open." }}
-          Don't sign out or clear the browser's data until they're through.
+          {{ t.pending.savedHere }} {{ online ? t.pending.sendingNow : t.pending.sentLater }}
+          {{ t.pending.dontSignOut }}
         </p>
         <ul class="mt-2 space-y-2">
           <li v-for="w in waiting" :key="w.key" class="flex items-center justify-between gap-2 rounded-xl bg-bg px-3 py-2" data-testid="pending-row">
             <span class="min-w-0 text-sm text-white">{{ w.label }}</span>
             <span v-if="confirmKey === w.key" class="flex shrink-0 gap-3 text-[13px]">
-              <button type="button" class="font-bold text-danger-text" data-testid="pending-discard-confirm" @click="discard(w)">Yes, discard</button>
-              <button type="button" class="text-muted" @click="confirmKey = null">Keep</button>
+              <button type="button" class="font-bold text-danger-text" data-testid="pending-discard-confirm" @click="discard(w)">{{ t.pending.yesDiscard }}</button>
+              <button type="button" class="text-muted" @click="confirmKey = null">{{ t.common.keep }}</button>
             </span>
             <button v-else type="button" class="shrink-0 text-[13px] text-muted" data-testid="pending-discard" @click="confirmKey = w.key">
-              Discard this change
+              {{ t.pending.discard }}
             </button>
           </li>
         </ul>
@@ -127,7 +125,7 @@ watch(open, () => (confirmKey.value = null))
           data-testid="pending-sync-now"
           @click="syncNow"
         >
-          {{ syncing ? 'Syncing…' : 'Sync now' }}
+          {{ syncing ? t.pending.syncing : t.pending.syncNow }}
         </button>
       </section>
     </Sheet>

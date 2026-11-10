@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { categoryLabel, itemLabel } from '~/lib/server-text'
 import { parseCents, parseDecimal, todayLocal } from '~/lib/parse-number'
 import { errorMessage } from '~/offline/outbox'
 import { mergeUseLines, overdrawn } from '~/lib/parts-used'
 import type { ShelfPart } from '~/lib/shelf'
 import type { ItemRowJson } from '../../server/domain/item-row'
+const { t } = useI18n()
 
 type Detail = Record<string, unknown>
 type Category = { id: string; name: string; kind: string }
@@ -47,7 +49,7 @@ let session = 0
 // One id per "mark done" intent: a double tap or a retry can never create two services.
 let clientId = crypto.randomUUID()
 
-const itemName = computed(() => props.items.find((i) => i.id === props.itemId)?.name ?? 'item')
+const itemName = computed(() => itemLabel(props.items.find((i) => i.id === props.itemId)?.name ?? '') || t.value.markDone.item)
 const others = computed(() => props.items.filter((i) => i.id !== props.itemId))
 
 const doneIds = computed(() => (props.itemId ? [props.itemId, ...picked.value] : picked.value))
@@ -123,24 +125,24 @@ async function save() {
   const h = hoursText.value.trim() ? parseDecimal(hoursText.value) : null
   const k = kmText.value.trim() ? parseDecimal(kmText.value) : null
   if ((hoursText.value.trim() && (h === null || h < 0)) || (kmText.value.trim() && (k === null || k < 0))) {
-    return void (error.value = `Enter ${hasHours.value && hasKm.value ? 'hours and km' : hasHours.value ? 'hours' : 'km'} as numbers.`)
+    return void (error.value = t.value.logRide.asNumbers(hasHours.value && hasKm.value ? 'meters' : hasHours.value ? 'hours' : 'km'))
   }
   const cents = costText.value.trim() ? parseCents(costText.value) : null
-  if (costText.value.trim() && cents === null) return void (error.value = 'Enter the cost as an amount, like 24,90.')
-  if (cents !== null && !categoryId.value) return void (error.value = 'Pick a category for the cost.')
+  if (costText.value.trim() && cents === null) return void (error.value = t.value.markDone.costAmount)
+  if (cents !== null && !categoryId.value) return void (error.value = t.value.markDone.costCategory)
   const lines = []
   for (const p of shownParts.value) {
     const u = use.value[p.id]
     if (!u?.on) continue
     const w = wanted(p)
-    if (w === null) return void (error.value = `Enter how much ${p.name} you used.`)
+    if (w === null) return void (error.value = t.value.markDone.howMuch(p.name))
     lines.push({ clientId: u.clientId, partId: p.id, qtyHundredths: w, partName: p.name })
   }
   const partsUsed = mergeUseLines(lines)
   const counts = Object.fromEntries(shownParts.value.map((p) => [p.id, p.qtyHundredths]))
   for (const id of overdrawn(partsUsed, counts)) {
     const p = shownParts.value.find((x) => x.id === id)!
-    if (!use.value[id]?.anyway) return void (error.value = `Only ${fmtQty(Math.max(p.qtyHundredths, 0), p.unit)} ${p.name} on the shelf. Use anyway to take it below zero.`)
+    if (!use.value[id]?.anyway) return void (error.value = t.value.markDone.onlyOnShelf(fmtQty(Math.max(p.qtyHundredths, 0), p.unit), p.name))
   }
   busy.value = true
   try {
@@ -160,7 +162,7 @@ async function save() {
     open.value = false
     emit('saved', detail)
   } catch (e) {
-    error.value = errorMessage(e, 'Could not save. Try again.')
+    error.value = errorMessage(e, t.value.markDone.failed)
   } finally {
     busy.value = false
   }
@@ -170,25 +172,25 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 </script>
 
 <template>
-  <Sheet v-model:open="open" :title="`Mark done: ${itemName}`" testid="mark-done-sheet">
+  <Sheet v-model:open="open" :title="t.markDone.title(itemName)" testid="mark-done-sheet">
     <form @submit.prevent="save" @input="error = ''" @change="error = ''">
       <label class="block text-[11px] uppercase tracking-wider text-muted">
-        Date
+        {{ t.common.date }}
         <input v-model="at" type="date" :max="todayLocal()" required data-testid="md-date" :class="field">
       </label>
       <div class="mt-3 flex gap-2.5">
         <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-          Hours
+          {{ t.common.hours }}
           <input v-model="hoursText" inputmode="decimal" autocomplete="off" data-testid="md-hours" :class="field">
         </label>
         <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-          Km
+          {{ t.common.km }}
           <input v-model="kmText" inputmode="decimal" autocomplete="off" data-testid="md-km" :class="field">
         </label>
       </div>
-      <div class="mt-3 flex gap-1.5" role="radiogroup" aria-label="Done by">
+      <div class="mt-3 flex gap-1.5" role="radiogroup" :aria-label="t.markDone.doneBy">
         <button
-          v-for="o in [{ k: 'diy', l: 'DIY' }, { k: 'garage', l: 'Garage' }] as const"
+          v-for="o in [{ k: 'diy', l: t.common.diy }, { k: 'garage', l: t.markDone.garage }] as const"
           :key="o.k"
           type="button"
           role="radio"
@@ -202,28 +204,28 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </button>
       </div>
       <label v-if="by === 'garage'" class="mt-3 block text-[11px] uppercase tracking-wider text-muted">
-        Garage name (optional)
+        {{ t.markDone.garageName }}
         <input v-model="garageName" autocomplete="off" maxlength="80" data-testid="md-garage" :class="field">
       </label>
       <fieldset v-if="others.length" class="mt-3">
-        <legend class="text-[11px] uppercase tracking-wider text-muted">Also done in the same visit</legend>
+        <legend class="text-[11px] uppercase tracking-wider text-muted">{{ t.markDone.alsoDone }}</legend>
         <div class="mt-1 max-h-36 space-y-1 overflow-y-auto rounded-xl bg-bg p-2">
           <label v-for="i in others" :key="i.id" class="flex items-center gap-2 py-1 text-sm text-white">
             <input v-model="picked" type="checkbox" :value="i.id" class="h-4 w-4 accent-accent">
-            {{ i.name }}
+            {{ itemLabel(i.name) }}
           </label>
         </div>
       </fieldset>
       <fieldset v-if="shownParts.length || shelf.length" class="mt-3" data-testid="parts-used">
-        <legend class="text-[11px] uppercase tracking-wider text-muted">Parts used</legend>
+        <legend class="text-[11px] uppercase tracking-wider text-muted">{{ t.markDone.partsUsed }}</legend>
         <ul v-if="shownParts.length" class="mt-1 space-y-1 rounded-xl bg-bg p-2">
           <li v-for="p in shownParts" :key="p.id" class="text-sm text-white" data-testid="parts-used-row">
             <div class="flex items-center gap-2">
               <label class="flex min-h-11 min-w-0 flex-1 items-center gap-2">
-                <input v-model="use[p.id]!.on" type="checkbox" class="h-5 w-5 shrink-0 accent-accent" :aria-label="`Used ${p.name}`" data-testid="parts-used-check" @change="use[p.id]!.anyway = false">
+                <input v-model="use[p.id]!.on" type="checkbox" class="h-5 w-5 shrink-0 accent-accent" :aria-label="t.markDone.used(p.name)" data-testid="parts-used-check" @change="use[p.id]!.anyway = false">
                 <span class="min-w-0">
                   <span class="block truncate">{{ p.name }}</span>
-                  <span class="block text-xs" :class="p.qtyHundredths <= 0 ? 'text-danger-text' : 'text-muted'">{{ fmtQty(p.qtyHundredths, p.unit) }} on the shelf</span>
+                  <span class="block text-xs" :class="p.qtyHundredths <= 0 ? 'text-danger-text' : 'text-muted'">{{ t.markDone.onShelf(fmtQty(p.qtyHundredths, p.unit)) }}</span>
                 </span>
               </label>
               <input
@@ -231,7 +233,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
                 v-model="use[p.id]!.qtyText"
                 inputmode="decimal"
                 autocomplete="off"
-                :aria-label="`${p.name} quantity`"
+                :aria-label="t.markDone.quantity(p.name)"
                 data-testid="parts-used-qty"
                 class="min-h-11 w-16 shrink-0 rounded-lg bg-surface px-2 text-center text-base text-white outline-none focus:ring-2 focus:ring-accent"
                 @input="use[p.id]!.anyway = false"
@@ -239,7 +241,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
               <span v-if="use[p.id]?.on && p.unit !== 'pcs'" class="shrink-0 text-xs text-muted">{{ p.unit }}</span>
             </div>
             <div v-if="short(p)" class="flex items-center justify-between gap-2 pb-1 pl-7 text-xs text-warn-text" data-testid="parts-short">
-              <span>More than the shelf has</span>
+              <span>{{ t.markDone.moreThanShelf }}</span>
               <button
                 v-if="!use[p.id]!.anyway"
                 type="button"
@@ -247,15 +249,15 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
                 data-testid="parts-use-anyway"
                 @click="use[p.id]!.anyway = true"
               >
-                Use anyway
+                {{ t.markDone.useAnyway }}
               </button>
-              <span v-else class="shrink-0 px-2 text-muted">Will go below zero</span>
+              <span v-else class="shrink-0 px-2 text-muted">{{ t.markDone.belowZero }}</span>
             </div>
           </li>
         </ul>
-        <button v-if="!addOpen && shelf.length" type="button" class="mt-1 min-h-11 text-sm font-semibold text-accent-text" data-testid="parts-add-open" @click="addOpen = true">+ Add from shelf</button>
+        <button v-if="!addOpen && shelf.length" type="button" class="mt-1 min-h-11 text-sm font-semibold text-accent-text" data-testid="parts-add-open" @click="addOpen = true">{{ t.markDone.addFromShelf }}</button>
         <div v-if="addOpen">
-          <input v-model="addQuery" type="search" autocomplete="off" placeholder="Search the shelf" aria-label="Search the shelf" data-testid="parts-add" :class="field">
+          <input v-model="addQuery" type="search" autocomplete="off" :placeholder="t.markDone.searchShelf" :aria-label="t.markDone.searchShelf" data-testid="parts-add" :class="field">
           <ul class="mt-1 space-y-1">
             <li v-for="p in addOptions" :key="p.id">
               <button type="button" class="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl bg-bg px-3 text-left text-sm text-white" data-testid="parts-add-option" @click="addPart(p)">
@@ -268,18 +270,18 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       </fieldset>
       <div class="mt-3 flex gap-2.5">
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-          Cost (optional)
-          <input v-model="costText" inputmode="decimal" autocomplete="off" placeholder="e.g. 24,90" data-testid="md-cost" :class="field">
+          {{ t.markDone.cost }}
+          <input v-model="costText" inputmode="decimal" autocomplete="off" :placeholder="t.markDone.costPh" data-testid="md-cost" :class="field">
         </label>
         <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-          Category
+          {{ t.markDone.category }}
           <select v-model="categoryId" data-testid="md-category" :class="field">
-            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">{{ categoryLabel(c.name) }}</option>
           </select>
         </label>
       </div>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="md-error">{{ error }}</p>
-      <button type="submit" :disabled="busy || shelfLoading" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="md-save">Save</button>
+      <button type="submit" :disabled="busy || shelfLoading" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="md-save">{{ t.common.save }}</button>
     </form>
   </Sheet>
 </template>

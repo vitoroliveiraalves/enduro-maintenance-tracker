@@ -22,8 +22,8 @@ function recorder(fail?: (endpoint: string) => number | undefined) {
   return { calls, send }
 }
 
-const sub = (userId: string, name: string) =>
-  db.insert(pushSubscriptions).values({ userId, endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, p256dh: 'p', auth: 'a', timezone: 'Europe/Lisbon' })
+const sub = (userId: string, name: string, locale: string | null = null) =>
+  db.insert(pushSubscriptions).values({ userId, endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, p256dh: 'p', auth: 'a', timezone: 'Europe/Lisbon', locale })
 
 beforeEach(async () => {
   await truncateUsers()
@@ -55,6 +55,16 @@ describe('runNotify', () => {
     const r = recorder()
     await runNotify({ now: NOW, send: r.send })
     expect(r.calls.map((c) => c.endpoint).sort()).toEqual(['https://fcm.googleapis.com/fcm/send/phone', 'https://fcm.googleapis.com/fcm/send/tablet'])
+  })
+
+  it('each device gets it in its own language, claimed once', async () => {
+    await sub(uid, 'phone', 'pt')
+    await sub(uid, 'tablet', 'en')
+    const r = recorder()
+    await runNotify({ now: NOW, send: r.send })
+    const by = Object.fromEntries(r.calls.map((c) => [c.endpoint.split('/').at(-1), c.payload.title]))
+    expect(by).toEqual({ phone: 'Óleo da caixa a fazer em breve', tablet: 'Gearbox oil due soon' })
+    expect(await db.select().from(notificationsSent)).toHaveLength(1)
   })
 
   it('410/404 from the push service deletes that subscription', async () => {
@@ -131,6 +141,12 @@ describe('parseSubscription', () => {
   it('accepts real push services and keeps a valid timezone', () => {
     expect(parseSubscription({ endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys, timezone: 'Europe/Lisbon' })).toMatchObject({ timezone: 'Europe/Lisbon' })
     expect(parseSubscription({ endpoint: 'https://web.push.apple.com/QGx', keys, timezone: 'Nope/Nowhere' }).timezone).toBeNull()
+  })
+
+  it('keeps the app language of the device, only a known one', () => {
+    expect(parseSubscription({ endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys, locale: 'pt' }).locale).toBe('pt')
+    expect(parseSubscription({ endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys, locale: 'pt-BR' }).locale).toBeNull()
+    expect(parseSubscription({ endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys }).locale).toBeNull()
   })
 
   it('rejects other hosts, plain http and bad keys (the server POSTs to the endpoint)', () => {

@@ -1,3 +1,4 @@
+import { msgs } from '~/lib/i18n'
 import { errorMessage, OfflineError } from '~/offline/outbox'
 import { readSession } from '~/offline/session'
 import { localTz, queueVoice, removeVoice, voiceForm } from '~/offline/voice'
@@ -11,7 +12,7 @@ export type VoiceResult = {
   notes: string[]
 }
 
-export const WAITING_COPY = "Needs a connection — I'll keep it and answer when you're back online."
+export const waitingCopy = () => msgs().voice.waiting
 
 type SheetState = { status: 'listening' | 'done' | 'error'; result?: VoiceResult; error?: string }
 
@@ -60,11 +61,11 @@ export function useVoice() {
         open.value = false
         if (uid) {
           await queueVoice(wav, uid)
-          useToast().show(WAITING_COPY, 6000)
+          useToast().show(waitingCopy(), 6000)
         }
         return
       }
-      sheet.value = { status: 'error', error: errorMessage(err, "Voice couldn't be processed — try again.") }
+      sheet.value = { status: 'error', error: errorMessage(err, msgs().voice.failed) }
     }
   }
 
@@ -75,7 +76,7 @@ export function useVoice() {
     try {
       await post(form)
     } catch (err) {
-      sheet.value = { status: 'error', error: errorMessage(err, "Voice couldn't be processed — try again.") }
+      sheet.value = { status: 'error', error: errorMessage(err, msgs().voice.failed) }
     }
   }
 

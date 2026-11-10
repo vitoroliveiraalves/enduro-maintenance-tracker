@@ -1,3 +1,4 @@
+import { msgs } from './i18n'
 import { countsHours, countsKm, type BikeMeters } from '../../shared/utils/meters'
 import { parseDecimal } from './parse-number'
 
@@ -125,40 +126,41 @@ function num(text: string, scale: number, min = 0): number | null | undefined {
 
 /** The existing route and body this card saves through, or why it can't be saved yet. */
 export function requestFor(d: Draft, ctx: CardCtx): Req {
+  const t = msgs().voiceCards
   const m = metersOf(d, ctx)
   const meter = (): { hoursTenths?: number; km?: number } | { error: string } => {
     const h = countsHours(m) ? num(d.hours, 10) : null
     const k = countsKm(m) ? num(d.km, 1) : null
-    if (h === undefined) return { error: 'Check the hours.' }
-    if (k === undefined) return { error: 'Check the km.' }
+    if (h === undefined) return { error: t.checkHours }
+    if (k === undefined) return { error: t.checkKm }
     return { ...(h !== null ? { hoursTenths: h } : {}), ...(k !== null ? { km: k } : {}) }
   }
   const optBike = d.bikeId ? { bikeId: d.bikeId } : {}
   switch (d.kind) {
     case 'reading': {
-      if (!d.bikeId) return { error: 'Choose the bike.' }
+      if (!d.bikeId) return { error: t.chooseBike }
       const mm = meter()
       if ('error' in mm) return mm
-      if ((countsHours(m) && mm.hoursTenths === undefined) || (countsKm(m) && mm.km === undefined)) return { error: 'Enter the meters.' }
+      if ((countsHours(m) && mm.hoursTenths === undefined) || (countsKm(m) && mm.km === undefined)) return { error: t.enterMeters }
       return { url: '/api/readings', body: { clientId: d.clientId, bikeId: d.bikeId, ...mm } }
     }
     case 'correct_total': {
-      if (!d.bikeId) return { error: 'Choose the bike.' }
+      if (!d.bikeId) return { error: t.chooseBike }
       const mm = meter()
       if ('error' in mm) return mm
-      if ((countsHours(m) && mm.hoursTenths === undefined) || (countsKm(m) && mm.km === undefined)) return { error: 'Enter the totals.' }
+      if ((countsHours(m) && mm.hoursTenths === undefined) || (countsKm(m) && mm.km === undefined)) return { error: t.enterTotals }
       return { url: `/api/bikes/${d.bikeId}/latest-reading`, method: 'PATCH', body: mm }
     }
     case 'service': {
-      if (!d.bikeId) return { error: 'Choose the bike.' }
-      if (!d.itemIds.length) return { error: 'Choose what was done.' }
-      if (!d.at) return { error: 'Enter the date.' }
+      if (!d.bikeId) return { error: t.chooseBike }
+      if (!d.itemIds.length) return { error: t.chooseDone }
+      if (!d.at) return { error: t.enterDate }
       const mm = meter()
       if ('error' in mm) return mm
       const parts = []
       for (const l of d.partsUsed) {
         const q = num(l.qty, 100, 0.01)
-        if (!q) return { error: 'Check the parts used.' }
+        if (!q) return { error: t.checkParts }
         parts.push({ clientId: l.clientId, partId: l.partId, qtyHundredths: q })
       }
       return {
@@ -172,43 +174,35 @@ export function requestFor(d: Draft, ctx: CardCtx): Req {
       }
     }
     case 'use_part': {
-      if (!d.partId) return { error: 'Choose the part.' }
+      if (!d.partId) return { error: t.choosePart }
       const q = num(d.qty, 100, 0.01)
-      if (!q) return { error: 'Check the quantity.' }
-      return { url: `/api/parts/${d.partId}/movements`, body: { clientId: d.clientId, qtyHundredths: -q, note: 'Used (voice note)' } }
+      if (!q) return { error: t.checkQty }
+      return { url: `/api/parts/${d.partId}/movements`, body: { clientId: d.clientId, qtyHundredths: -q, note: t.usedNote } }
     }
     case 'add_part': {
-      if (!d.name.trim()) return { error: 'Enter the part name.' }
+      if (!d.name.trim()) return { error: t.enterPartName }
       const q = num(d.qty, 100)
-      if (q === undefined) return { error: 'Check the quantity.' }
+      if (q === undefined) return { error: t.checkQty }
       return { url: '/api/parts', body: { clientId: d.clientId, startClientId: d.startClientId, name: d.name.trim(), unit: d.unit.trim() || 'pcs', qtyHundredths: q ?? 0, ...optBike } }
     }
     case 'shopping':
-      if (!d.text.trim()) return { error: 'Enter what to buy.' }
+      if (!d.text.trim()) return { error: t.enterToBuy }
       return { url: '/api/shopping', body: { clientId: d.clientId, text: d.text.trim(), ...optBike, ...(d.partId ? { partId: d.partId } : {}) } }
     case 'expense': {
       const c = num(d.amount, 100, 0.01)
-      if (!c) return { error: 'Enter the amount.' }
-      if (!d.categoryId) return { error: 'Choose the category.' }
-      if (!d.at) return { error: 'Enter the date.' }
+      if (!c) return { error: t.enterAmount }
+      if (!d.categoryId) return { error: t.chooseCategory }
+      if (!d.at) return { error: t.enterDate }
       return { url: '/api/expenses', body: { clientId: d.clientId, at: d.at, amountCents: c, categoryId: d.categoryId, ...optBike, description: d.description.trim() } }
     }
     case 'reminder':
-      if (!d.title.trim()) return { error: 'Enter the title.' }
-      if (!d.dueOn) return { error: 'Enter the date.' }
+      if (!d.title.trim()) return { error: t.enterTitle }
+      if (!d.dueOn) return { error: t.enterDate }
       return { url: '/api/reminders', body: { clientId: d.clientId, title: d.title.trim(), dueOn: d.dueOn, repeatYearly: d.repeatYearly, ...optBike } }
     default:
-      return { error: 'Unknown change.' }
+      return { error: t.unknown }
   }
 }
 
-export const CARD_TITLE: Record<string, string> = {
-  reading: 'Log ride / meters',
-  correct_total: 'Correct total',
-  service: 'Mark maintenance done',
-  use_part: 'Use part from shelf',
-  add_part: 'Add part to shelf',
-  shopping: 'Add to buy',
-  expense: 'Add expense',
-  reminder: 'Add reminder',
-}
+/** Card heading per proposal kind, in the language in use. */
+export const cardTitle = (kind: string): string => msgs().voiceCards.titles[kind] ?? kind

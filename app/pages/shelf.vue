@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { errorMessage } from '~/offline/outbox'
+import { serverText } from '~/lib/server-text'
 import type { ManualEntry, ShelfPart, ShoppingList } from '~/lib/shelf'
+const { t } = useI18n()
 
 const { get, mutate } = useApi()
 const { qty } = useFormatters()
@@ -29,7 +31,7 @@ async function load() {
     list.value = await get<ShoppingList>('/api/shopping')
     error.value = ''
   } catch (e) {
-    error.value = errorMessage(e, 'Could not load your shelf.', true)
+    error.value = errorMessage(e, t.value.shelf.loadFailed, true)
   } finally {
     loaded.value = true
   }
@@ -66,7 +68,7 @@ async function tick(e: ManualEntry) {
     await mutate(`/api/shopping/${e.id}`, { done: !e.doneAt }, { method: 'PATCH', queue: true })
     await load()
   } catch (err) {
-    error.value = errorMessage(err, "Couldn't update the list. Try again.")
+    error.value = errorMessage(err, t.value.shelf.updateFailed)
   } finally {
     buyBusy.value = false
   }
@@ -81,14 +83,14 @@ function open(p: ShelfPart | null) {
 <template>
   <main class="mx-auto max-w-md p-4 pb-24">
     <div class="flex items-center justify-between">
-      <h1 class="text-xl font-bold text-white">Shelf</h1>
-      <NuxtLink to="/" class="-mr-2 flex min-h-11 items-center px-2 text-sm text-muted" data-testid="shelf-back">Garage</NuxtLink>
+      <h1 class="text-xl font-bold text-white">{{ t.shelf.title }}</h1>
+      <NuxtLink to="/" class="-mr-2 flex min-h-11 items-center px-2 text-sm text-muted" data-testid="shelf-back">{{ t.shelf.garage }}</NuxtLink>
     </div>
 
-    <div class="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1" role="group" aria-label="Shelf sections">
-      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'parts' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'parts'" data-testid="shelf-tab-parts" @click="tab = 'parts'">Shelf</button>
+    <div class="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1" role="group" :aria-label="t.shelf.sections">
+      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'parts' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'parts'" data-testid="shelf-tab-parts" @click="tab = 'parts'">{{ t.shelf.title }}</button>
       <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'buy' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'buy'" data-testid="shelf-tab-buy" @click="tab = 'buy'">
-        To buy
+        {{ t.shelf.toBuy }}
         <span v-if="buyCount" class="ml-1 rounded-full px-1.5 text-xs font-bold" :class="tab === 'buy' ? 'bg-black/20' : 'bg-accent text-on-accent'" data-testid="buy-count">{{ buyCount }}</span>
       </button>
     </div>
@@ -97,16 +99,16 @@ function open(p: ShelfPart | null) {
       v-model="query"
       type="search"
       autocomplete="off"
-      placeholder="Search"
-      aria-label="Search"
+      :placeholder="t.shelf.search"
+      :aria-label="t.shelf.search"
       data-testid="shelf-search"
       class="mt-3 block w-full rounded-xl bg-surface px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-accent"
     >
 
     <template v-if="tab === 'parts'">
       <p v-if="itemFilter" class="mt-2 text-xs text-muted" data-testid="shelf-item-filter">
-        Only parts for one maintenance item ·
-        <NuxtLink to="/shelf" class="inline-flex min-h-11 items-center text-accent-text underline">show all</NuxtLink>
+        {{ t.shelf.onlyItem }}
+        <NuxtLink to="/shelf" class="inline-flex min-h-11 items-center text-accent-text underline">{{ t.shelf.showAll }}</NuxtLink>
       </p>
       <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
 
@@ -124,7 +126,7 @@ function open(p: ShelfPart | null) {
             <span class="min-w-0">
               <span class="block truncate font-semibold text-white">{{ p.name }}</span>
               <span class="block truncate text-xs text-muted">
-                {{ p.bikeName ?? 'Any bike' }}<template v-if="p.pending || p.pendingSync"> · Waiting to sync</template>
+                {{ p.bikeName ?? t.shelf.anyBike }}<template v-if="p.pending || p.pendingSync">{{ t.shelf.waiting }}</template>
               </span>
             </span>
             <span class="shrink-0 text-lg font-bold" :class="low(p) ? 'text-danger-text' : 'text-white'" data-testid="part-qty" :data-low="low(p)">{{ qty(p.qtyHundredths, p.unit) }}</span>
@@ -132,10 +134,10 @@ function open(p: ShelfPart | null) {
         </li>
       </ul>
       <p v-else-if="loaded && !error" class="mt-4 text-muted" data-testid="shelf-empty">
-        {{ parts.length ? 'No part matches.' : 'Nothing on the shelf yet. Add the spares you keep.' }}
+        {{ parts.length ? t.shelf.noMatch : t.shelf.empty }}
       </p>
 
-      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-on-accent" data-testid="add-part" @click="open(null)">+ Add part</button>
+      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-on-accent" data-testid="add-part" @click="open(null)">{{ t.shelf.addPart }}</button>
     </template>
 
     <template v-else>
@@ -147,9 +149,9 @@ function open(p: ShelfPart | null) {
             <button type="button" class="flex min-h-14 w-full flex-col justify-center rounded-xl bg-surface px-4 py-2.5 text-left" data-testid="buy-auto" @click="openPart(a.partId)">
               <span class="flex items-center justify-between gap-3">
                 <span class="min-w-0 truncate font-semibold text-white" data-testid="buy-auto-name">{{ a.partName }}</span>
-                <span class="shrink-0 text-xs font-semibold" :class="a.reason === 'due' ? 'text-danger-text' : 'text-warn-text'">{{ a.reason === 'due' ? 'Needed' : 'Low' }}</span>
+                <span class="shrink-0 text-xs font-semibold" :class="a.reason === 'due' ? 'text-danger-text' : 'text-warn-text'">{{ a.reason === 'due' ? t.shelf.needed : t.shelf.low }}</span>
               </span>
-              <span class="block truncate text-xs text-muted" data-testid="buy-auto-detail">{{ a.detail }}</span>
+              <span class="block truncate text-xs text-muted" data-testid="buy-auto-detail">{{ serverText(a.detail) }}</span>
               <span v-if="a.bikeName && a.reason !== 'due'" class="block truncate text-xs text-muted">{{ a.bikeName }}</span>
             </button>
           </li>
@@ -161,7 +163,7 @@ function open(p: ShelfPart | null) {
               type="button"
               role="checkbox"
               :aria-checked="!!e.doneAt"
-              :aria-label="`Tick ${e.text}`"
+              :aria-label="t.shelf.tick(e.text)"
               :disabled="e.pending"
               class="flex size-11 shrink-0 items-center justify-center disabled:opacity-40"
               data-testid="buy-tick"
@@ -171,16 +173,16 @@ function open(p: ShelfPart | null) {
             </button>
             <button type="button" class="min-h-14 min-w-0 flex-1 py-2 text-left" :class="e.doneAt ? 'opacity-50' : ''" :disabled="e.pending" data-testid="buy-edit" @click="addBuy(e)">
               <span class="block truncate font-semibold text-white" :class="e.doneAt ? 'line-through' : ''" data-testid="buy-text-row">{{ e.text }}</span>
-              <span v-if="e.bikeName || e.pending" class="block truncate text-xs text-muted">{{ e.bikeName ?? '' }}<template v-if="e.pending"><template v-if="e.bikeName"> · </template>Waiting to sync</template></span>
+              <span v-if="e.bikeName || e.pending" class="block truncate text-xs text-muted">{{ e.bikeName ?? '' }}<template v-if="e.pending"><template v-if="e.bikeName"> · </template>{{ t.shelf.waitingShort }}</template></span>
             </button>
           </li>
         </ul>
 
         <p v-if="loaded && !error && !autoShown.length && !manualShown.length" class="mt-4 text-muted" data-testid="buy-empty">
-          {{ list.auto.length || list.manual.length ? 'Nothing matches.' : 'Nothing to buy. Parts running low or needed for a service show up here.' }}
+          {{ list.auto.length || list.manual.length ? t.shelf.nothingMatches : t.shelf.nothingToBuy }}
         </p>
       </section>
-      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-on-accent" data-testid="buy-add" @click="addBuy(null)">+ Add to list</button>
+      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-on-accent" data-testid="buy-add" @click="addBuy(null)">{{ t.shelf.addToList }}</button>
     </template>
 
     <PartSheet v-model:open="sheetOpen" :part="editing" :bikes="store.bikes" @changed="load" />

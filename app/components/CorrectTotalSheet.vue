@@ -2,6 +2,7 @@
 // Fix the bike's total after a mistake: rewrites the latest reading, up or down. Online only.
 import { parseDecimal } from '~/lib/parse-number'
 import { errorMessage } from '~/offline/outbox'
+const { t } = useI18n()
 
 type Meters = { hoursTenths: number | null; km: number | null }
 
@@ -30,8 +31,8 @@ async function save() {
   error.value = ''
   const h = hasHours.value ? parseDecimal(hoursText.value) : 0
   const k = hasKm.value ? parseDecimal(kmText.value) : 0
-  if (h === null || h < 0 || k === null || k < 0) return void (error.value = 'Enter the totals as numbers.')
-  if (h > 1_000_000 || k > 10_000_000) return void (error.value = 'That is more than any bike has done. Check the number.')
+  if (h === null || h < 0 || k === null || k < 0) return void (error.value = t.value.correctTotal.numbers)
+  if (h > 1_000_000 || k > 10_000_000) return void (error.value = t.value.correctTotal.tooBig)
   busy.value = true
   try {
     const detail = await mutate<Record<string, unknown>>(
@@ -42,7 +43,7 @@ async function save() {
     open.value = false
     emit('saved', detail)
   } catch (e) {
-    error.value = errorMessage(e, "Couldn't correct the total. Try again.", true)
+    error.value = errorMessage(e, t.value.correctTotal.failed, true)
   } finally {
     busy.value = false
   }
@@ -52,22 +53,22 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-2xl font-bold n
 </script>
 
 <template>
-  <Sheet v-model:open="open" title="Correct total" testid="correct-sheet">
+  <Sheet v-model:open="open" :title="t.correctTotal.title" testid="correct-sheet">
     <form @submit.prevent="save">
-      <p class="mb-3 text-sm text-muted">Type what the bike really shows. This replaces the last reading, so it can go down too.</p>
+      <p class="mb-3 text-sm text-muted">{{ t.correctTotal.intro }}</p>
       <div class="flex gap-2.5">
         <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-          Hours
+          {{ t.common.hours }}
           <input v-model="hoursText" inputmode="decimal" autocomplete="off" data-testid="correct-hours" :class="field">
         </label>
         <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-          Km
+          {{ t.common.km }}
           <input v-model="kmText" inputmode="decimal" autocomplete="off" data-testid="correct-km" :class="field">
         </label>
       </div>
-      <p v-if="!online" class="mt-3 text-sm text-warn-text">Needs a connection to correct the total.</p>
+      <p v-if="!online" class="mt-3 text-sm text-warn-text">{{ t.correctTotal.needsConnection }}</p>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="correct-error">{{ error }}</p>
-      <button type="submit" :disabled="busy || !online" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="correct-save">Save total</button>
+      <button type="submit" :disabled="busy || !online" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="correct-save">{{ t.correctTotal.save }}</button>
     </form>
   </Sheet>
 </template>

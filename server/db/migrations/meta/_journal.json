@@ -57,6 +57,13 @@
       "when": 1794253158840,
       "tag": "0007_invoice_parts",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794303075089,
+      "tag": "0008_push_locale",
+      "breakpoints": true
     }
   ]
 }
