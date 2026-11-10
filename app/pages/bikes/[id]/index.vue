@@ -70,6 +70,11 @@ function editReminder(r: VehicleReminder) {
   reminderOpen.value = true
 }
 
+function editChipReminder(chipId: string) {
+  const r = bikeReminders.value.find((x) => x.id === chipId)
+  if (r) editReminder(r)
+}
+
 function openNewReminder() {
   reminderToEdit.value = null
   reminderOpen.value = true
@@ -196,27 +201,28 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         <button
           v-if="data.bike.vehicleType !== 'car' && data.bike.stroke === '2T'"
           type="button"
-          class="rounded-full border border-track bg-surface px-2.5 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent"
+          class="min-h-9 rounded-full border border-track bg-surface px-3 py-1.5 text-xs font-semibold text-text font-tag transition hover:border-accent"
           data-testid="premix-chip"
           @click="premixOpen = true"
         >
           {{ t.premix.chipLabel(data.bike.premixRatio ?? 50) }}
         </button>
-        <NuxtLink
+        <button
           v-for="c in chips"
           :key="c.id"
-          to="/settings#reminders"
-          class="rounded-full px-2.5 py-1 text-xs font-semibold"
-          :class="c.tone === 'danger' ? 'bg-danger/15 text-danger-text' : 'bg-warn/15 text-warn-text'"
+          type="button"
+          class="min-h-9 rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+          :class="c.tone === 'danger' ? 'border-danger/40 bg-danger/15 text-danger-text' : 'border-warn/40 bg-warn/15 text-warn-text'"
           data-testid="reminder-chip"
+          @click="editChipReminder(c.id)"
         >
           {{ c.text }}
-        </NuxtLink>
+        </button>
         <button
           v-for="r in nonUrgentReminders"
           :key="r.id"
           type="button"
-          class="rounded-full border border-track bg-surface px-2.5 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent"
+          class="min-h-9 rounded-full border border-track bg-surface px-3 py-1.5 text-xs font-semibold text-text font-tag transition hover:border-accent"
           data-testid="vehicle-obligation-chip"
           @click="editReminder(r)"
         >
@@ -224,7 +230,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </button>
         <button
           type="button"
-          class="rounded-full border border-track bg-surface px-2.5 py-1 text-xs font-semibold text-muted font-tag transition hover:border-accent hover:text-text"
+          class="min-h-9 rounded-full border border-track bg-surface px-3 py-1.5 text-xs font-semibold text-muted font-tag transition hover:border-accent hover:text-text"
           data-testid="add-reminder-chip"
           @click="openNewReminder"
         >

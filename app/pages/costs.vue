@@ -139,7 +139,7 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
 </script>
 
 <template>
-  <main class="mx-auto max-w-md p-4 pb-24">
+  <main class="mx-auto max-w-md p-4 pb-6">
     <div class="flex items-center justify-between gap-2 text-[13px]">
       <label class="sr-only" for="costs-bike">{{ t.costs.bike }}</label>
       <select
@@ -174,7 +174,7 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
         type="button"
         :aria-pressed="period === s.key"
         :data-testid="`seg-${s.key}`"
-        class="flex-1 rounded-lg py-1.5 text-xs"
+        class="min-h-10 flex-1 rounded-lg py-2 text-xs"
         :class="period === s.key ? 'bg-track font-bold text-white' : 'text-muted'"
         @click="go({ period: s.key === 'month' ? undefined : s.key })"
       >
@@ -183,9 +183,9 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
     </div>
 
     <div v-if="period !== 'all'" class="mb-3 flex items-center justify-between text-sm">
-      <button type="button" :aria-label="t.costs.previous" data-testid="period-prev" class="h-9 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(-1)">‹</button>
+      <button type="button" :aria-label="t.costs.previous" data-testid="period-prev" class="h-11 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(-1)">‹</button>
       <span data-testid="period-label" class="font-semibold text-white">{{ navLabel }}</span>
-      <button type="button" :aria-label="t.costs.next" data-testid="period-next" class="h-9 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(1)">›</button>
+      <button type="button" :aria-label="t.costs.next" data-testid="period-next" class="h-11 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(1)">›</button>
     </div>
 
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
@@ -223,13 +223,18 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
         <div class="h-3" />
       </template>
 
+      <template v-if="data.byCategory.length">
+        <h2 class="mb-2 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.whereItWent }}</h2>
+        <CategoryBars :rows="data.byCategory" :selected-category="selectedCategory" @select="toggleCategory" />
+      </template>
+
       <template v-if="data.expenses">
-        <div class="mb-1.5 mt-3 flex items-center justify-between gap-2">
-          <h2 class="text-[11px] uppercase tracking-widest text-muted">{{ t.costs.spentThisMonth }}</h2>
+        <div class="mb-1.5 mt-4 flex items-center justify-between gap-2">
+          <h2 class="text-[11px] uppercase tracking-widest text-muted">{{ period === 'month' ? t.costs.spentThisMonth : t.costs.spentInPeriod }}</h2>
           <button
             v-if="selectedCategory"
             type="button"
-            class="rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-accent-text"
+            class="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-accent-text"
             data-testid="costs-clear-category"
             @click="selectedCategory = null"
           >
@@ -259,21 +264,20 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
         <p class="mt-1.5 text-xs text-muted">{{ t.costs.estimates }}</p>
       </template>
 
-      <template v-if="data.byCategory.length">
-        <h2 class="mb-2 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.whereItWent }}</h2>
-        <CategoryBars :rows="data.byCategory" :selected-category="selectedCategory" @select="toggleCategory" />
-      </template>
-
       <template v-if="showBikes">
         <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.byBike }}</h2>
         <ul class="space-y-[7px]">
           <li
             v-for="b in data.byBike"
             :key="b.bikeId ?? 'none'"
+            :role="b.bikeId ? 'button' : undefined"
+            :tabindex="b.bikeId ? 0 : undefined"
             class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]"
             :class="b.bikeId ? 'cursor-pointer transition hover:ring-1 hover:ring-accent' : ''"
             data-testid="costs-bike-row"
             @click="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
+            @keydown.enter.prevent="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
+            @keydown.space.prevent="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
           >
             <span class="min-w-0">
               <span class="block truncate text-text">{{ b.bikeId ? b.name : t.costs.noBike }}</span>

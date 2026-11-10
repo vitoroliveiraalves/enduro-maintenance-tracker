@@ -78,9 +78,12 @@ test('IUC reminder: add from Settings, chip on the bike screen, mark done rolls 
   await expect(chips.filter({ hasText: 'Inspection' })).toHaveClass(/text-danger-text/)
 
   await chips.filter({ hasText: 'IUC' }).click()
-  await expect(page).toHaveURL(/\/settings#reminders$/)
+  await expect(page.getByTestId('reminder-sheet')).toBeVisible()
+  await page.getByTestId('rem-mark-done').click()
+  await expect(page.getByTestId('reminder-sheet')).toBeHidden()
+
+  await page.goto('/settings#reminders')
   const iuc = page.getByTestId('reminder-row').filter({ hasText: 'IUC' })
-  await iuc.getByTestId('reminder-done').click()
   const nextYear = String(Number(due.slice(0, 4)) + 1)
   await expect(iuc.getByTestId('reminder-when')).toContainText(nextYear)
 

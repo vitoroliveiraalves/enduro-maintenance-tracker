@@ -240,6 +240,8 @@ export const en = {
   itemRow: {
     pendingDone: ' · done, pending sync',
     wear: (name: string) => `${name} wear`,
+    inStock: '✓ in stock',
+    noSpare: '✗ no spare',
   },
 
   manage: {
@@ -373,6 +375,8 @@ export const en = {
     cost: 'Cost (optional)',
     costPh: 'e.g. 24,90',
     category: 'Category',
+    notes: 'Notes (optional)',
+    notesPh: 'e.g. oil brand, observations...',
   },
 
   partSheet: {
@@ -698,6 +702,7 @@ export const en = {
     deleteService: 'Delete this service?',
     deleteExpense: 'Delete this expense?',
     yesDelete: 'Yes, delete',
+    search: 'Search history',
   },
 
   costs: {
@@ -723,6 +728,7 @@ export const en = {
     km: 'Km',
     byMonth: 'By month',
     spentThisMonth: 'Spent this month',
+    spentInPeriod: 'Expenses',
     nothingSpent: (label: string) => `Nothing spent in ${label}.`,
     comingUp: 'Coming up · estimated',
     dueNow: 'due now',

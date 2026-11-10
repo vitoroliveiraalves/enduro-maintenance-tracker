@@ -91,7 +91,7 @@ function open(p: ShelfPart | null) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md p-4 pb-24">
+  <main class="mx-auto max-w-md p-4 pb-6">
     <div class="flex items-center justify-between">
       <h1 class="text-xl font-bold text-white">{{ t.shelf.title }}</h1>
       <NuxtLink to="/" class="-mr-2 flex min-h-11 items-center px-2 text-sm text-muted" data-testid="shelf-back">{{ t.shelf.garage }}</NuxtLink>
@@ -150,7 +150,10 @@ function open(p: ShelfPart | null) {
                 {{ p.bikeName ?? t.shelf.anyBike }}<template v-if="p.pending || p.pendingSync">{{ t.shelf.waiting }}</template>
               </span>
             </span>
-            <span class="shrink-0 text-lg font-bold" :class="low(p) ? 'text-danger-text' : 'text-white'" data-testid="part-qty" :data-low="low(p)">{{ qty(p.qtyHundredths, p.unit) }}</span>
+            <span class="flex shrink-0 items-center gap-2">
+              <span v-if="low(p)" class="rounded border border-danger/40 bg-danger/15 px-1.5 py-0.5 font-tag text-[10px] font-bold uppercase tracking-wider text-danger-text">{{ t.shelf.low }}</span>
+              <span class="text-lg font-bold" :class="low(p) ? 'text-danger-text' : 'text-white'" data-testid="part-qty" :data-low="low(p)">{{ qty(p.qtyHundredths, p.unit) }}</span>
+            </span>
           </button>
         </li>
       </ul>

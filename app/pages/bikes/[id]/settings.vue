@@ -80,7 +80,7 @@ async function saveInfo() {
   }
   const yr = typeof year.value === 'number' ? year.value : Number(year.value)
   if (!yr || yr < 1950 || yr > 2100) {
-    infoError.value = t.value.newBike.needNames
+    infoError.value = t.value.newBike.badYear
     return
   }
 
@@ -204,7 +204,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
             </label>
             <label class="block text-[11px] uppercase tracking-wider text-muted font-tag">
               {{ t.bike.year }}
-              <input v-model.number="year" type="number" min="1950" max="2100" data-testid="bike-year-input" :class="field">
+              <input v-model.number="year" type="number" inputmode="numeric" min="1950" max="2100" data-testid="bike-year-input" :class="field">
             </label>
           </div>
 

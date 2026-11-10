@@ -248,7 +248,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
             <button
               type="button"
               :disabled="busy"
-              class="flex-1 rounded-lg bg-accent py-2 text-xs font-bold text-on-accent disabled:opacity-60"
+              class="min-h-11 flex-1 rounded-lg bg-accent py-2 text-xs font-bold text-on-accent disabled:opacity-60"
               data-testid="part-restock-save"
               @click="restock"
             >
@@ -256,7 +256,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
             </button>
             <button
               type="button"
-              class="rounded-lg border border-white/15 px-3 py-2 text-xs text-muted"
+              class="min-h-11 rounded-lg border border-white/15 px-3 py-2 text-xs text-muted"
               data-testid="part-restock-cancel"
               @click="restockOpen = false"
             >
@@ -313,7 +313,7 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
       </label>
 
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="part-error">{{ error }}</p>
-      <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="part-save">{{ t.common.save }}</button>
+      <button v-if="!restockOpen" type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="part-save">{{ t.common.save }}</button>
     </form>
 
     <section v-if="!isNew" class="mt-5">

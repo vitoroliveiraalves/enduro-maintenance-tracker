@@ -27,7 +27,7 @@ const router = useRouter()
           data-testid="item-stock"
           @click.prevent.stop="router.push({ path: '/shelf', query: { item: item.id } })"
         >
-          {{ item.stock === 'in' ? '✓ in stock' : '✗ no spare' }}
+          {{ item.stock === 'in' ? t.itemRow.inStock : t.itemRow.noSpare }}
         </button>
       </span>
     </div>

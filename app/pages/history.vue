@@ -19,11 +19,12 @@ type Exp = {
 type Entry = { kind: 'service'; key: string; at: string; s: Svc } | { kind: 'expense'; key: string; at: string; e: Exp }
 
 const { get, mutate } = useApi()
-const { money, hours, date } = useFormatters()
+const { money, hours, km, date } = useFormatters()
 const store = useBikesStore()
 const { syncTick } = useOffline()
 
 const bikeFilter = ref('')
+const query = ref('')
 const services = ref<Svc[]>([])
 const expenses = ref<Exp[]>([])
 const loaded = ref(false)
@@ -55,7 +56,13 @@ const timeline = computed<Entry[]>(() => {
   const list: Entry[] = [
     ...services.value.map((s): Entry => ({ kind: 'service', key: `s${s.id}`, at: s.at, s })),
     ...expenses.value.filter((e) => !e.serviceId).map((e): Entry => ({ kind: 'expense', key: `e${e.id}`, at: e.at, e })),
-  ]
+  ].filter((en) => {
+    if (!query.value.trim()) return true
+    if (en.kind === 'service') {
+      return matches(query.value, en.s.itemNames.map(itemLabel).join(' '), en.s.bikeName, en.s.garageName, en.s.notes)
+    }
+    return matches(query.value, categoryLabel(en.e.categoryName), en.e.description)
+  })
   // stable: API order (newest first) is kept within the same day
   return list.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
 })
@@ -81,18 +88,27 @@ async function removeExpense(id: string) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md p-4 pb-24">
+  <main class="mx-auto max-w-md p-4 pb-6">
     <div class="flex items-center justify-between gap-2">
       <h1 class="text-xl font-bold text-white">{{ t.history.title }}</h1>
       <button type="button" class="rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent" data-testid="add-expense" @click="expenseOpen = true">{{ t.history.addExpense }}</button>
     </div>
-    <label v-if="bikes.length > 1" class="mt-3 block text-[11px] uppercase tracking-wider text-muted">
-      {{ t.history.bike }}
-      <select v-model="bikeFilter" data-testid="bike-filter" class="mt-1 block w-full rounded-xl bg-surface px-3 py-2.5 text-base normal-case text-white">
+    <div class="mt-3 flex gap-2">
+      <input
+        v-model="query"
+        type="search"
+        autocomplete="off"
+        :placeholder="t.history.search"
+        :aria-label="t.history.search"
+        data-testid="history-search"
+        class="block min-w-0 flex-1 rounded-xl bg-surface px-3 py-2.5 text-base text-white outline-none focus:ring-2 focus:ring-accent"
+      >
+      <label v-if="bikes.length > 1" class="sr-only" for="bike-filter">{{ t.history.bike }}</label>
+      <select v-if="bikes.length > 1" id="bike-filter" v-model="bikeFilter" :aria-label="t.history.bike" data-testid="bike-filter" class="max-w-[45%] truncate rounded-xl bg-surface px-3 py-2.5 text-sm normal-case text-white">
         <option value="">{{ t.common.allBikes }}</option>
         <option v-for="b in bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
       </select>
-    </label>
+    </div>
     <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
     <p v-else-if="loaded && !timeline.length" class="mt-4 text-muted" data-testid="history-empty">{{ t.history.empty }}</p>
 
@@ -105,18 +121,19 @@ async function removeExpense(id: string) {
             <span v-if="en.s.totalCents" class="shrink-0 font-bold text-white" data-testid="history-amount">{{ money(en.s.totalCents) }}</span>
           </div>
           <p class="mt-0.5 text-xs text-muted">
-            {{ en.s.atUnknown ? t.item.dateUnknown : date(en.s.at) }}<template v-if="en.s.hoursTenths !== null"> · {{ hours(en.s.hoursTenths) }}</template>
+            {{ en.s.atUnknown ? t.item.dateUnknown : date(en.s.at) }}<template v-if="en.s.hoursTenths !== null"> · {{ hours(en.s.hoursTenths) }}</template><template v-if="en.s.km !== null"> · {{ km(en.s.km) }}</template>
             · {{ en.s.bikeName }} · {{ en.s.by === 'garage' ? (en.s.garageName ? t.history.garageNamed(en.s.garageName) : t.item.garage) : t.common.diy }}
             <span v-if="en.s.notes === 'Initial'">{{ t.history.fromSetup }}</span>
             <span v-if="en.s.documentId"> · <NuxtLink :to="`/invoice/${en.s.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" :aria-label="t.item.openInvoice" data-testid="history-invoice"><Icon name="invoice" :size="15" /></NuxtLink></span>
           </p>
+          <p v-if="en.s.notes && en.s.notes !== 'Initial'" class="mt-0.5 text-xs text-text/90" data-testid="history-notes">{{ en.s.notes }}</p>
           <p v-if="en.s.partsUsed?.length" class="mt-0.5 text-xs text-muted" data-testid="history-parts">{{ partsLine(en.s.partsUsed) }}</p>
           <p v-if="en.s.pending" class="mt-1.5 text-xs text-warn-text" data-testid="history-pending">{{ t.history.pending }}</p>
           <div v-else class="mt-1.5 text-xs">
             <template v-if="confirmId === en.key">
               <span class="text-warn-text">{{ t.history.deleteService }}</span>
-              <button type="button" class="ml-2 font-bold text-danger-text" data-testid="confirm-delete" @click="removeService(en.s.id)">{{ t.history.yesDelete }}</button>
-              <button type="button" class="ml-3 text-muted" @click="confirmId = null">{{ t.common.keep }}</button>
+              <button type="button" class="-my-2 ml-2 min-h-10 px-2 font-bold text-danger-text" data-testid="confirm-delete" @click="removeService(en.s.id)">{{ t.history.yesDelete }}</button>
+              <button type="button" class="-my-2 ml-2 min-h-10 px-2 text-muted" @click="confirmId = null">{{ t.common.keep }}</button>
             </template>
             <button v-else type="button" class="-my-2 min-h-11 px-2 text-muted" data-testid="delete-service" @click="confirmId = en.key">{{ t.common.delete }}</button>
           </div>
@@ -133,8 +150,8 @@ async function removeExpense(id: string) {
           <div v-else class="mt-1.5 text-xs">
             <template v-if="confirmId === en.key">
               <span class="text-warn-text">{{ t.history.deleteExpense }}</span>
-              <button type="button" class="ml-2 font-bold text-danger-text" data-testid="confirm-delete" @click="removeExpense(en.e.id)">{{ t.history.yesDelete }}</button>
-              <button type="button" class="ml-3 text-muted" @click="confirmId = null">{{ t.common.keep }}</button>
+              <button type="button" class="-my-2 ml-2 min-h-10 px-2 font-bold text-danger-text" data-testid="confirm-delete" @click="removeExpense(en.e.id)">{{ t.history.yesDelete }}</button>
+              <button type="button" class="-my-2 ml-2 min-h-10 px-2 text-muted" @click="confirmId = null">{{ t.common.keep }}</button>
             </template>
             <button v-else type="button" class="-my-2 min-h-11 px-2 text-muted" data-testid="delete-expense" @click="confirmId = en.key">{{ t.common.delete }}</button>
           </div>

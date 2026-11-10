@@ -32,6 +32,7 @@ const by = ref<'diy' | 'garage'>('diy')
 const garageName = ref('')
 const picked = ref<string[]>([])
 const costText = ref('')
+const notesText = ref('')
 const categoryId = ref('')
 const categories = ref<Category[]>([])
 const error = ref('')
@@ -97,6 +98,7 @@ watch(
     garageName.value = ''
     picked.value = []
     costText.value = ''
+    notesText.value = ''
     error.value = ''
     use.value = {}
     addedIds.value = []
@@ -155,6 +157,7 @@ async function save() {
       by: by.value,
       ...(by.value === 'garage' && garageName.value.trim() ? { garageName: garageName.value.trim() } : {}),
       itemIds: [props.itemId, ...picked.value],
+      ...(notesText.value.trim() ? { notes: notesText.value.trim() } : {}),
       ...(partsUsed.length ? { partsUsed } : {}),
       ...(cents !== null ? { expenses: [{ amountCents: cents, categoryId: categoryId.value, description: itemName.value }] } : {}),
     }, { queue: true })
@@ -209,9 +212,9 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       </label>
       <fieldset v-if="others.length" class="mt-3">
         <legend class="text-[11px] uppercase tracking-wider text-muted">{{ t.markDone.alsoDone }}</legend>
-        <div class="mt-1 max-h-36 space-y-1 overflow-y-auto rounded-xl bg-bg p-2">
-          <label v-for="i in others" :key="i.id" class="flex items-center gap-2 py-1 text-sm text-white">
-            <input v-model="picked" type="checkbox" :value="i.id" class="h-4 w-4 accent-accent">
+        <div class="mt-1 max-h-44 space-y-1 overflow-y-auto rounded-xl bg-bg p-2">
+          <label v-for="i in others" :key="i.id" class="flex min-h-10 items-center gap-2.5 py-1.5 text-sm text-white">
+            <input v-model="picked" type="checkbox" :value="i.id" class="h-5 w-5 shrink-0 accent-accent">
             {{ itemLabel(i.name) }}
           </label>
         </div>
@@ -280,6 +283,10 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           </select>
         </label>
       </div>
+      <label class="mt-3 block text-[11px] uppercase tracking-wider text-muted">
+        {{ t.markDone.notes }}
+        <input v-model="notesText" maxlength="500" autocomplete="off" :placeholder="t.markDone.notesPh" data-testid="md-notes" :class="field">
+      </label>
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="md-error">{{ error }}</p>
       <button type="submit" :disabled="busy || shelfLoading" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="md-save">{{ t.common.save }}</button>
     </form>
