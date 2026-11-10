@@ -2,9 +2,10 @@
 import { errorMessage } from '~/offline/outbox'
 const { t } = useI18n()
 
-/** Rename + remove (with an in-page "are you sure"), for a bike or an item. */
+/** Rename + remove (with an in-page "are you sure"), for a bike, car or an item. */
 const props = defineProps<{
   what: 'bike' | 'item'
+  whatLabel?: string
   name: string
   removeNote: string
   rename: (name: string) => Promise<void>
@@ -31,7 +32,7 @@ async function run(fn: () => Promise<void>) {
 }
 function saveName() {
   const n = nameText.value.trim()
-  if (!n) return void (error.value = t.value.manage.needName(t.value.manage.what[props.what]))
+  if (!n) return void (error.value = t.value.manage.needName(props.whatLabel ?? t.value.manage.what[props.what]))
   if (n !== props.name) run(() => props.rename(n))
 }
 </script>
@@ -47,7 +48,7 @@ function saveName() {
     </form>
     <p v-if="error" role="alert" class="mt-2 text-sm text-danger-text">{{ error }}</p>
     <button v-if="!askRemove" type="button" class="mt-3 min-h-11 text-sm text-danger-text" :data-testid="`${props.what}-remove`" @click="askRemove = true">
-      {{ t.manage.remove(t.manage.what[props.what]) }}
+      {{ t.manage.remove(props.whatLabel ?? t.manage.what[props.what]) }}
     </button>
     <div v-else role="alert" class="mt-3 rounded-lg border border-danger/40 bg-danger/10 p-3 text-sm">
       <p class="text-text">{{ t.manage.removeAsk(props.name) }} {{ props.removeNote }}</p>

@@ -266,14 +266,23 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </form>
       </section>
 
-      <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted">{{ t.bike.bikeSection }}</h2>
-      <form class="mb-3 rounded-xl bg-surface p-3" data-testid="bike-meters" @submit.prevent="saveMeters">
+      <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted font-tag">
+        {{ data.bike.vehicleType === 'car' ? t.bike.carSection : t.bike.bikeSection }}
+      </h2>
+      <form v-if="data.bike.vehicleType !== 'car'" class="mb-3 rounded-xl bg-surface p-3" data-testid="bike-meters" @submit.prevent="saveMeters">
         <MetersChoice v-model="metersDraft" :disabled="metersBusy" />
         <p class="mt-2 text-xs text-muted">{{ t.bike.metersHint }}</p>
         <p v-if="metersError" role="alert" class="mt-2 text-sm text-danger-text">{{ metersError }}</p>
         <button type="submit" :disabled="metersBusy || metersDraft === meters" class="mt-2 min-h-11 w-full rounded-xl bg-bg text-sm font-semibold text-accent-text disabled:opacity-40" data-testid="bike-meters-save">{{ t.bike.saveCounts }}</button>
       </form>
-      <ManagePanel what="bike" :name="data.bike.name" :remove-note="t.bike.removeNote" :rename="renameBike" :remove="removeBike" />
+      <ManagePanel
+        what="bike"
+        :what-label="data.bike.vehicleType === 'car' ? t.manage.what.car : t.manage.what.bike"
+        :name="data.bike.name"
+        :remove-note="t.bike.removeNote"
+        :rename="renameBike"
+        :remove="removeBike"
+      />
       <PremixSheet
         v-if="data.bike.vehicleType !== 'car' && data.bike.stroke === '2T'"
         v-model:open="premixOpen"
