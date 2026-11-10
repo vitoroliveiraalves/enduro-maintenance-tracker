@@ -98,21 +98,18 @@ services:
         done
     networks: [internal]
 
-  # Optional auto-updater: Watchtower periodically checks GHCR for updated images,
+  # Auto-updater: Watchtower periodically checks GHCR for updated images,
   # pulls new layers, and seamlessly restarts the app container (auto-applying migrations on start).
-  # Uncomment this service if you want fully autonomous CD without Portainer webhooks:
-  # watchtower:
-  #   image: containrrr/watchtower
-  #   restart: unless-stopped
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     # If GHCR package is private, mount Docker credentials:
-  #     # - /root/.docker/config.json:/config.json:ro
-  #   environment:
-  #     WATCHTOWER_CLEANUP: 'true'
-  #     WATCHTOWER_POLL_INTERVAL: 300 # check every 5 minutes
-  #     WATCHTOWER_LABEL_ENABLE: 'true' # only update containers with com.centurylinklabs.watchtower.enable=true
-  #   networks: [edge]
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_CLEANUP: 'true'
+      WATCHTOWER_POLL_INTERVAL: 300 # check every 5 minutes
+      WATCHTOWER_LABEL_ENABLE: 'true' # only update containers with com.centurylinklabs.watchtower.enable=true
+    networks: [edge]
 
 volumes:
   db-data:
