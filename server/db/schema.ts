@@ -162,6 +162,7 @@ export const bikes = pgTable(
     year: integer('year').notNull(),
     stroke: text('stroke', { enum: ['2T', '4T'] }).notNull(),
     meters: text('meters', { enum: ['hours_km', 'km', 'hours'] }).notNull().default('hours_km'),
+    premixRatio: integer('premix_ratio'),
     photoDocumentId: uuid('photo_document_id').references(() => documents.id, { onDelete: 'set null' }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: createdAt(),

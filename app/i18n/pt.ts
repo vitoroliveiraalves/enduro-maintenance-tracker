@@ -985,6 +985,21 @@ export const pt: Messages = {
     discard: 'Descartar',
   },
 
+  premix: {
+    title: 'Mistura 2T',
+    subtitle: 'Abastecimento & Proporção',
+    ratioLabel: 'Proporção Óleo : Gasolina',
+    fuelVolume: 'Volume de gasolina',
+    litres: 'Litros',
+    oilToAdd: 'Óleo 2T a adicionar',
+    formula: (ratio: number, mlPerLitre: string) => `Proporção 1:${ratio} · ${mlPerLitre} mL de óleo por cada 1 Litro de gasolina`,
+    saveDefault: (name: string, ratio: number) => `Lembrar 1:${ratio} como padrão de ${name}`,
+    confirm: 'Guardar proporção',
+    savedToast: (ratio: number) => `Proporção 1:${ratio} gravada`,
+    tank: 'Depósito',
+    chipLabel: (ratio: number) => `⛽ 1:${ratio} (2T)`,
+  },
+
   seeded: { categories: CATEGORIES, items: ITEMS },
 
   server: SERVER,

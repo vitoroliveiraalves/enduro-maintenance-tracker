@@ -87,3 +87,26 @@ test('an item link under the wrong bike goes to the right one', async ({ page })
   await expect(page).toHaveURL(new RegExp(`/bikes/${b}/items/${chain.id}$`))
   await expect(page.getByRole('heading', { name: 'Chain & sprockets' })).toBeVisible()
 })
+
+test('2T bike shows premix chip and calculates fuel oil mix', async ({ page }) => {
+  await loginAs(page)
+  const id = await seedMockupBike(page.request, 'Premix Bike')
+  await page.goto(`/bikes/${id}`)
+  const chip = page.getByTestId('premix-chip')
+  await expect(chip).toBeVisible()
+  await expect(chip).toContainText('1:50')
+
+  await chip.click()
+  await expect(page.getByTestId('premix-sheet')).toBeVisible()
+  await expect(page.getByTestId('oil-amount')).toHaveText('100')
+
+  await page.getByTestId('ratio-40').click()
+  await expect(page.getByTestId('oil-amount')).toHaveText('125')
+
+  await page.getByTestId('jerrycan-10').click()
+  await expect(page.getByTestId('oil-amount')).toHaveText('250')
+
+  await page.getByTestId('confirm-premix-btn').click()
+  await expect(page.getByTestId('premix-sheet')).not.toBeVisible()
+  await expect(chip).toContainText('1:40')
+})

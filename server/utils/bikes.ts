@@ -149,6 +149,7 @@ export function parseBikeInput(raw: unknown) {
     year: int(raw.year, 'year', 1950, 2100),
     stroke: raw.stroke as '2T' | '4T',
     meters,
+    premixRatio: raw.stroke === '2T' ? (raw.premixRatio !== undefined ? (raw.premixRatio === null ? null : int(raw.premixRatio, 'premixRatio', 10, 100)) : 50) : null,
     hoursTenths: countsHours(meters) ? int(raw.hoursTenths, 'hoursTenths') : null,
     km: countsKm(meters) ? int(raw.km, 'km') : null,
     items: raw.items.map((i) => cleanItem(i, meters)),
@@ -168,7 +169,7 @@ export async function createBike(userId: string, raw: unknown): Promise<Bike> {
   return db.transaction(async (tx) => {
     const [bike] = await tx
       .insert(bikes)
-      .values({ userId, clientId: input.clientId, name: input.name, make: input.make, model: input.model, year: input.year, stroke: input.stroke, meters: input.meters })
+      .values({ userId, clientId: input.clientId, name: input.name, make: input.make, model: input.model, year: input.year, stroke: input.stroke, meters: input.meters, premixRatio: input.premixRatio })
       .onConflictDoNothing({ target: [bikes.userId, bikes.clientId] })
       .returning()
     if (!bike) {
@@ -310,6 +311,9 @@ export async function patchBike(bike: Bike, raw: unknown): Promise<Bike> {
   if (raw.meters !== undefined) {
     if (!isBikeMeters(raw.meters)) throw bad('Invalid meters')
     set.meters = raw.meters
+  }
+  if (raw.premixRatio !== undefined) {
+    set.premixRatio = raw.premixRatio === null ? null : int(raw.premixRatio, 'premixRatio', 10, 100)
   }
   if (raw.archived !== undefined) set.archivedAt = raw.archived ? new Date() : null
   if (Object.keys(set).length === 0) return bike

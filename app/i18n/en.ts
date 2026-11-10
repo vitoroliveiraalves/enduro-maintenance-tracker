@@ -899,6 +899,21 @@ export const en = {
     discard: 'Discard',
   },
 
+  premix: {
+    title: '2T Pre-Mix',
+    subtitle: 'Fuel & Oil Ratio',
+    ratioLabel: 'Oil : Fuel Ratio',
+    fuelVolume: 'Fuel volume',
+    litres: 'Litres',
+    oilToAdd: '2T oil to add',
+    formula: (ratio: number, mlPerLitre: string) => `Ratio 1:${ratio} · ${mlPerLitre} mL oil per 1 Litre of fuel`,
+    saveDefault: (name: string, ratio: number) => `Remember 1:${ratio} as default for ${name}`,
+    confirm: 'Save ratio',
+    savedToast: (ratio: number) => `1:${ratio} ratio saved`,
+    tank: 'Tank',
+    chipLabel: (ratio: number) => `⛽ 1:${ratio} (2T)`,
+  },
+
   /**
    * Names the app seeds (default categories, template items), by their English name.
    * English shows them as stored; another language translates them when shown or seeded.

@@ -7,7 +7,7 @@ import type { ItemRowJson } from '../../../../server/domain/item-row'
 const { t } = useI18n()
 
 type Detail = {
-  bike: { id: string; name: string; year: number; meters: BikeMeters }
+  bike: { id: string; name: string; year: number; stroke: '2T' | '4T'; meters: BikeMeters; premixRatio?: number | null }
   latestReading: { id?: string; at: string; hoursTenths: number | null; km: number | null; pending?: boolean } | null
   items: Array<ItemRowJson & { pendingSync?: boolean }>
 }
@@ -21,6 +21,7 @@ const data = ref<Detail | null>(null)
 const error = ref('')
 const sheetOpen = ref(false)
 const correctOpen = ref(false)
+const premixOpen = ref(false)
 const chips = ref<DueChip[]>([])
 const { syncTick } = useOffline()
 
@@ -167,7 +168,16 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
     <template v-if="data">
       <h1 class="mb-1 mt-2 text-[34px] text-white" data-testid="bike-name">{{ data.bike.name }}</h1>
       <div class="text-xs text-muted" data-testid="last-ride">{{ lastRide }}</div>
-      <div v-if="chips.length" class="mt-2 flex flex-wrap gap-1.5">
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        <button
+          v-if="data.bike.stroke === '2T'"
+          type="button"
+          class="rounded-full border border-track bg-surface px-2.5 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent"
+          data-testid="premix-chip"
+          @click="premixOpen = true"
+        >
+          {{ t.premix.chipLabel(data.bike.premixRatio ?? 50) }}
+        </button>
         <NuxtLink
           v-for="c in chips"
           :key="c.id"
@@ -244,6 +254,14 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         <button type="submit" :disabled="metersBusy || metersDraft === meters" class="mt-2 min-h-11 w-full rounded-xl bg-bg text-sm font-semibold text-accent-text disabled:opacity-40" data-testid="bike-meters-save">{{ t.bike.saveCounts }}</button>
       </form>
       <ManagePanel what="bike" :name="data.bike.name" :remove-note="t.bike.removeNote" :rename="renameBike" :remove="removeBike" />
+      <PremixSheet
+        v-if="data.bike.stroke === '2T'"
+        v-model:open="premixOpen"
+        :bike-id="data.bike.id"
+        :bike-name="data.bike.name"
+        :initial-ratio="data.bike.premixRatio ?? 50"
+        @saved="(r) => { if (data) data.bike.premixRatio = r }"
+      />
     </template>
     <div v-else-if="!error" class="mt-2" data-testid="bike-loading">
       <div class="h-9 w-2/3 bg-surface motion-safe:animate-pulse" aria-hidden="true" />

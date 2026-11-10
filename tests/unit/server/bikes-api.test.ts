@@ -190,5 +190,16 @@ describe('bikes api logic', () => {
       const patched = await patchItem({ ...a, everyHoursTenths: 400 }, uid, { everyHoursTenths: 999, everyKm: 7000 })
       expect(patched).toMatchObject({ everyHoursTenths: 400, everyKm: 7000 })
     })
+
+    it('manages 2T premixRatio: defaults to 50, updates via patch, validates range', async () => {
+      const bike = await createBike(uid, body({ stroke: '2T', items: [] }))
+      expect(bike.premixRatio).toBe(50)
+
+      const updated = await patchBike(bike, { premixRatio: 40 })
+      expect(updated.premixRatio).toBe(40)
+
+      await expect(patchBike(bike, { premixRatio: 5 })).rejects.toMatchObject({ statusCode: 400 })
+      await expect(patchBike(bike, { premixRatio: 150 })).rejects.toMatchObject({ statusCode: 400 })
+    })
   })
 })
