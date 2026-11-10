@@ -503,6 +503,22 @@ export const shoppingEntries = pgTable(
   (t) => [unique('shopping_entries_user_client_uq').on(t.userId, t.clientId)],
 )
 
+export const apiTokens = pgTable(
+  'api_tokens',
+  {
+    id: id(),
+    userId: userRef(),
+    name: text('name').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    tokenPrefix: text('token_prefix').notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('api_tokens_user_idx').on(t.userId), index('api_tokens_hash_idx').on(t.tokenHash)],
+)
+
+export type ApiToken = typeof apiTokens.$inferSelect
 export type Part = typeof parts.$inferSelect
 export type PartMovement = typeof partMovements.$inferSelect
 export type ShoppingEntry = typeof shoppingEntries.$inferSelect
