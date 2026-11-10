@@ -26,6 +26,41 @@ const reminders = ref<Reminder[]>([])
 const remError = ref('')
 const sheetOpen = ref(false)
 
+type ApiTokenSummary = {
+  id: string
+  name: string
+  tokenPrefix: string
+  lastUsedAt: string | null
+  createdAt: string
+}
+const mcpTokens = ref<ApiTokenSummary[]>([])
+const mcpTokensLoading = ref(false)
+const mcpSheetOpen = ref(false)
+const askRevoke = ref<string | null>(null)
+const mcpError = ref('')
+
+async function loadMcpTokens() {
+  mcpTokensLoading.value = true
+  mcpError.value = ''
+  try {
+    mcpTokens.value = await get<ApiTokenSummary[]>('/api/tokens')
+  } catch {
+    // offline or error
+  } finally {
+    mcpTokensLoading.value = false
+  }
+}
+
+async function revokeToken(id: string) {
+  try {
+    await mutate(`/api/tokens/${id}`, {}, { method: 'DELETE' })
+    askRevoke.value = null
+    await loadMcpTokens()
+  } catch {
+    mcpError.value = t.value.settings.mcpRevokeFailed
+  }
+}
+
 async function loadReminders() {
   try {
     reminders.value = await get<Reminder[]>('/api/reminders')
@@ -38,6 +73,7 @@ onMounted(async () => {
   push.init()
   void voice.checkAvailable()
   loadReminders()
+  loadMcpTokens()
   store.fetchBikes().catch(() => {})
   // The auth middleware just checked (or, offline, trusted) this session.
   email.value = readSession()?.email ?? ''
@@ -202,6 +238,68 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
       <p v-else class="text-muted" data-testid="voice-off">{{ t.settings.voiceOff }}</p>
       <p class="mt-2 text-xs leading-relaxed text-muted">{{ t.settings.aiNote }}</p>
     </section>
+
+    <h2 :class="h2">{{ t.settings.mcpTitle }}</h2>
+    <section class="rounded-xl bg-surface p-3 text-sm" data-testid="mcp-section">
+      <p class="text-xs text-muted mb-3 leading-relaxed">{{ t.settings.mcpHint }}</p>
+
+      <div v-if="!mcpTokens.length" class="text-xs text-muted py-1" data-testid="mcp-no-tokens">
+        {{ t.settings.mcpNoKeys }}
+      </div>
+
+      <div v-for="tok in mcpTokens" :key="tok.id" class="mb-2 rounded-xl bg-bg p-3 border border-white/5" data-testid="mcp-token-row">
+        <div class="flex items-baseline justify-between gap-2">
+          <span class="text-sm font-semibold text-white" data-testid="mcp-token-name">{{ tok.name }}</span>
+          <span class="font-mono text-xs text-muted">{{ tok.tokenPrefix }}...</span>
+        </div>
+        <div class="mt-1 text-xs text-muted">
+          {{ tok.lastUsedAt ? t.settings.mcpLastUsed(formatDate(tok.lastUsedAt.slice(0, 10))) : t.settings.mcpNeverUsed }}
+        </div>
+        <div class="mt-2 flex gap-2">
+          <template v-if="askRevoke !== tok.id">
+            <button
+              type="button"
+              class="min-h-9 rounded-lg px-3 text-xs text-muted hover:text-danger-text"
+              data-testid="mcp-revoke-btn"
+              @click="askRevoke = tok.id"
+            >
+              {{ t.settings.mcpRevoke }}
+            </button>
+          </template>
+          <template v-else>
+            <span class="self-center text-xs text-danger-text">{{ t.settings.mcpRevokeConfirm(tok.name) }}</span>
+            <button
+              type="button"
+              class="min-h-9 rounded-lg bg-danger px-3 text-xs font-bold text-on-danger"
+              data-testid="mcp-revoke-confirm"
+              @click="revokeToken(tok.id)"
+            >
+              {{ t.settings.mcpRevoke }}
+            </button>
+            <button
+              type="button"
+              class="min-h-9 rounded-lg px-3 text-xs text-muted"
+              @click="askRevoke = null"
+            >
+              {{ t.common.keep }}
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <p v-if="mcpError" role="alert" class="mt-2 text-xs text-danger-text">{{ mcpError }}</p>
+
+      <button
+        type="button"
+        class="mt-2 w-full rounded-xl border border-dashed border-white/15 py-2.5 text-xs font-semibold text-accent-text hover:border-accent-text"
+        data-testid="create-mcp-key-btn"
+        @click="mcpSheetOpen = true"
+      >
+        {{ t.settings.mcpCreateKey }}
+      </button>
+    </section>
+
+    <McpKeySheet v-model:open="mcpSheetOpen" @created="loadMcpTokens" />
 
     <h2 id="reminders" :class="h2" class="scroll-mt-4">{{ t.settings.reminders }}</h2>
     <section data-testid="reminders-section">

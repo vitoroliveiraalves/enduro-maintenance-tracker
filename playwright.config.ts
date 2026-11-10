@@ -25,7 +25,7 @@ export default defineConfig({
       DATABASE_URL: 'postgres://enduro:enduro@localhost:5433/enduro_e2e',
       BETTER_AUTH_SECRET: 'e2e-only-secret-e2e-only-secret-0123456789',
       BETTER_AUTH_URL: WEB,
-      AUTH_RATE_LIMIT_MAX: '200',
+      AUTH_RATE_LIMIT_MAX: '2000',
       // Canned invoice reader: 3 lines, or a failure for files carrying MOCK-FAIL (see server/utils/invoice-read.ts).
       NUXT_INVOICE_READER: 'mock',
       // Canned voice reader: fixed rules on the transcript (see mockVoice in server/utils/voice.ts).

@@ -71,6 +71,13 @@
       "when": 1794307273080,
       "tag": "0009_admin_ai_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794314155960,
+      "tag": "0010_api_tokens",
+      "breakpoints": true
     }
   ]
 }
