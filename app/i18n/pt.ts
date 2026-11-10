@@ -680,6 +680,8 @@ export const pt: Messages = {
   bike: {
     notFound: 'Mota não encontrada.',
     renamed: (name) => `Nome mudado para ${name}`,
+    plateSaved: 'Matrícula guardada',
+    addReminder: 'Lembrete (IUC / Seguro / IPO)',
     fallbackName: 'Mota',
     removed: (name) => `${name} saiu da garagem`,
     metersFailed: 'Não foi possível mudar o que a mota conta. Tente de novo.',

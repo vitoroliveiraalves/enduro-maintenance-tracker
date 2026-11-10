@@ -587,6 +587,8 @@ export const en = {
   bike: {
     notFound: 'Bike not found.',
     renamed: (name: string) => `Renamed to ${name}`,
+    plateSaved: 'License plate saved',
+    addReminder: 'Reminder (IUC / Insurance / IPO)',
     fallbackName: 'Bike',
     removed: (name: string) => `${name} removed from the garage`,
     metersFailed: 'Could not change what the bike counts. Try again.',

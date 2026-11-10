@@ -31,8 +31,16 @@ const error = ref('')
 const sheetOpen = ref(false)
 const correctOpen = ref(false)
 const premixOpen = ref(false)
+const reminderOpen = ref(false)
 const chips = ref<DueChip[]>([])
 const { syncTick } = useOffline()
+
+function loadReminders() {
+  // Reminders for this bike (or all bikes) due in 30 days or less; never blocks the screen.
+  get<Array<{ id: string; title: string; dueOn: string }>>(`/api/reminders?bikeId=${id}`)
+    .then((list) => (chips.value = dueChips(list)))
+    .catch(() => {})
+}
 
 async function load() {
   try {
@@ -46,10 +54,7 @@ async function load() {
 }
 
 onMounted(async () => {
-  // Reminders for this bike (or all bikes) due in 30 days or less; never blocks the screen.
-  get<Array<{ id: string; title: string; dueOn: string }>>(`/api/reminders?bikeId=${id}`)
-    .then((list) => (chips.value = dueChips(list)))
-    .catch(() => {})
+  loadReminders()
   await load()
 })
 // A flush sent queued writes: show the server's view (status recomputed there).
@@ -59,6 +64,11 @@ async function renameBike(name: string) {
   await mutate(`/api/bikes/${id}`, { name }, { method: 'PATCH', queue: true })
   await load()
   toast.show(t.value.bike.renamed(name))
+}
+async function updatePlate(plate: string | null) {
+  await mutate(`/api/bikes/${id}`, { plate }, { method: 'PATCH', queue: true })
+  await load()
+  toast.show(t.value.bike.plateSaved)
 }
 async function removeBike() {
   const name = data.value?.bike.name ?? t.value.bike.fallbackName
@@ -210,6 +220,14 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         >
           {{ c.text }}
         </NuxtLink>
+        <button
+          type="button"
+          class="rounded-full border border-track bg-surface px-2.5 py-1 text-xs font-semibold text-muted font-tag transition hover:border-accent hover:text-text"
+          data-testid="add-reminder-chip"
+          @click="reminderOpen = true"
+        >
+          + {{ t.bike.addReminder }}
+        </button>
       </div>
       <div v-if="data.latestReading" class="mb-3.5 mt-3 flex gap-2.5">
         <MeterCard v-if="hasHours" :label="t.common.hours" :value="data.latestReading.hoursTenths === null ? '—' : hours(data.latestReading.hoursTenths)" testid="hours-value" />
@@ -325,8 +343,10 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         what="bike"
         :what-label="data.bike.vehicleType === 'car' ? t.manage.what.car : t.manage.what.bike"
         :name="data.bike.name"
+        :plate="data.bike.plate"
         :remove-note="t.bike.removeNote"
         :rename="renameBike"
+        :save-plate="updatePlate"
         :remove="removeBike"
       />
       <PremixSheet
@@ -336,6 +356,12 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         :bike-name="data.bike.name"
         :initial-ratio="data.bike.premixRatio ?? 50"
         @saved="(r) => { if (data) data.bike.premixRatio = r }"
+      />
+      <ReminderSheet
+        v-model:open="reminderOpen"
+        :bikes="store.bikes.length ? store.bikes : [{ id: data.bike.id, name: data.bike.name }]"
+        :default-bike-id="data.bike.id"
+        @saved="loadReminders"
       />
     </template>
     <div v-else-if="!error" class="mt-2" data-testid="bike-loading">

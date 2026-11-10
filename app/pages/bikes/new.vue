@@ -222,6 +222,12 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
         </fieldset>
       </div>
 
+      <!-- Motorcycle: Optional License Plate -->
+      <label v-if="form.vehicleType === 'motorcycle'" class="block">
+        <span class="text-sm text-muted">{{ t.newBike.plate }} ({{ t.common.optional }})</span>
+        <input v-model="form.plate" :placeholder="t.newBike.platePh" class="uppercase font-tag tracking-wider" :class="field" data-testid="vehicle-plate-input">
+      </label>
+
       <!-- Motorcycle only: choose meters -->
       <MetersChoice v-if="form.vehicleType === 'motorcycle'" v-model="form.meters" />
 

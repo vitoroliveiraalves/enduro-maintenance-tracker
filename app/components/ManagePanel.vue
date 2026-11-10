@@ -7,13 +7,18 @@ const props = defineProps<{
   what: 'bike' | 'item'
   whatLabel?: string
   name: string
+  plate?: string | null
   removeNote: string
   rename: (name: string) => Promise<void>
+  savePlate?: (plate: string | null) => Promise<void>
   remove: () => Promise<void>
 }>()
 
 const nameText = ref(props.name)
 watch(() => props.name, (n) => (nameText.value = n))
+const plateText = ref(props.plate ?? '')
+watch(() => props.plate, (p) => (plateText.value = p ?? ''))
+const normalizedPlate = computed(() => plateText.value.trim().toUpperCase())
 const askRemove = ref(false)
 const busy = ref(false)
 const error = ref('')
@@ -35,6 +40,11 @@ function saveName() {
   if (!n) return void (error.value = t.value.manage.needName(props.whatLabel ?? t.value.manage.what[props.what]))
   if (n !== props.name) run(() => props.rename(n))
 }
+function onSavePlate() {
+  if (!props.savePlate) return
+  const p = normalizedPlate.value
+  if (p !== (props.plate ?? '')) run(() => props.savePlate!(p || null))
+}
 </script>
 
 <template>
@@ -45,6 +55,13 @@ function saveName() {
         <input v-model="nameText" maxlength="80" autocomplete="off" :data-testid="`${props.what}-rename`" class="mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-case text-white outline-none focus:ring-2 focus:ring-accent">
       </label>
       <button type="submit" :disabled="busy || nameText.trim() === props.name" class="min-h-12 rounded-xl bg-bg px-4 text-sm font-semibold text-accent-text disabled:opacity-40" :data-testid="`${props.what}-rename-save`">{{ t.manage.rename }}</button>
+    </form>
+    <form v-if="props.savePlate" class="mt-3 flex items-end gap-2" @submit.prevent="onSavePlate">
+      <label class="min-w-0 flex-1 text-[11px] uppercase tracking-wider text-muted">
+        {{ t.newBike.plate }}
+        <input v-model="plateText" maxlength="20" :placeholder="t.newBike.platePh" autocomplete="off" data-testid="bike-plate-input" class="mt-1 block w-full rounded-xl bg-bg px-3 py-3 font-tag text-base uppercase tracking-wider text-white outline-none focus:ring-2 focus:ring-accent">
+      </label>
+      <button type="submit" :disabled="busy || normalizedPlate === (props.plate ?? '')" class="min-h-12 rounded-xl bg-bg px-4 text-sm font-semibold text-accent-text disabled:opacity-40" data-testid="bike-plate-save">{{ t.common.save }}</button>
     </form>
     <p v-if="error" role="alert" class="mt-2 text-sm text-danger-text">{{ error }}</p>
     <button v-if="!askRemove" type="button" class="mt-3 min-h-11 text-sm text-danger-text" :data-testid="`${props.what}-remove`" @click="askRemove = true">

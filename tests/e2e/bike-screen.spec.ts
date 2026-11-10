@@ -124,3 +124,27 @@ test('2T bike shows premix chip and calculates fuel oil mix', async ({ page }) =
   await expect(page.getByTestId('premix-sheet')).not.toBeVisible()
   await expect(chip).toContainText('1:56')
 })
+
+test('add license plate and quick IUC reminder directly on a motorcycle screen', async ({ page }) => {
+  await loginAs(page)
+  const id = await seedMockupBike(page.request, 'Plated KTM')
+  await page.goto(`/bikes/${id}`)
+
+  // Add license plate to the motorcycle
+  await page.getByTestId('bike-plate-input').fill('99-ZZ-11')
+  await page.getByTestId('bike-plate-save').click()
+  await expect(page.getByTestId('bike-plate')).toHaveText('99-ZZ-11')
+
+  // Quick-add an IUC reminder due in 10 days from the vehicle page
+  const d = new Date()
+  d.setDate(d.getDate() + 10)
+  const due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  await page.getByTestId('add-reminder-chip').click()
+  await expect(page.getByTestId('reminder-sheet')).toBeVisible()
+  await page.getByTestId('preset-IUC').click()
+  await page.getByTestId('rem-date').fill(due)
+  await page.getByTestId('rem-save').click()
+
+  await expect(page.getByTestId('reminder-chip').filter({ hasText: 'IUC · in 10 days' })).toBeVisible()
+})

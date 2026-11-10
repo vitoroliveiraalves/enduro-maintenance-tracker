@@ -4,7 +4,7 @@ import { todayLocal } from '~/lib/parse-number'
 const { t } = useI18n()
 
 
-const props = defineProps<{ bikes: Array<{ id: string; name: string }> }>()
+const props = defineProps<{ bikes: Array<{ id: string; name: string }>; defaultBikeId?: string }>()
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ saved: [] }>()
 const { mutate } = useApi()
@@ -23,7 +23,7 @@ const busy = ref(false)
 // "All bikes" until the rider picks; a lone bike is the default, even when
 // the bike list arrives after the sheet opened (slow network).
 const bikeTouched = ref(false)
-const defaultBike = () => (props.bikes.length === 1 ? props.bikes[0]!.id : '')
+const defaultBike = () => props.defaultBikeId || (props.bikes.length === 1 ? props.bikes[0]!.id : '')
 
 watch(open, (v) => {
   if (!v) return
