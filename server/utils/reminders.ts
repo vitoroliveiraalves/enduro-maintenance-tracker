@@ -62,11 +62,11 @@ const toRow = (r: Reminder, bikeName: string | null): ReminderRow => ({
   doneAt: r.doneAt ? r.doneAt.toISOString() : null,
 })
 
-/** Re-arm the 7d / 0d pushes after the due date moved. */
+/** Re-arm the 15d / 7d / 0d pushes after the due date moved. */
 async function rearm(userId: string, reminderId: string) {
   await db
     .delete(notificationsSent)
-    .where(and(eq(notificationsSent.userId, userId), inArray(notificationsSent.key, [`reminder:${reminderId}:7d`, `reminder:${reminderId}:0d`])))
+    .where(and(eq(notificationsSent.userId, userId), inArray(notificationsSent.key, [`reminder:${reminderId}:15d`, `reminder:${reminderId}:7d`, `reminder:${reminderId}:0d`])))
 }
 
 /** Open reminders of the user, soonest first. With `bikeId`: that bike's plus the bike-less ones. */

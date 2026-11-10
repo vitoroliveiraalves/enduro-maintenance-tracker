@@ -4,7 +4,7 @@ import { db } from '../../../server/db/client'
 import { categories, expenses, partMovements, parts, user } from '../../../server/db/schema'
 import deletePart from '../../../server/api/parts/[id].delete'
 import getPart from '../../../server/api/parts/[id].get'
-import { applyMovement } from '../../../server/utils/parts'
+import { adjustPart, applyMovement } from '../../../server/utils/parts'
 import { truncateUsers } from '../../support/truncate'
 
 vi.mock('../../../server/utils/require-user', () => ({
@@ -43,5 +43,17 @@ describe('parts routes', () => {
     const [m] = await db.select().from(partMovements)
     expect(m).toMatchObject({ partId: null, partName: 'Spark plug', expenseId })
     expect(await db.select().from(expenses).where(eq(expenses.id, expenseId))).toHaveLength(1)
+  })
+
+  it('adjustPart with kind bought and amountCents records a bought movement and creates an expense', async () => {
+    const [p] = await db.select().from(parts).where(eq(parts.id, partId))
+    await db.transaction((tx) =>
+      adjustPart(tx, uid, p!, { clientId: crypto.randomUUID(), qtyHundredths: 200, kind: 'bought', amountCents: 1800, note: 'Online order' }),
+    )
+    const detail = (await getPart(as(uid, partId))) as { qtyHundredths: number; history: Array<{ kind: string; unitCents: number | null; note: string | null }> }
+    expect(detail.qtyHundredths).toBe(600)
+    expect(detail.history[0]).toMatchObject({ kind: 'bought', unitCents: 900, note: 'Online order' })
+    const allExpenses = await db.select().from(expenses).where(eq(expenses.userId, uid))
+    expect(allExpenses).toHaveLength(2)
   })
 })

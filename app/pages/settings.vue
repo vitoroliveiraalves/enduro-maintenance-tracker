@@ -32,12 +32,40 @@ function chooseLanguage(c: (typeof LANG_CHOICES)[number]) {
   void push.resync() // pushes to this phone follow the new language
 }
 
+type PaymentRow = {
+  id: string
+  bikeId: string | null
+  at: string
+  amountCents: number
+  categoryKind: string
+  description: string
+}
+
 const email = ref('')
 const isAdmin = ref(false)
 const reminders = ref<Reminder[]>([])
+const reminderBikeFilter = ref('')
+const insuranceExpenses = ref<PaymentRow[]>([])
 const remError = ref('')
 const sheetOpen = ref(false)
 const reminderToEdit = ref<Reminder | null>(null)
+
+const filteredReminders = computed(() =>
+  reminderBikeFilter.value
+    ? reminders.value.filter((r) => r.bikeId === reminderBikeFilter.value || !r.bikeId)
+    : reminders.value,
+)
+
+const filteredPayments = computed(() =>
+  insuranceExpenses.value
+    .filter((e) => e.categoryKind === 'insurance' && (!reminderBikeFilter.value || e.bikeId === reminderBikeFilter.value))
+    .slice(0, 6),
+)
+
+function bikeNameFor(bikeId: string | null) {
+  if (!bikeId) return null
+  return store.bikes.find((b) => b.id === bikeId)?.name ?? null
+}
 
 async function editReminder(r: Reminder) {
   reminderToEdit.value = r
@@ -91,6 +119,11 @@ async function loadReminders() {
     reminders.value = await get<Reminder[]>('/api/reminders')
   } catch {
     remError.value = t.value.settings.remindersFailed
+  }
+  try {
+    insuranceExpenses.value = await get<PaymentRow[]>('/api/expenses')
+  } catch {
+    // offline or error
   }
 }
 
@@ -326,10 +359,21 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
 
     <McpKeySheet v-model:open="mcpSheetOpen" @created="loadMcpTokens" />
 
-    <h2 id="reminders" :class="h2" class="scroll-mt-4">{{ t.settings.reminders }}</h2>
+    <div id="reminders" class="mb-1.5 mt-6 flex items-center justify-between gap-2 scroll-mt-4">
+      <h2 class="text-[11px] uppercase tracking-[0.08em] text-muted">{{ t.settings.reminders }}</h2>
+      <select
+        v-if="store.bikes.length > 1"
+        v-model="reminderBikeFilter"
+        data-testid="reminders-bike-filter"
+        class="max-w-[55%] truncate rounded-lg bg-surface px-2.5 py-1.5 text-xs text-white outline-none focus:ring-2 focus:ring-accent"
+      >
+        <option value="">{{ t.settings.allVehicles }}</option>
+        <option v-for="b in store.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
+      </select>
+    </div>
     <section data-testid="reminders-section">
-      <p v-if="!reminders.length" class="rounded-xl bg-surface p-3 text-sm text-muted">{{ t.settings.noReminders }}</p>
-      <div v-for="r in reminders" :key="r.id" class="mb-2 rounded-xl bg-surface p-3" data-testid="reminder-row">
+      <p v-if="!filteredReminders.length" class="rounded-xl bg-surface p-3 text-sm text-muted">{{ t.settings.noReminders }}</p>
+      <div v-for="r in filteredReminders" :key="r.id" class="mb-2 rounded-xl bg-surface p-3" data-testid="reminder-row">
         <div class="flex items-baseline justify-between gap-2">
           <span class="text-sm font-semibold text-white" data-testid="reminder-title">{{ r.title }}</span>
           <span class="text-xs text-muted">{{ r.bikeName ?? t.common.allBikes }}{{ r.repeatYearly ? t.settings.yearly : '' }}<span v-if="r.pending" class="text-warn-text">{{ t.settings.pendingSync }}</span></span>
@@ -356,8 +400,21 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
       </div>
       <p v-if="remError" role="alert" class="mt-2 text-sm text-danger-text">{{ remError }}</p>
       <button type="button" class="mt-1 w-full rounded-xl border border-dashed border-white/15 py-3 text-sm font-semibold text-accent-text" data-testid="add-reminder" @click="openNewReminder">{{ t.settings.addReminder }}</button>
+
+      <div v-if="filteredPayments.length" class="mt-3 rounded-xl bg-surface p-3" data-testid="reminders-payment-history">
+        <h3 class="text-[11px] uppercase tracking-wider text-muted">{{ t.settings.paymentHistoryTitle }}</h3>
+        <ul class="mt-1.5 divide-y divide-white/5">
+          <li v-for="p in filteredPayments" :key="p.id" class="flex items-center justify-between gap-2 py-2 text-xs" data-testid="reminders-payment-row">
+            <span class="min-w-0 truncate text-muted">
+              {{ formatDate(p.at) }} · <span class="text-white">{{ p.description }}</span>
+              <template v-if="!reminderBikeFilter && bikeNameFor(p.bikeId)"> · {{ bikeNameFor(p.bikeId) }}</template>
+            </span>
+            <b class="shrink-0 font-tag text-accent-text">{{ formatMoney(p.amountCents) }}</b>
+          </li>
+        </ul>
+      </div>
     </section>
-    <ReminderSheet v-model:open="sheetOpen" :bikes="store.bikes" :initial-reminder="reminderToEdit" @saved="loadReminders" />
+    <ReminderSheet v-model:open="sheetOpen" :bikes="store.bikes" :default-bike-id="reminderBikeFilter || undefined" :initial-reminder="reminderToEdit" @saved="loadReminders" />
 
     <h2 :class="h2">{{ t.settings.account }}</h2>
     <section class="rounded-xl bg-surface p-3">

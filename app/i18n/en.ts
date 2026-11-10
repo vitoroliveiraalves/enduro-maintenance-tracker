@@ -305,6 +305,14 @@ export const en = {
     policyPh: 'e.g. 1234567',
     updatingExisting: 'Updating existing reminder for this vehicle',
     yearly: 'Repeats every year',
+    markPaid: '✓ Mark as paid / done',
+    doneNextToast: (title: string, next: string) => `${title} marked paid · next due ${next}`,
+    doneToast: (title: string) => `${title} marked done`,
+    removedToast: (title: string) => `${title} removed`,
+    removeReminder: 'Remove reminder',
+    removeAsk: (title: string) => `Remove ${title}?`,
+    paymentHistory: 'Payment history',
+    noPaymentsYet: 'No payments logged yet.',
   },
 
   shoppingSheet: {
@@ -398,6 +406,13 @@ export const en = {
     deletePart: 'Delete part',
     deleteAsk: (name: string) => `Delete ${name}? Its history stays in your records.`,
     keepIt: 'Keep it',
+    restockBtn: '+ Log purchase / restock',
+    restockQty: 'Qty bought',
+    restockCost: 'Total cost (€, optional)',
+    restockCostPh: 'e.g. 24,90',
+    restockSave: 'Add to stock',
+    restockCancel: 'Cancel',
+    restockedToast: (name: string) => `${name} restocked`,
   },
 
   noteSheet: {
@@ -716,6 +731,8 @@ export const en = {
     whereItWent: 'Where it went',
     byBike: 'By vehicle',
     noBike: 'No vehicle',
+    addExpense: '+ Expense',
+    clearCategory: 'All categories',
   },
 
   shelf: {
@@ -729,6 +746,7 @@ export const en = {
     onlyItem: 'Only parts for one maintenance item ·',
     showAll: 'show all',
     anyBike: 'Any bike',
+    allVehicles: 'All vehicles',
     waiting: ' · Waiting to sync',
     waitingShort: 'Waiting to sync',
     noMatch: 'No part matches.',
@@ -797,6 +815,8 @@ export const en = {
     done: '✓ Done',
     removeAsk: (title: string) => `Remove ${title}?`,
     addReminder: '+ Add reminder',
+    allVehicles: 'All vehicles',
+    paymentHistoryTitle: 'Recent IUC / Insurance payments',
     account: 'Account',
     signedInAs: 'Signed in as',
     unsynced: (n: number) => (n === 1 ? '1 change hasn’t synced yet — signing out now would lose it.' : `${n} changes haven’t synced yet — signing out now would lose them.`),

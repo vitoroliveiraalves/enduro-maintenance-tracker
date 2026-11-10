@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { itemLabel } from '~/lib/server-text'
 import { errorMessage } from '~/offline/outbox'
-import { parseDecimal } from '~/lib/parse-number'
+import { parseCents, parseDecimal } from '~/lib/parse-number'
 import type { ShelfPart } from '~/lib/shelf'
 const { t } = useI18n()
 
@@ -30,6 +30,9 @@ const choices = ref<Array<{ id: string; name: string; bike: string }>>([])
 const error = ref('')
 const busy = ref(false)
 const confirmDelete = ref(false)
+const restockOpen = ref(false)
+const restockQtyText = ref('1')
+const restockCostText = ref('')
 
 const minHundredths = computed(() => props.part?.minHundredths ?? null)
 const isNew = computed(() => !props.part)
@@ -63,6 +66,9 @@ watch(open, async (v) => {
   const p = props.part
   error.value = ''
   confirmDelete.value = false
+  restockOpen.value = false
+  restockQtyText.value = '1'
+  restockCostText.value = ''
   history.value = []
   name.value = p?.name ?? ''
   unit.value = !p || p.unit === 'pcs' ? pcsWord() : p.unit
@@ -98,6 +104,38 @@ async function move(delta: number) {
   try {
     const res = await mutate<ShelfPart | { queued: true }>(`/api/parts/${p.id}/movements`, { qtyHundredths: delta }, { queue: true })
     count.value = isQueued(res) ? count.value + delta : (res as ShelfPart).qtyHundredths
+    emit('changed')
+    if (!isQueued(res)) void loadHistory()
+  } catch (e) {
+    error.value = errorMessage(e, t.value.partSheet.countFailed)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function restock() {
+  const p = props.part
+  if (!p || busy.value) return
+  const q = hundredths(restockQtyText.value)
+  if (q === null || q <= 0) return void (error.value = t.value.partSheet.startNumber)
+  let amountCents: number | null = null
+  if (restockCostText.value.trim()) {
+    amountCents = parseCents(restockCostText.value)
+    if (amountCents === null || amountCents < 0) return void (error.value = t.value.common.tryAgain)
+  }
+  busy.value = true
+  error.value = ''
+  try {
+    const res = await mutate<ShelfPart | { queued: true }>(
+      `/api/parts/${p.id}/movements`,
+      { qtyHundredths: q, kind: 'bought', ...(amountCents !== null && amountCents > 0 ? { amountCents } : {}) },
+      { queue: true },
+    )
+    count.value = isQueued(res) ? count.value + q : (res as ShelfPart).qtyHundredths
+    restockOpen.value = false
+    restockQtyText.value = '1'
+    restockCostText.value = ''
+    toast.show(t.value.partSheet.restockedToast(p.name))
     emit('changed')
     if (!isQueued(res)) void loadHistory()
   } catch (e) {
@@ -183,6 +221,49 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
           <div class="text-[11px] uppercase tracking-wider text-muted">{{ t.partSheet.onShelf }}</div>
         </div>
         <button type="button" class="size-12 rounded-lg bg-surface text-2xl font-bold text-white disabled:opacity-50" :aria-label="t.partSheet.oneMore" :disabled="busy" data-testid="part-plus" @click="move(100)">+</button>
+      </div>
+
+      <div v-if="!isNew" class="mt-2">
+        <button
+          v-if="!restockOpen"
+          type="button"
+          class="w-full rounded-xl border border-dashed border-white/15 py-2.5 text-xs font-semibold text-accent-text hover:border-accent"
+          data-testid="part-restock-open"
+          @click="restockOpen = true"
+        >
+          {{ t.partSheet.restockBtn }}
+        </button>
+        <div v-else class="rounded-xl border border-white/10 bg-bg p-3" data-testid="part-restock-panel">
+          <div class="grid grid-cols-2 gap-2.5">
+            <label :class="lbl">
+              {{ t.partSheet.restockQty }}
+              <input v-model="restockQtyText" inputmode="decimal" autocomplete="off" data-testid="part-restock-qty" class="mt-1 block w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent">
+            </label>
+            <label :class="lbl">
+              {{ t.partSheet.restockCost }}
+              <input v-model="restockCostText" inputmode="decimal" autocomplete="off" :placeholder="t.partSheet.restockCostPh" data-testid="part-restock-cost" class="mt-1 block w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent">
+            </label>
+          </div>
+          <div class="mt-2.5 flex gap-2">
+            <button
+              type="button"
+              :disabled="busy"
+              class="flex-1 rounded-lg bg-accent py-2 text-xs font-bold text-on-accent disabled:opacity-60"
+              data-testid="part-restock-save"
+              @click="restock"
+            >
+              {{ t.partSheet.restockSave }}
+            </button>
+            <button
+              type="button"
+              class="rounded-lg border border-white/15 px-3 py-2 text-xs text-muted"
+              data-testid="part-restock-cancel"
+              @click="restockOpen = false"
+            >
+              {{ t.partSheet.restockCancel }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="mt-3 grid grid-cols-2 gap-2.5">

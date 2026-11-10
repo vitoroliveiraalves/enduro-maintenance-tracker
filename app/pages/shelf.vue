@@ -12,6 +12,7 @@ const route = useRoute()
 
 const tab = ref<'parts' | 'buy'>('parts')
 const query = ref('')
+const bikeFilter = ref('')
 const parts = ref<ShelfPart[]>([])
 const loaded = ref(false)
 const error = ref('')
@@ -43,15 +44,24 @@ onMounted(async () => {
 watch(syncTick, load)
 
 const shown = computed(() =>
-  parts.value.filter((p) => (!itemFilter.value || p.itemIds.includes(itemFilter.value)) && matches(query.value, p.name, p.bikeName, p.notes)),
+  parts.value.filter(
+    (p) =>
+      (!itemFilter.value || p.itemIds.includes(itemFilter.value)) &&
+      (!bikeFilter.value || p.bikeId === bikeFilter.value || !p.bikeId) &&
+      matches(query.value, p.name, p.bikeName, p.notes),
+  ),
 )
 const low = (p: ShelfPart) => p.minHundredths !== null && p.qtyHundredths < p.minHundredths
 const empty = (p: ShelfPart) => p.qtyHundredths <= 0
 
 const openManual = computed(() => list.value.manual.filter((e) => !e.doneAt))
 const buyCount = computed(() => list.value.auto.length + openManual.value.length)
-const autoShown = computed(() => list.value.auto.filter((a) => matches(query.value, a.partName, a.bikeName, a.detail)))
-const manualShown = computed(() => list.value.manual.filter((e) => matches(query.value, e.text, e.bikeName)))
+const autoShown = computed(() =>
+  list.value.auto.filter((a) => (!bikeFilter.value || a.bikeId === bikeFilter.value || !a.bikeId) && matches(query.value, a.partName, a.bikeName, a.detail)),
+)
+const manualShown = computed(() =>
+  list.value.manual.filter((e) => (!bikeFilter.value || e.bikeId === bikeFilter.value || !e.bikeId) && matches(query.value, e.text, e.bikeName)),
+)
 
 function openPart(id: string) {
   const p = parts.value.find((x) => x.id === id)
@@ -95,15 +105,26 @@ function open(p: ShelfPart | null) {
       </button>
     </div>
 
-    <input
-      v-model="query"
-      type="search"
-      autocomplete="off"
-      :placeholder="t.shelf.search"
-      :aria-label="t.shelf.search"
-      data-testid="shelf-search"
-      class="mt-3 block w-full rounded-xl bg-surface px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-accent"
-    >
+    <div class="mt-3 flex gap-2">
+      <input
+        v-model="query"
+        type="search"
+        autocomplete="off"
+        :placeholder="t.shelf.search"
+        :aria-label="t.shelf.search"
+        data-testid="shelf-search"
+        class="block min-w-0 flex-1 rounded-xl bg-surface px-3 py-3 text-base text-white outline-none focus:ring-2 focus:ring-accent"
+      >
+      <select
+        v-if="store.bikes.length > 1"
+        v-model="bikeFilter"
+        data-testid="shelf-bike-filter"
+        class="max-w-[45%] truncate rounded-xl bg-surface px-3 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-accent"
+      >
+        <option value="">{{ t.shelf.allVehicles }}</option>
+        <option v-for="b in store.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
+      </select>
+    </div>
 
     <template v-if="tab === 'parts'">
       <p v-if="itemFilter" class="mt-2 text-xs text-muted" data-testid="shelf-item-filter">

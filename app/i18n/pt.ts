@@ -398,6 +398,14 @@ export const pt: Messages = {
     policyPh: 'ex. 1234567',
     updatingExisting: 'A atualizar o lembrete existente deste veículo',
     yearly: 'Repete todos os anos',
+    markPaid: '✓ Marcar como pago / renovado',
+    doneNextToast: (title, next) => `${title} pago · próxima data ${next}`,
+    doneToast: (title) => `${title} concluído`,
+    removedToast: (title) => `${title} removido`,
+    removeReminder: 'Remover lembrete',
+    removeAsk: (title) => `Remover ${title}?`,
+    paymentHistory: 'Histórico de pagamentos',
+    noPaymentsYet: 'Ainda sem pagamentos registados.',
   },
 
   shoppingSheet: {
@@ -491,6 +499,13 @@ export const pt: Messages = {
     deletePart: 'Apagar peça',
     deleteAsk: (name) => `Apagar ${name}? O histórico fica nos seus registos.`,
     keepIt: 'Manter',
+    restockBtn: '+ Registar compra / repor stock',
+    restockQty: 'Qtd. comprada',
+    restockCost: 'Custo total (€, opcional)',
+    restockCostPh: 'ex. 24,90',
+    restockSave: 'Adicionar ao stock',
+    restockCancel: 'Cancelar',
+    restockedToast: (name) => `Stock de ${name} atualizado`,
   },
 
   noteSheet: {
@@ -809,6 +824,8 @@ export const pt: Messages = {
     whereItWent: 'Para onde foi',
     byBike: 'Por veículo',
     noBike: 'Sem veículo',
+    addExpense: '+ Despesa',
+    clearCategory: 'Todas as categorias',
   },
 
   shelf: {
@@ -822,6 +839,7 @@ export const pt: Messages = {
     onlyItem: 'Só peças de um item de manutenção ·',
     showAll: 'mostrar tudo',
     anyBike: 'Qualquer veículo',
+    allVehicles: 'Todos os veículos',
     waiting: ' · À espera de sincronizar',
     waitingShort: 'À espera de sincronizar',
     noMatch: 'Nenhuma peça corresponde.',
@@ -890,6 +908,8 @@ export const pt: Messages = {
     done: '✓ Feito',
     removeAsk: (title) => `Remover ${title}?`,
     addReminder: '+ Novo lembrete',
+    allVehicles: 'Todos os veículos',
+    paymentHistoryTitle: 'Pagamentos recentes de IUC / Seguro',
     account: 'Conta',
     signedInAs: 'Sessão iniciada como',
     unsynced: (n) => (n === 1 ? '1 alteração ainda não sincronizou — se terminar a sessão agora, perde-a.' : `${n} alterações ainda não sincronizaram — se terminar a sessão agora, perde-as.`),

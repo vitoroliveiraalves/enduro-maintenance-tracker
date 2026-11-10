@@ -10,7 +10,16 @@ export type NotifyInput = {
   now: Date
   items: Array<{ bikeId: string; bikeName: string; itemId: string; itemName: string; lastServiceId: string | null; status: Status }>
   /** Open (not done) reminders; `dueOn` is the calendar day at 00:00 UTC. */
-  reminders: Array<{ id: string; title: string; dueOn: Date }>
+  reminders: Array<{
+    id: string
+    title: string
+    dueOn: Date
+    bikeId?: string | null
+    bikeName?: string | null
+    repeatYearly?: boolean
+    provider?: string | null
+    amountCents?: number | null
+  }>
   lastReadingAt: Date | null
   /** Which meters the rider's bikes count (any bike); absent → both. */
   meters?: { hours: boolean; km: boolean }
@@ -90,10 +99,17 @@ export function notificationsDue(input: NotifyInput): DueNotification[] {
   for (const r of input.reminders) {
     const days = Math.round((r.dueOn.getTime() - dayMs(local.day)) / MS_PER_DAY)
     const url = '/settings#reminders'
+    const label = r.bikeName ? `${r.title} (${r.bikeName})` : r.title
+    const extra: string[] = []
+    if (r.provider) extra.push(r.provider)
+    if (r.amountCents && r.amountCents > 0) extra.push(`${(r.amountCents / 100).toFixed(2).replace('.', ',')} €`)
+    const suffix = extra.length ? ` · ${extra.join(' · ')}` : ''
     if (days <= 0) {
-      out.push({ key: `reminder:${r.id}:0d`, title: t.reminderDueTitle(r.title), body: days === 0 ? t.reminderToday(r.title) : t.reminderWasDue(r.title, -days), url })
+      out.push({ key: `reminder:${r.id}:0d`, title: t.reminderDueTitle(label), body: (days === 0 ? t.reminderToday(label) : t.reminderWasDue(label, -days)) + suffix, url })
     } else if (days <= 7) {
-      out.push({ key: `reminder:${r.id}:7d`, title: t.reminderSoonTitle(r.title), body: t.reminderIn(r.title, days), url })
+      out.push({ key: `reminder:${r.id}:7d`, title: t.reminderSoonTitle(label), body: t.reminderIn(label, days) + suffix, url })
+    } else if (r.repeatYearly && days <= 15) {
+      out.push({ key: `reminder:${r.id}:15d`, title: t.reminderSoonTitle(label), body: t.reminderIn(label, days) + suffix, url })
     }
   }
 

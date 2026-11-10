@@ -80,10 +80,20 @@ async function inputFor(userId: string, now: Date): Promise<Omit<NotifyInput, 't
     ? await db.select({ at: max(meterReadings.at) }).from(meterReadings).where(and(eq(meterReadings.userId, userId), inArray(meterReadings.bikeId, list.map((b) => b.id))))
     : []
   const open = await db.select().from(reminders).where(and(eq(reminders.userId, userId), isNull(reminders.doneAt)))
+  const bikeNames = new Map(list.map((b) => [b.id, b.name]))
   return {
     now,
     items,
-    reminders: open.map((r) => ({ id: r.id, title: r.title, dueOn: new Date(`${r.dueOn}T00:00:00Z`) })),
+    reminders: open.map((r) => ({
+      id: r.id,
+      title: r.title,
+      dueOn: new Date(`${r.dueOn}T00:00:00Z`),
+      bikeId: r.bikeId,
+      bikeName: r.bikeId ? (bikeNames.get(r.bikeId) ?? null) : null,
+      repeatYearly: r.repeatYearly,
+      provider: r.provider,
+      amountCents: r.amountCents,
+    })),
     lastReadingAt: last?.at ?? null,
     meters: { hours: list.some((b) => countsHours(b.meters)), km: list.some((b) => countsKm(b.meters)) },
   }

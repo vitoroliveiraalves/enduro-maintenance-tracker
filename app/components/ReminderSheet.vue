@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { errorMessage } from '~/offline/outbox'
 import { todayLocal, parseCents } from '~/lib/parse-number'
+import { formatDate, formatMoney } from '~/lib/format'
 import type { ReminderRow } from '../../server/utils/reminders'
 const { t } = useI18n()
+
+type PaymentExpense = {
+  id: string
+  bikeId: string | null
+  at: string
+  amountCents: number
+  categoryKind: string
+  description: string
+}
 
 const props = defineProps<{
   bikes: Array<{ id: string; name: string; vehicleType?: 'motorcycle' | 'car' }>
@@ -23,8 +33,32 @@ const policyNumber = ref('')
 const repeatYearly = ref(true)
 const editingId = ref<string | null>(null)
 const activeReminders = ref<ReminderRow[]>([])
+const expenses = ref<PaymentExpense[]>([])
+const confirmRemove = ref(false)
 const error = ref('')
 const busy = ref(false)
+
+const currentTarget = computed(() => {
+  const id = editingId.value || props.initialReminder?.id
+  if (!id) return null
+  return activeReminders.value.find((r) => r.id === id) ?? props.initialReminder ?? null
+})
+
+const paymentHistory = computed(() => {
+  const nt = title.value.trim().toLowerCase()
+  return expenses.value.filter((e) => {
+    if (e.categoryKind !== 'insurance') return false
+    if (bikeId.value && e.bikeId && e.bikeId !== bikeId.value) return false
+    if (!nt) return true
+    const desc = e.description.toLowerCase()
+    if (nt === 'insurance' || nt === 'seguro') return desc.includes('insurance') || desc.includes('seguro')
+    if (nt === 'iuc') return desc.includes('iuc')
+    if (nt === 'inspection' || nt === 'inspeção' || nt === 'inspecao' || nt === 'ipo') {
+      return desc.includes('inspection') || desc.includes('inspeção') || desc.includes('inspecao') || desc.includes('ipo')
+    }
+    return desc.includes(nt)
+  }).slice(0, 5)
+})
 
 const selectedBike = computed(() => props.bikes.find((b) => b.id === bikeId.value))
 const isMotorcycle = computed(() => selectedBike.value?.vehicleType === 'motorcycle')
@@ -53,6 +87,11 @@ async function loadActiveReminders() {
     activeReminders.value = await get<ReminderRow[]>('/api/reminders')
   } catch {
     // offline or error: keep current
+  }
+  try {
+    expenses.value = await get<PaymentExpense[]>('/api/expenses')
+  } catch {
+    // offline or error
   }
 }
 
@@ -102,7 +141,44 @@ function resetForm() {
     policyNumber.value = ''
     repeatYearly.value = true
   }
+  confirmRemove.value = false
   error.value = ''
+}
+
+async function markDone() {
+  const target = currentTarget.value
+  if (!target || busy.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    const res = await mutate<{ dueOn?: string }>(`/api/reminders/${target.id}/done`, { dueOn: target.dueOn }, { queue: true })
+    open.value = false
+    const nextDate = !isQueued(res) && res?.dueOn && target.repeatYearly ? formatDate(res.dueOn) : ''
+    toast.show(nextDate ? t.value.reminderSheet.doneNextToast(title.value.trim() || target.title, nextDate) : t.value.reminderSheet.doneToast(title.value.trim() || target.title))
+    emit('saved')
+  } catch (e) {
+    error.value = errorMessage(e, t.value.reminderSheet.failed, true)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function removeReminder() {
+  const target = currentTarget.value
+  if (!target || busy.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    await mutate(`/api/reminders/${target.id}`, {}, { method: 'DELETE', queue: true })
+    open.value = false
+    toast.show(t.value.reminderSheet.removedToast(title.value.trim() || target.title))
+    emit('saved')
+  } catch (e) {
+    error.value = errorMessage(e, t.value.reminderSheet.failed, true)
+  } finally {
+    busy.value = false
+    confirmRemove.value = false
+  }
 }
 
 watch(open, (v) => {
@@ -261,5 +337,47 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text" data-testid="rem-error">{{ error }}</p>
       <button type="submit" :disabled="busy" class="mt-4 w-full rounded-xl bg-accent py-3.5 text-base font-bold text-on-accent disabled:opacity-60" data-testid="rem-save">{{ t.common.save }}</button>
     </form>
+
+    <div v-if="currentTarget" class="mt-3 space-y-3 border-t border-white/10 pt-3">
+      <button
+        type="button"
+        :disabled="busy"
+        class="w-full rounded-xl border border-ok/30 bg-ok/15 py-3 text-sm font-bold text-ok-text transition hover:bg-ok/25 disabled:opacity-60"
+        data-testid="rem-mark-done"
+        @click="markDone"
+      >
+        {{ t.reminderSheet.markPaid }}
+      </button>
+
+      <div v-if="paymentHistory.length" data-testid="rem-payment-history">
+        <h3 class="text-[11px] uppercase tracking-wider text-muted">{{ t.reminderSheet.paymentHistory }}</h3>
+        <ul class="mt-1.5 divide-y divide-white/5 rounded-xl bg-bg px-3 py-1">
+          <li v-for="p in paymentHistory" :key="p.id" class="flex items-center justify-between gap-2 py-2 text-xs" data-testid="rem-payment-row">
+            <span class="min-w-0 truncate text-muted">{{ formatDate(p.at) }} · <span class="text-text">{{ p.description }}</span></span>
+            <b class="shrink-0 font-tag text-white">{{ formatMoney(p.amountCents) }}</b>
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <button
+          v-if="!confirmRemove"
+          type="button"
+          :disabled="busy"
+          class="min-h-10 w-full rounded-xl border border-danger/30 text-xs font-semibold text-danger-text transition hover:bg-danger/10"
+          data-testid="rem-delete"
+          @click="confirmRemove = true"
+        >
+          {{ t.reminderSheet.removeReminder }}
+        </button>
+        <div v-else class="rounded-xl bg-bg p-3" data-testid="rem-delete-confirm">
+          <p class="text-xs text-white">{{ t.reminderSheet.removeAsk(title || currentTarget.title) }}</p>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            <button type="button" class="min-h-10 rounded-lg border border-white/15 text-xs text-muted" @click="confirmRemove = false">{{ t.common.keep }}</button>
+            <button type="button" :disabled="busy" class="min-h-10 rounded-lg bg-danger text-xs font-bold text-on-danger disabled:opacity-60" data-testid="rem-delete-yes" @click="removeReminder">{{ t.common.remove }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </Sheet>
 </template>

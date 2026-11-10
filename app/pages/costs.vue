@@ -67,6 +67,18 @@ const exportHref = computed(() => {
 
 const data = ref<Costs | null>(null)
 const error = ref('')
+const expenseOpen = ref(false)
+const selectedCategory = ref<string | null>(null)
+
+function toggleCategory(name: string) {
+  selectedCategory.value = selectedCategory.value === name ? null : name
+}
+
+const shownExpenses = computed(() => {
+  const list = data.value?.expenses ?? []
+  if (!selectedCategory.value) return list
+  return list.filter((e) => e.categoryName === selectedCategory.value)
+})
 let seq = 0
 async function load() {
   const mine = ++seq
@@ -143,7 +155,17 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
       <a :href="exportHref" download data-testid="export-csv" class="shrink-0 rounded-lg px-2.5 py-2 text-muted">{{ t.costs.export }}</a>
     </div>
 
-    <h1 class="mb-2.5 mt-2 text-xl font-bold text-white">{{ t.costs.title }}</h1>
+    <div class="mb-2.5 mt-2 flex items-center justify-between gap-2">
+      <h1 class="text-xl font-bold text-white">{{ t.costs.title }}</h1>
+      <button
+        type="button"
+        class="rounded-xl bg-accent px-3 py-2 text-xs font-bold text-on-accent"
+        data-testid="costs-add-expense"
+        @click="expenseOpen = true"
+      >
+        {{ t.costs.addExpense }}
+      </button>
+    </div>
 
     <div role="group" :aria-label="t.costs.period" class="mb-3 flex rounded-[10px] bg-surface p-[3px]">
       <button
@@ -202,10 +224,21 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
       </template>
 
       <template v-if="data.expenses">
-        <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.spentThisMonth }}</h2>
-        <p v-if="!data.expenses.length" class="text-sm text-muted" data-testid="costs-empty">{{ t.costs.nothingSpent(label) }}</p>
+        <div class="mb-1.5 mt-3 flex items-center justify-between gap-2">
+          <h2 class="text-[11px] uppercase tracking-widest text-muted">{{ t.costs.spentThisMonth }}</h2>
+          <button
+            v-if="selectedCategory"
+            type="button"
+            class="rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-accent-text"
+            data-testid="costs-clear-category"
+            @click="selectedCategory = null"
+          >
+            {{ categoryLabel(selectedCategory) }} ×
+          </button>
+        </div>
+        <p v-if="!shownExpenses.length" class="text-sm text-muted" data-testid="costs-empty">{{ t.costs.nothingSpent(label) }}</p>
         <ul class="space-y-[7px]">
-          <li v-for="e in data.expenses" :key="e.id" class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]" data-testid="costs-expense">
+          <li v-for="e in shownExpenses" :key="e.id" class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]" data-testid="costs-expense">
             <span class="min-w-0">
               <span class="block truncate text-text">{{ e.description || categoryLabel(e.categoryName) }}</span>
               <small class="block text-[11px] text-muted">{{ dayMonth(e.at) }} · {{ categoryLabel(e.categoryName) }}<template v-if="e.bikeName && !bikeId"> · {{ e.bikeName }}</template><template v-if="e.documentId"> · <NuxtLink :to="`/invoice/${e.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" :aria-label="t.item.openInvoice" data-testid="costs-invoice"><Icon name="invoice" :size="15" /></NuxtLink></template></small>
@@ -228,13 +261,20 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
 
       <template v-if="data.byCategory.length">
         <h2 class="mb-2 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.whereItWent }}</h2>
-        <CategoryBars :rows="data.byCategory" />
+        <CategoryBars :rows="data.byCategory" :selected-category="selectedCategory" @select="toggleCategory" />
       </template>
 
       <template v-if="showBikes">
         <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.byBike }}</h2>
         <ul class="space-y-[7px]">
-          <li v-for="b in data.byBike" :key="b.bikeId ?? 'none'" class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]" data-testid="costs-bike-row">
+          <li
+            v-for="b in data.byBike"
+            :key="b.bikeId ?? 'none'"
+            class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]"
+            :class="b.bikeId ? 'cursor-pointer transition hover:ring-1 hover:ring-accent' : ''"
+            data-testid="costs-bike-row"
+            @click="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
+          >
             <span class="min-w-0">
               <span class="block truncate text-text">{{ b.bikeId ? b.name : t.costs.noBike }}</span>
               <small v-if="b.bikeId" class="block text-[11px] text-muted">{{ [countsHours(b.meters ?? 'hours_km') ? hours(b.hoursTenths) : '', countsKm(b.meters ?? 'hours_km') ? km(b.km) : ''].filter(Boolean).join(' · ') }}</small>
@@ -248,5 +288,7 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
         </ul>
       </template>
     </template>
+
+    <ExpenseSheet v-model:open="expenseOpen" :bikes="store.bikes" :default-bike-id="bikeId || null" @saved="load" />
   </main>
 </template>

@@ -68,6 +68,28 @@ describe('notificationsDue — reminders', () => {
     expect(keys(base({ reminders: [rem('2026-11-19')] }))).toEqual([])
   })
 
+  it('yearly obligation 15 days out → 15d warning with vehicle name and provider/price', () => {
+    const out = notificationsDue(
+      base({
+        reminders: [
+          {
+            id: 'r1',
+            title: 'Seguro',
+            dueOn: new Date('2026-11-25T00:00:00Z'),
+            bikeName: 'Beta 300 RR',
+            repeatYearly: true,
+            provider: 'Fidelidade',
+            amountCents: 18500,
+          },
+        ],
+        locale: 'pt',
+      }),
+    )
+    expect(out.map((n) => n.key)).toEqual(['reminder:r1:15d'])
+    expect(out[0]!.title).toContain('Seguro (Beta 300 RR)')
+    expect(out[0]!.body).toContain('Fidelidade · 185,00 €')
+  })
+
   it('on the day → the 0d reminder', () => {
     const out = notificationsDue(base({ reminders: [rem('2026-11-11')] }))
     expect(out.map((n) => n.key)).toEqual(['reminder:r1:0d'])

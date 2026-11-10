@@ -1,11 +1,11 @@
 import { and, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm'
 import { createError } from 'h3'
 import { db } from '../db/client'
-import { bikes, expenses, maintenanceItems, partItems, partMovements, parts, services, shoppingEntries } from '../db/schema'
+import { bikes, categories, expenses, maintenanceItems, partItems, partMovements, parts, services, shoppingEntries } from '../db/schema'
 import type { MovementKind, Part } from '../db/schema'
 import type { Tx } from './expenses'
 import { isObj, str } from './bikes'
-import { bad, isInt, isUuid, uuid } from './validate'
+import { bad, int, isInt, isUuid, uuid } from './validate'
 
 /** ±10 000 units, in hundredths. */
 const MAX_QTY = 1_000_000
@@ -211,13 +211,63 @@ export async function patchPart(tx: Tx, userId: string, part: Part, raw: unknown
   }
 }
 
-/** Manual correction: a signed, non-zero 'adjust' movement dated today. */
+/** Manual correction or purchase restock: a signed, non-zero 'adjust' or 'bought' movement dated today. */
 export async function adjustPart(tx: Tx, userId: string, part: Part, raw: unknown): Promise<void> {
   if (!isObj(raw)) throw bad('Invalid body')
   const clientId = uuid(raw.clientId)
   const q = qty(raw.qtyHundredths, 'qtyHundredths', { allowNegative: true })
   if (q === 0) throw bad('Invalid qtyHundredths')
-  await applyMovement(tx, { userId, clientId, part, partName: part.name, unit: part.unit, kind: 'adjust', qtyHundredths: q, at: new Date().toISOString().slice(0, 10), note: notes(raw.note) ?? undefined })
+  const noteText = notes(raw.note) ?? undefined
+  const amountCents = raw.amountCents !== undefined && raw.amountCents !== null && raw.amountCents !== '' ? int(raw.amountCents, 'amountCents', 0, 10_000_000) : null
+  const isBought = q > 0 && (raw.kind === 'bought' || (amountCents !== null && amountCents > 0))
+  const at = new Date().toISOString().slice(0, 10)
+
+  let expenseId: string | undefined
+  if (isBought && amountCents && amountCents > 0) {
+    const userCats = await tx
+      .select({ id: categories.id, kind: categories.kind })
+      .from(categories)
+      .where(eq(categories.userId, userId))
+    const cat = userCats.find((c) => c.kind === 'parts') ?? userCats.find((c) => c.kind === 'maintenance') ?? userCats[0]
+    if (cat) {
+      const desc = noteText ? `${part.name} · ${noteText}` : part.name
+      const [exp] = await tx
+        .insert(expenses)
+        .values({
+          userId,
+          clientId,
+          bikeId: part.bikeId,
+          at,
+          amountCents,
+          categoryId: cat.id,
+          description: desc,
+        })
+        .onConflictDoNothing({ target: [expenses.userId, expenses.clientId] })
+        .returning({ id: expenses.id })
+      if (exp) {
+        expenseId = exp.id
+      } else {
+        const [existingExp] = await tx
+          .select({ id: expenses.id })
+          .from(expenses)
+          .where(and(eq(expenses.userId, userId), eq(expenses.clientId, clientId)))
+        expenseId = existingExp?.id
+      }
+    }
+  }
+
+  await applyMovement(tx, {
+    userId,
+    clientId,
+    part,
+    partName: part.name,
+    unit: part.unit,
+    kind: isBought ? 'bought' : 'adjust',
+    qtyHundredths: q,
+    at,
+    expenseId,
+    note: noteText,
+  })
 }
 
 /** The user's parts as rows (all, or one by id), sorted by name. */
