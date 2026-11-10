@@ -902,12 +902,17 @@ export const en = {
   premix: {
     title: '2T Pre-Mix',
     subtitle: 'Fuel & Oil Ratio',
-    ratioLabel: 'Oil : Fuel Ratio',
+    ratioLabel: 'Oil : Fuel Ratio / Mix %',
+    customPill: 'Custom %',
+    presetsPill: 'Presets',
+    percentLabel: 'Oil percentage',
     fuelVolume: 'Fuel volume',
     litres: 'Litres',
     oilToAdd: '2T oil to add',
-    formula: (ratio: number, mlPerLitre: string) => `Ratio 1:${ratio} · ${mlPerLitre} mL oil per 1 Litre of fuel`,
-    saveDefault: (name: string, ratio: number) => `Remember 1:${ratio} as default for ${name}`,
+    formula: (ratio: number, mlPerLitre: string, percent?: string) =>
+      percent ? `${percent}% (1:${ratio}) · ${mlPerLitre} mL oil per 1 Litre of fuel` : `Ratio 1:${ratio} · ${mlPerLitre} mL oil per 1 Litre of fuel`,
+    saveDefault: (name: string, ratio: number, percent?: string) =>
+      percent ? `Remember ${percent}% (1:${ratio}) as default for ${name}` : `Remember 1:${ratio} as default for ${name}`,
     confirm: 'Save ratio',
     savedToast: (ratio: number) => `1:${ratio} ratio saved`,
     tank: 'Tank',

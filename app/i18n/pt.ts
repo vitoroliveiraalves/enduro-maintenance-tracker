@@ -988,12 +988,17 @@ export const pt: Messages = {
   premix: {
     title: 'Mistura 2T',
     subtitle: 'Abastecimento & Proporção',
-    ratioLabel: 'Proporção Óleo : Gasolina',
+    ratioLabel: 'Proporção Óleo : Gasolina / %',
+    customPill: 'Personalizado %',
+    presetsPill: 'Predefinições',
+    percentLabel: 'Percentagem de óleo',
     fuelVolume: 'Volume de gasolina',
     litres: 'Litros',
     oilToAdd: 'Óleo 2T a adicionar',
-    formula: (ratio: number, mlPerLitre: string) => `Proporção 1:${ratio} · ${mlPerLitre} mL de óleo por cada 1 Litro de gasolina`,
-    saveDefault: (name: string, ratio: number) => `Lembrar 1:${ratio} como padrão de ${name}`,
+    formula: (ratio: number, mlPerLitre: string, percent?: string) =>
+      percent ? `${percent}% (1:${ratio}) · ${mlPerLitre} mL de óleo por cada 1 Litro` : `Proporção 1:${ratio} · ${mlPerLitre} mL de óleo por cada 1 Litro de gasolina`,
+    saveDefault: (name: string, ratio: number, percent?: string) =>
+      percent ? `Lembrar ${percent}% (1:${ratio}) como padrão de ${name}` : `Lembrar 1:${ratio} como padrão de ${name}`,
     confirm: 'Guardar proporção',
     savedToast: (ratio: number) => `Proporção 1:${ratio} gravada`,
     tank: 'Depósito',

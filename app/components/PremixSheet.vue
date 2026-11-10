@@ -12,14 +12,22 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ saved: [ratio: number] }>()
 
-const RATIOS = [
-  { ratio: 40, percent: '2.5%' },
-  { ratio: 50, percent: '2.0% ★' },
-  { ratio: 60, percent: '1.6%' },
-  { ratio: 30, percent: '3.3%' },
+type RatioPreset = { ratio: number; percent: number; label: string; highlight?: boolean }
+
+const PRESETS: RatioPreset[] = [
+  { ratio: 67, percent: 1.5, label: '1.5%' },
+  { ratio: 60, percent: 1.67, label: '1.6%' },
+  { ratio: 50, percent: 2.0, label: '2.0% ★', highlight: true },
+  { ratio: 40, percent: 2.5, label: '2.5%' },
+  { ratio: 33, percent: 3.0, label: '3.0%' },
+  { ratio: 30, percent: 3.33, label: '3.3%' },
+  { ratio: 25, percent: 4.0, label: '4.0%' },
+  { ratio: 20, percent: 5.0, label: '5.0%' },
 ]
 
-const selectedRatio = ref(props.initialRatio ?? 50)
+const mode = ref<'presets' | 'custom'>('presets')
+const activeRatio = ref(props.initialRatio ?? 50)
+const customPercentText = ref('2.0')
 const fuelText = ref('5.0')
 const saveAsDefault = ref(true)
 const busy = ref(false)
@@ -27,22 +35,54 @@ const busy = ref(false)
 watch(
   () => props.initialRatio,
   (val) => {
-    if (val) selectedRatio.value = val
+    if (val && val > 0) {
+      activeRatio.value = val
+      const pct = (100 / val).toFixed(1)
+      customPercentText.value = pct
+    }
   },
   { immediate: true },
 )
+
+const activePercent = computed(() => {
+  if (mode.value === 'custom') {
+    const parsed = parseFloat(customPercentText.value.replace(',', '.'))
+    return Number.isNaN(parsed) || parsed <= 0 ? 2.0 : parsed
+  }
+  const found = PRESETS.find((p) => p.ratio === activeRatio.value)
+  return found ? found.percent : 100 / activeRatio.value
+})
+
+const currentEffectiveRatio = computed(() => {
+  if (mode.value === 'custom') {
+    return Math.max(10, Math.min(100, Math.round(100 / activePercent.value)))
+  }
+  return activeRatio.value
+})
 
 const fuelLitres = computed(() => {
   const parsed = parseFloat(fuelText.value.replace(',', '.'))
   return Number.isNaN(parsed) || parsed <= 0 ? 0 : parsed
 })
 
-const mlPerLitre = computed(() => 1000 / selectedRatio.value)
+// 1% of 1000 mL = 10 mL per litre.
+const mlPerLitre = computed(() => activePercent.value * 10)
 
 const oilMl = computed(() => {
   if (fuelLitres.value <= 0) return 0
   return Math.round(fuelLitres.value * mlPerLitre.value)
 })
+
+function selectPreset(preset: RatioPreset) {
+  activeRatio.value = preset.ratio
+  customPercentText.value = preset.percent.toFixed(1)
+}
+
+function adjustCustomPercent(delta: number) {
+  const current = parseFloat(customPercentText.value.replace(',', '.')) || 2.0
+  const next = Math.max(0.5, Math.min(10.0, Math.round((current + delta) * 10) / 10))
+  customPercentText.value = next.toFixed(1)
+}
 
 function adjustFuel(delta: number) {
   const next = Math.max(0.5, Math.min(50, Math.round((fuelLitres.value + delta) * 10) / 10))
@@ -54,18 +94,19 @@ function setFuel(litres: number) {
 }
 
 async function confirm() {
+  const ratioToSave = currentEffectiveRatio.value
   if (saveAsDefault.value) {
     busy.value = true
     try {
-      await mutate(`/api/bikes/${props.bikeId}`, { premixRatio: selectedRatio.value }, { method: 'PATCH', queue: true })
-      toast.show(t.value.premix.savedToast(selectedRatio.value))
+      await mutate(`/api/bikes/${props.bikeId}`, { premixRatio: ratioToSave }, { method: 'PATCH', queue: true })
+      toast.show(t.value.premix.savedToast(ratioToSave))
     } catch {
       // Ignore or continue
     } finally {
       busy.value = false
     }
   }
-  emit('saved', selectedRatio.value)
+  emit('saved', ratioToSave)
   open.value = false
 }
 </script>
@@ -73,26 +114,90 @@ async function confirm() {
 <template>
   <Sheet v-model:open="open" :title="t.premix.title" testid="premix-sheet">
     <div class="space-y-4 pt-1">
-      <!-- Ratio Selector -->
-      <div>
-        <label class="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-muted font-tag">
+      <!-- Mode Switch: Presets vs Custom % -->
+      <div class="flex items-center justify-between border-b border-track pb-2">
+        <label class="text-[11px] font-semibold uppercase tracking-wider text-muted font-tag">
           {{ t.premix.ratioLabel }}
         </label>
+        <div class="flex rounded-md border border-track bg-bg p-0.5 font-tag text-xs">
+          <button
+            type="button"
+            class="rounded px-2.5 py-1 transition"
+            :class="mode === 'presets' ? 'bg-surface text-text font-bold' : 'text-muted hover:text-text'"
+            data-testid="mode-presets"
+            @click="mode = 'presets'"
+          >
+            {{ t.premix.presetsPill }}
+          </button>
+          <button
+            type="button"
+            class="rounded px-2.5 py-1 transition"
+            :class="mode === 'custom' ? 'bg-accent text-on-accent font-bold' : 'text-muted hover:text-text'"
+            data-testid="mode-custom"
+            @click="mode = 'custom'"
+          >
+            {{ t.premix.customPill }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Presets View -->
+      <div v-if="mode === 'presets'" class="space-y-1.5">
         <div class="grid grid-cols-4 gap-1.5" role="radiogroup">
           <button
-            v-for="r in RATIOS"
-            :key="r.ratio"
+            v-for="p in PRESETS"
+            :key="p.ratio"
             type="button"
             role="radio"
-            :aria-checked="selectedRatio === r.ratio"
-            class="rounded-full py-2 text-center text-xs font-semibold transition"
-            :class="selectedRatio === r.ratio ? 'bg-accent text-on-accent shadow-md' : 'bg-bg text-muted border border-track'"
-            :data-testid="`ratio-${r.ratio}`"
-            @click="selectedRatio = r.ratio"
+            :aria-checked="activeRatio === p.ratio"
+            class="rounded-xl py-2 px-1 text-center transition border"
+            :class="
+              activeRatio === p.ratio
+                ? 'bg-accent text-on-accent border-accent shadow-md'
+                : 'bg-bg text-muted border-track hover:border-text hover:text-text'
+            "
+            :data-testid="`ratio-${p.ratio}`"
+            @click="selectPreset(p)"
           >
-            <span class="block font-bold font-tag">1:{{ r.ratio }}</span>
-            <span class="block text-[10px] opacity-85">{{ r.percent }}</span>
+            <span class="block text-xs font-black font-tag tracking-tight">{{ p.label }}</span>
+            <span class="block text-[10px] opacity-85 font-tag">1:{{ p.ratio }}</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Custom % View -->
+      <div v-else class="space-y-2">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="size-[50px] shrink-0 rounded-xl border border-track bg-bg text-2xl font-bold text-white transition active:scale-95 font-tag hover:bg-surface"
+            data-testid="percent-minus"
+            @click="adjustCustomPercent(-0.1)"
+          >
+            -
+          </button>
+          <div class="relative w-full">
+            <input
+              v-model="customPercentText"
+              type="text"
+              inputmode="decimal"
+              data-testid="custom-percent-input"
+              class="block w-full rounded-xl border border-track bg-bg px-3 py-3 text-center text-2xl font-bold text-white outline-none font-tag focus:ring-2 focus:ring-accent"
+            >
+            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-accent-text font-tag">%</span>
+          </div>
+          <button
+            type="button"
+            class="size-[50px] shrink-0 rounded-xl border border-track bg-bg text-2xl font-bold text-white transition active:scale-95 font-tag hover:bg-surface"
+            data-testid="percent-plus"
+            @click="adjustCustomPercent(0.1)"
+          >
+            +
+          </button>
+        </div>
+        <div class="flex items-center justify-between px-1 text-xs font-tag text-muted">
+          <span>{{ t.premix.percentLabel }}</span>
+          <span class="text-text font-bold">1:{{ currentEffectiveRatio }} ({{ mlPerLitre.toFixed(1) }} mL/L)</span>
         </div>
       </div>
 
@@ -108,7 +213,7 @@ async function confirm() {
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="size-[54px] shrink-0 rounded-xl border border-track bg-bg text-2xl font-bold text-white transition active:scale-95 font-tag hover:bg-surface"
+            class="size-[50px] shrink-0 rounded-xl border border-track bg-bg text-2xl font-bold text-white transition active:scale-95 font-tag hover:bg-surface"
             data-testid="fuel-minus"
             @click="adjustFuel(-0.5)"
           >
@@ -123,7 +228,7 @@ async function confirm() {
           >
           <button
             type="button"
-            class="size-[54px] shrink-0 rounded-xl border border-track bg-bg text-2xl font-bold text-white transition active:scale-95 font-tag hover:bg-surface"
+            class="size-[50px] shrink-0 rounded-xl border border-track bg-bg text-2xl font-bold text-white transition active:scale-95 font-tag hover:bg-surface"
             data-testid="fuel-plus"
             @click="adjustFuel(0.5)"
           >
@@ -164,7 +269,7 @@ async function confirm() {
           <span class="text-xl font-bold text-accent-text">mL</span>
         </div>
         <div class="mt-1 text-xs text-muted">
-          {{ t.premix.formula(selectedRatio, mlPerLitre.toFixed(1)) }}
+          {{ t.premix.formula(currentEffectiveRatio, mlPerLitre.toFixed(1), activePercent.toFixed(1)) }}
         </div>
       </div>
 
@@ -177,7 +282,7 @@ async function confirm() {
             data-testid="save-default-checkbox"
             class="size-4 rounded border-track bg-bg accent-accent"
           >
-          <span>{{ t.premix.saveDefault(bikeName, selectedRatio) }}</span>
+          <span>{{ t.premix.saveDefault(bikeName, currentEffectiveRatio, activePercent.toFixed(1)) }}</span>
         </label>
       </div>
 

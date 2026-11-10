@@ -106,7 +106,12 @@ test('2T bike shows premix chip and calculates fuel oil mix', async ({ page }) =
   await page.getByTestId('jerrycan-10').click()
   await expect(page.getByTestId('oil-amount')).toHaveText('250')
 
+  // Switch to custom % mode: 10L at 1.8% should equal 180 mL
+  await page.getByTestId('mode-custom').click()
+  await page.getByTestId('custom-percent-input').fill('1.8')
+  await expect(page.getByTestId('oil-amount')).toHaveText('180')
+
   await page.getByTestId('confirm-premix-btn').click()
   await expect(page.getByTestId('premix-sheet')).not.toBeVisible()
-  await expect(chip).toContainText('1:40')
+  await expect(chip).toContainText('1:56')
 })
