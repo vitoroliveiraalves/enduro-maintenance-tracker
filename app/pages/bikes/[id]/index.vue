@@ -243,5 +243,10 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       </form>
       <ManagePanel what="bike" :name="data.bike.name" remove-note="It leaves the garage; its services and costs stay in History and Costs." :rename="renameBike" :remove="removeBike" />
     </template>
+    <div v-else-if="!error" class="mt-2" data-testid="bike-loading">
+      <div class="h-9 w-2/3 bg-surface motion-safe:animate-pulse" aria-hidden="true" />
+      <Skeleton :rows="1" height="h-24" class="mt-4" />
+      <Skeleton :rows="4" height="h-16" class="mt-4" />
+    </div>
   </main>
 </template>

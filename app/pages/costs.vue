@@ -164,6 +164,7 @@ const SEG: Array<{ key: Period; label: string }> = [
     </div>
 
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
+    <Skeleton v-else-if="!data" :rows="3" height="h-20" />
     <template v-if="data">
       <section class="mb-2.5 rounded-[14px] bg-surface p-3">
         <div class="text-[11px] uppercase tracking-wider text-muted">{{ label }}</div>

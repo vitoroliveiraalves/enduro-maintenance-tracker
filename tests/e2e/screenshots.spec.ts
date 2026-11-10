@@ -390,3 +390,18 @@ test('looks: garage and bike in Stamped Steel and the tricolor', async ({ page }
     await page.screenshot({ path: `tests/e2e/__screenshots__/look-${look}-bike.png` })
   }
 })
+
+test('skeletons: garage and bike while loading', async ({ page }) => {
+  await signUpFresh(page)
+  const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
+  const hold = async (route: import('@playwright/test').Route) => { await new Promise((r) => setTimeout(r, 6000)); await route.continue().catch(() => {}) }
+  await page.route('**/api/bikes', hold)
+  await page.goto('/')
+  await page.getByTestId('skeleton').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/skeleton-garage.png' })
+  await page.unroute('**/api/bikes')
+  await page.route(`**/api/bikes/${id}`, hold)
+  await page.goto(`/bikes/${id}`)
+  await page.getByTestId('bike-loading').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/skeleton-bike.png' })
+})
