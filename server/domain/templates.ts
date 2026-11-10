@@ -62,6 +62,19 @@ const STREET_2T: TemplateItem[] = [
   ),
 ]
 
+export const CAR_TEMPLATE: TemplateItem[] = [
+  n('Engine oil + filter', { everyKm: 15000, everyMonths: 12 }),
+  n('Cabin air filter', { everyKm: 20000, everyMonths: 24 }),
+  n('Engine air filter', { everyKm: 30000, everyMonths: 24 }),
+  n('Brake fluid', { everyMonths: 24 }),
+  n('Coolant', { everyKm: 100000, everyMonths: 48 }),
+  n('Spark plugs', { everyKm: 60000 }),
+  n('Brake pads & discs check', { everyKm: 15000, everyMonths: 12 }),
+  n('Tyre rotation & balance', { everyKm: 15000 }),
+  n('Timing belt & water pump', { everyKm: 100000, everyMonths: 60 }),
+  n('Wiper blades', { everyMonths: 12 }),
+]
+
 /** Hours only: km intervals dropped; an item left with nothing is dropped, except the chain (every 30 h). */
 function hoursOnly(list: TemplateItem[]): TemplateItem[] {
   return list.flatMap((i): TemplateItem[] => {
@@ -72,8 +85,13 @@ function hoursOnly(list: TemplateItem[]): TemplateItem[] {
   })
 }
 
-/** The starting list for a bike, always a fresh copy. */
-export function templatesFor(stroke: '2T' | '4T', meters: BikeMeters): TemplateItem[] {
+export function templatesForCar(): TemplateItem[] {
+  return structuredClone(CAR_TEMPLATE)
+}
+
+/** The starting list for a bike or vehicle, always a fresh copy. */
+export function templatesFor(stroke: '2T' | '4T', meters: BikeMeters, vehicleType: 'motorcycle' | 'car' = 'motorcycle'): TemplateItem[] {
+  if (vehicleType === 'car') return templatesForCar()
   const list = meters === 'km' ? (stroke === '4T' ? STREET_4T : STREET_2T) : meters === 'hours' ? hoursOnly(TEMPLATES[stroke]) : TEMPLATES[stroke]
   return structuredClone(list)
 }

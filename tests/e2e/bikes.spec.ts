@@ -42,6 +42,44 @@ test('add a 2T bike with Gearbox oil last done, see overdue and unknown rows', a
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'tests/e2e/__screenshots__/garage.png' })
 })
 
+test('add a car with license plate and verify car templates and garage card', async ({ page }) => {
+  await loginAs(page)
+  await page.getByTestId('add-bike').click()
+  await expect(page).toHaveURL(/\/bikes\/new$/)
+
+  // Select Car
+  await page.getByTestId('type-car').click()
+  await page.getByLabel('Name').fill('Daily Golf')
+  await page.getByLabel('Make').fill('Volkswagen')
+  await page.getByLabel('Model').fill('Golf GTI')
+  await page.getByTestId('vehicle-plate-input').fill('AA-00-BB')
+  await page.getByTestId('vehicle-km-input').fill('45000')
+
+  await page.getByRole('button', { name: 'Next: maintenance items' }).click()
+
+  // Verify car specific items are in the draft
+  await expect(page.getByLabel('Cabin air filter every km')).toBeVisible()
+  await expect(page.getByLabel('Timing belt & water pump every km')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Save bike' }).click()
+  await expect(page).toHaveURL(/\/bikes\/[0-9a-f-]{36}$/)
+
+  // Header should show car name and plate
+  await expect(page.getByTestId('bike-name')).toContainText('Daily Golf')
+  await expect(page.getByTestId('bike-plate')).toHaveText('AA-00-BB')
+
+  // Premix chip should NOT be visible on cars
+  await expect(page.getByTestId('premix-chip')).toHaveCount(0)
+
+  // Go to Garage and check card
+  await page.getByTestId('tab-garage').click()
+  await expect(page).toHaveURL(/\/$/)
+  const card = page.getByTestId('bike-card').filter({ has: page.getByText('Daily Golf', { exact: true }) })
+  await expect(card).toBeVisible()
+  await expect(card.getByTestId('plate-badge')).toHaveText('AA-00-BB')
+  await expect(card).toContainText('🚗')
+})
+
 test('tabs are hidden on login', async ({ page }) => {
   await page.goto('/login')
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()

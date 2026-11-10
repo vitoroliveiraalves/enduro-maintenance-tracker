@@ -37,8 +37,14 @@ watch(syncTick, load)
         <NuxtLink :to="`/bikes/${b.id}`" class="bike-tag" :class="{ 'is-alert': b.counts.overdue }" data-testid="bike-card">
           <span class="bike-tag-stripe" aria-hidden="true" />
           <div class="relative pr-6">
-            <div class="brand-slant text-[23px] font-black uppercase leading-none" style="font-stretch: 110%">{{ b.name }}</div>
-            <div class="bike-tag-sub mt-1.5 truncate font-tag text-xs uppercase">{{ [b.make, b.model].filter(Boolean).join(' · ') }} · {{ b.year }}</div>
+            <div class="flex items-center justify-between gap-2">
+              <div class="brand-slant text-[23px] font-black uppercase leading-none" style="font-stretch: 110%">{{ b.name }}</div>
+              <span v-if="b.plate" class="rounded border border-text/40 bg-bg px-2 py-0.5 font-tag text-xs font-bold tracking-widest text-text" data-testid="plate-badge">{{ b.plate }}</span>
+            </div>
+            <div class="bike-tag-sub mt-1.5 truncate font-tag text-xs uppercase flex items-center gap-1.5">
+              <span>{{ b.vehicleType === 'car' ? '🚗' : '🏍️' }}</span>
+              <span>{{ [b.make, b.model].filter(Boolean).join(' · ') }} · {{ b.year }}</span>
+            </div>
             <div class="mt-3 flex flex-wrap gap-1.5 font-tag text-xs font-semibold">
               <span v-if="b.counts.overdue" class="bike-tag-badge px-[7px] py-1" data-testid="count-overdue">{{ t.garage.overdue(b.counts.overdue) }}</span>
               <span v-if="b.counts.soon" class="border-[1.5px] border-current px-1.5 py-[3px]" data-testid="count-soon">{{ t.garage.soon(b.counts.soon) }}</span>

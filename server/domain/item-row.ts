@@ -23,6 +23,8 @@ export type BikeSummary = {
   make: string
   model: string
   year: number
+  vehicleType?: 'motorcycle' | 'car'
+  plate?: string | null
   meters: BikeMeters
   latestReading: { at: string; hoursTenths: number | null; km: number | null } | null
   counts: { overdue: number; soon: number }

@@ -161,6 +161,8 @@ export const bikes = pgTable(
     model: text('model').notNull(),
     year: integer('year').notNull(),
     stroke: text('stroke', { enum: ['2T', '4T'] }).notNull(),
+    vehicleType: text('vehicle_type', { enum: ['motorcycle', 'car'] }).notNull().default('motorcycle'),
+    plate: text('plate'),
     meters: text('meters', { enum: ['hours_km', 'km', 'hours'] }).notNull().default('hours_km'),
     premixRatio: integer('premix_ratio'),
     photoDocumentId: uuid('photo_document_id').references(() => documents.id, { onDelete: 'set null' }),

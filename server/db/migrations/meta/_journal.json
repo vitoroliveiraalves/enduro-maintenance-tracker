@@ -85,6 +85,13 @@
       "when": 1794320000000,
       "tag": "0011_bike_premix",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794320100000,
+      "tag": "0012_vehicle_type_plate",
+      "breakpoints": true
     }
   ]
 }

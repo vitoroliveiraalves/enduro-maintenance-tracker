@@ -22,9 +22,11 @@ const store = useBikesStore()
 
 const step = ref<1 | 2>(1)
 const form = reactive({
+  vehicleType: 'motorcycle' as 'motorcycle' | 'car',
   name: '',
   make: '',
   model: '',
+  plate: '',
   year: String(new Date().getFullYear()),
   stroke: '2T' as '2T' | '4T',
   meters: 'hours_km' as BikeMeters,
@@ -36,7 +38,17 @@ const error = ref('')
 const busy = ref(false)
 let seq = 0
 
-const hasHours = computed(() => countsHours(form.meters))
+function onVehicleTypeChange() {
+  if (form.vehicleType === 'car') {
+    form.meters = 'km'
+    form.stroke = '4T'
+  } else {
+    form.meters = 'hours_km'
+    form.stroke = '2T'
+  }
+}
+
+const hasHours = computed(() => form.vehicleType !== 'car' && countsHours(form.meters))
 const hasKm = computed(() => countsKm(form.meters))
 const metersNeeded = computed(() => (hasHours.value && hasKm.value ? 'meters' : hasHours.value ? 'hours' : 'km'))
 
@@ -55,10 +67,11 @@ async function next() {
   }
   busy.value = true
   try {
-    const tpl = await get<Template[]>(`/api/templates/${form.stroke}?meters=${form.meters}`)
+    const url = form.vehicleType === 'car' ? '/api/templates/4T?type=car&meters=km' : `/api/templates/${form.stroke}?meters=${form.meters}`
+    const tpl = await get<Template[]>(url)
     drafts.value = tpl.map((it) =>
       blank({
-        name: itemLabel(it.name), // the rider's language; stored as typed
+        name: itemLabel(it.name), // the driver's/rider's language; stored as typed
         hours: tenthsToText(it.everyHoursTenths),
         km: it.everyKm ? String(it.everyKm) : '',
         months: it.everyMonths ? String(it.everyMonths) : '',
@@ -83,7 +96,7 @@ function optional(text: string, label: string, scale = 1): number | null | undef
   return Math.round(n * scale)
 }
 
-// One id per draft: a double tap or a retry after a lost response upserts the same bike.
+// One id per draft: a double tap or a retry after a lost response upserts the same vehicle.
 const clientId = crypto.randomUUID()
 
 async function save() {
@@ -93,7 +106,7 @@ async function save() {
   for (const d of drafts.value) {
     const label = d.name || t.value.newBike.item
     const nb = t.value.newBike
-    // Only the units the bike counts are sent (hidden fields never leak a stale value).
+    // Only the units the vehicle counts are sent (hidden fields never leak a stale value).
     const everyHoursTenths = hasHours.value ? optional(d.hours, nb.hoursFor(label), 10) : null
     const everyKm = hasKm.value ? optional(d.km, nb.kmFor(label)) : null
     const everyMonths = optional(d.months, nb.monthsFor(label))
@@ -128,6 +141,8 @@ async function save() {
       make: form.make.trim(),
       model: form.model.trim(),
       year: Math.round(parseDecimal(form.year)!),
+      vehicleType: form.vehicleType,
+      ...(form.plate.trim() ? { plate: form.plate.trim() } : {}),
       stroke: form.stroke,
       meters: form.meters,
       ...(hasHours.value ? { hoursTenths: Math.round(parseDecimal(form.hours)! * 10) } : {}),
@@ -156,18 +171,48 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
     <p class="mt-0.5 text-xs text-muted" data-testid="step-indicator">{{ t.newBike.step(step) }}</p>
 
     <form v-if="step === 1" class="mt-4 space-y-4" @submit.prevent="next">
+      <!-- Vehicle Type Selector -->
+      <fieldset class="block">
+        <legend class="text-xs font-semibold uppercase tracking-wider text-muted font-tag">{{ t.newBike.vehicleType }}</legend>
+        <div class="mt-1.5 flex gap-2">
+          <label
+            class="flex-1 cursor-pointer rounded-xl border px-3 py-2.5 text-center transition font-tag font-bold flex items-center justify-center gap-2"
+            :class="form.vehicleType === 'motorcycle' ? 'border-accent text-accent-text bg-surface shadow-sm' : 'border-white/10 bg-surface/40 text-muted hover:text-text'"
+            data-testid="type-motorcycle"
+          >
+            <input v-model="form.vehicleType" type="radio" value="motorcycle" class="sr-only" @change="onVehicleTypeChange">
+            <span class="text-base">🏍️</span> {{ t.newBike.motorcycle }}
+          </label>
+          <label
+            class="flex-1 cursor-pointer rounded-xl border px-3 py-2.5 text-center transition font-tag font-bold flex items-center justify-center gap-2"
+            :class="form.vehicleType === 'car' ? 'border-accent text-accent-text bg-surface shadow-sm' : 'border-white/10 bg-surface/40 text-muted hover:text-text'"
+            data-testid="type-car"
+          >
+            <input v-model="form.vehicleType" type="radio" value="car" class="sr-only" @change="onVehicleTypeChange">
+            <span class="text-base">🚗</span> {{ t.newBike.car }}
+          </label>
+        </div>
+      </fieldset>
+
       <label class="block"><span class="text-sm text-muted">{{ t.newBike.name }}</span>
-        <input v-model="form.name" :class="field" autocomplete="off"></label>
+        <input v-model="form.name" :class="field" autocomplete="off" data-testid="vehicle-name-input"></label>
       <div class="grid grid-cols-2 gap-3">
         <label class="block"><span class="text-sm text-muted">{{ t.newBike.make }}</span>
-          <input v-model="form.make" :class="field" autocomplete="off"></label>
+          <input v-model="form.make" :class="field" autocomplete="off" data-testid="vehicle-make-input"></label>
         <label class="block"><span class="text-sm text-muted">{{ t.newBike.model }}</span>
-          <input v-model="form.model" :class="field" autocomplete="off"></label>
+          <input v-model="form.model" :class="field" autocomplete="off" data-testid="vehicle-model-input"></label>
       </div>
+
       <div class="grid grid-cols-2 gap-3">
         <label class="block"><span class="text-sm text-muted">{{ t.newBike.year }}</span>
-          <input v-model="form.year" inputmode="numeric" :class="field"></label>
-        <fieldset class="block">
+          <input v-model="form.year" inputmode="numeric" :class="field" data-testid="vehicle-year-input"></label>
+        
+        <!-- Car: License Plate | Motorcycle: Engine Stroke -->
+        <label v-if="form.vehicleType === 'car'" class="block">
+          <span class="text-sm text-muted">{{ t.newBike.plate }}</span>
+          <input v-model="form.plate" :placeholder="t.newBike.platePh" class="uppercase font-tag tracking-wider" :class="field" data-testid="vehicle-plate-input">
+        </label>
+        <fieldset v-else class="block">
           <legend class="text-sm text-muted">{{ t.newBike.engine }}</legend>
           <div class="mt-1 flex gap-2">
             <label v-for="s in ['2T', '4T']" :key="s" class="flex-1 cursor-pointer rounded-lg border px-3 py-3 text-center" :class="form.stroke === s ? 'border-accent text-accent-text' : 'border-white/10 bg-surface'">
@@ -176,15 +221,19 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
           </div>
         </fieldset>
       </div>
-      <MetersChoice v-model="form.meters" />
+
+      <!-- Motorcycle only: choose meters -->
+      <MetersChoice v-if="form.vehicleType === 'motorcycle'" v-model="form.meters" />
+
+      <!-- Current reading inputs -->
       <div class="grid gap-3" :class="hasHours && hasKm ? 'grid-cols-2' : 'grid-cols-1'">
         <label v-if="hasHours" class="block"><span class="text-sm text-muted">{{ t.newBike.currentHours }}</span>
           <input v-model="form.hours" inputmode="decimal" :placeholder="t.newBike.hoursPh" :class="field"></label>
         <label v-if="hasKm" class="block"><span class="text-sm text-muted">{{ t.newBike.currentKm }}</span>
-          <input v-model="form.km" inputmode="decimal" :placeholder="t.newBike.kmPh" :class="field"></label>
+          <input v-model="form.km" inputmode="decimal" :placeholder="t.newBike.kmPh" :class="field" data-testid="vehicle-km-input"></label>
       </div>
       <p v-if="error" role="alert" class="text-sm text-danger-text">{{ error }}</p>
-      <button type="submit" :disabled="busy" class="w-full rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60">{{ t.newBike.next }}</button>
+      <button type="submit" :disabled="busy" class="w-full rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60" data-testid="vehicle-next-btn">{{ t.newBike.next }}</button>
     </form>
 
     <section v-else class="mt-4">
@@ -216,7 +265,7 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
       <p v-if="error" role="alert" class="mt-3 text-sm text-danger-text">{{ error }}</p>
       <div class="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 -mx-4 mt-4 flex gap-3 bg-bg/95 px-4 py-3 backdrop-blur">
         <button type="button" class="rounded-lg border border-white/15 px-4 py-3" @click="step = 1">{{ t.newBike.back }}</button>
-        <button type="button" :disabled="busy" class="flex-1 rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60" @click="save">{{ t.newBike.save }}</button>
+        <button type="button" :disabled="busy" class="flex-1 rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60" data-testid="vehicle-save-btn" @click="save">{{ t.newBike.save }}</button>
       </div>
     </section>
   </main>

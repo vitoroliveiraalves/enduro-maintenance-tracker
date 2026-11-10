@@ -7,7 +7,16 @@ import type { ItemRowJson } from '../../../../server/domain/item-row'
 const { t } = useI18n()
 
 type Detail = {
-  bike: { id: string; name: string; year: number; stroke: '2T' | '4T'; meters: BikeMeters; premixRatio?: number | null }
+  bike: {
+    id: string
+    name: string
+    year: number
+    stroke: '2T' | '4T'
+    vehicleType?: 'motorcycle' | 'car'
+    plate?: string | null
+    meters: BikeMeters
+    premixRatio?: number | null
+  }
   latestReading: { id?: string; at: string; hoursTenths: number | null; km: number | null; pending?: boolean } | null
   items: Array<ItemRowJson & { pendingSync?: boolean }>
 }
@@ -166,11 +175,22 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <NuxtLink to="/settings" class="-m-2 flex size-11 items-center justify-center text-lg" :aria-label="t.garage.settings" data-testid="settings-link"><Icon name="settings" :size="22" /></NuxtLink>
     </div>
     <template v-if="data">
-      <h1 class="mb-1 mt-2 text-[34px] text-white" data-testid="bike-name">{{ data.bike.name }}</h1>
+      <div class="mb-1 mt-2 flex items-center justify-between gap-2">
+        <h1 class="text-[34px] text-white flex items-center gap-2" data-testid="bike-name">
+          <span>{{ data.bike.name }}</span>
+        </h1>
+        <span
+          v-if="data.bike.plate"
+          class="rounded border border-text/40 bg-bg px-2.5 py-1 font-tag text-xs font-bold tracking-widest text-text"
+          data-testid="bike-plate"
+        >
+          {{ data.bike.plate }}
+        </span>
+      </div>
       <div class="text-xs text-muted" data-testid="last-ride">{{ lastRide }}</div>
       <div class="mt-2 flex flex-wrap gap-1.5">
         <button
-          v-if="data.bike.stroke === '2T'"
+          v-if="data.bike.vehicleType !== 'car' && data.bike.stroke === '2T'"
           type="button"
           class="rounded-full border border-track bg-surface px-2.5 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent"
           data-testid="premix-chip"
@@ -255,7 +275,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       </form>
       <ManagePanel what="bike" :name="data.bike.name" :remove-note="t.bike.removeNote" :rename="renameBike" :remove="removeBike" />
       <PremixSheet
-        v-if="data.bike.stroke === '2T'"
+        v-if="data.bike.vehicleType !== 'car' && data.bike.stroke === '2T'"
         v-model:open="premixOpen"
         :bike-id="data.bike.id"
         :bike-name="data.bike.name"

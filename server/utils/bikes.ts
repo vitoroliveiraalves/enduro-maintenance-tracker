@@ -24,7 +24,9 @@ export type BikeInput = {
   make: string
   model: string
   year: number
-  stroke: '2T' | '4T'
+  stroke?: '2T' | '4T'
+  vehicleType?: 'motorcycle' | 'car'
+  plate?: string | null
   meters?: BikeMeters
   hoursTenths?: number
   km?: number
@@ -137,19 +139,25 @@ function cleanItem(raw: unknown, meters: BikeMeters): CleanItem {
 
 export function parseBikeInput(raw: unknown) {
   if (!isObj(raw)) throw bad('Invalid body')
-  if (raw.stroke !== '2T' && raw.stroke !== '4T') throw bad('Invalid stroke')
+  const vehicleType = raw.vehicleType === 'car' ? 'car' : 'motorcycle'
+  const stroke = vehicleType === 'car' ? (raw.stroke === '2T' ? '2T' : '4T') : raw.stroke
+  if (stroke !== '2T' && stroke !== '4T') throw bad('Invalid stroke')
   if (!Array.isArray(raw.items) || raw.items.length > 80) throw bad('Invalid items')
+  const defaultMeters: BikeMeters = vehicleType === 'car' ? 'km' : 'hours_km'
   if (raw.meters !== undefined && !isBikeMeters(raw.meters)) throw bad('Invalid meters')
-  const meters: BikeMeters = raw.meters ?? 'hours_km'
+  const meters: BikeMeters = raw.meters ?? defaultMeters
+  const plate = typeof raw.plate === 'string' && raw.plate.trim() ? str(raw.plate, 'plate', 20).toUpperCase() : null
   const parsed = {
     clientId: uuid(raw.clientId),
     name: str(raw.name, 'name'),
     make: str(raw.make, 'make'),
     model: str(raw.model, 'model'),
     year: int(raw.year, 'year', 1950, 2100),
-    stroke: raw.stroke as '2T' | '4T',
+    stroke: stroke as '2T' | '4T',
+    vehicleType: vehicleType as 'motorcycle' | 'car',
+    plate,
     meters,
-    premixRatio: raw.stroke === '2T' ? (raw.premixRatio !== undefined ? (raw.premixRatio === null ? null : int(raw.premixRatio, 'premixRatio', 10, 100)) : 50) : null,
+    premixRatio: vehicleType !== 'car' && stroke === '2T' ? (raw.premixRatio !== undefined ? (raw.premixRatio === null ? null : int(raw.premixRatio, 'premixRatio', 10, 100)) : 50) : null,
     hoursTenths: countsHours(meters) ? int(raw.hoursTenths, 'hoursTenths') : null,
     km: countsKm(meters) ? int(raw.km, 'km') : null,
     items: raw.items.map((i) => cleanItem(i, meters)),
@@ -169,7 +177,19 @@ export async function createBike(userId: string, raw: unknown): Promise<Bike> {
   return db.transaction(async (tx) => {
     const [bike] = await tx
       .insert(bikes)
-      .values({ userId, clientId: input.clientId, name: input.name, make: input.make, model: input.model, year: input.year, stroke: input.stroke, meters: input.meters, premixRatio: input.premixRatio })
+      .values({
+        userId,
+        clientId: input.clientId,
+        name: input.name,
+        make: input.make,
+        model: input.model,
+        year: input.year,
+        stroke: input.stroke,
+        vehicleType: input.vehicleType,
+        plate: input.plate,
+        meters: input.meters,
+        premixRatio: input.premixRatio,
+      })
       .onConflictDoNothing({ target: [bikes.userId, bikes.clientId] })
       .returning()
     if (!bike) {
@@ -290,6 +310,8 @@ export async function listBikes(userId: string): Promise<BikeSummary[]> {
         make: b.make,
         model: b.model,
         year: b.year,
+        vehicleType: b.vehicleType,
+        plate: b.plate,
         meters: b.meters,
         latestReading: rd ? { at: rd.at.toISOString(), hoursTenths: rd.hoursTenths, km: rd.km } : null,
         counts: {
@@ -308,6 +330,13 @@ export async function patchBike(bike: Bike, raw: unknown): Promise<Bike> {
   if (raw.make !== undefined) set.make = str(raw.make, 'make')
   if (raw.model !== undefined) set.model = str(raw.model, 'model')
   if (raw.year !== undefined) set.year = int(raw.year, 'year', 1950, 2100)
+  if (raw.vehicleType !== undefined) {
+    if (raw.vehicleType !== 'motorcycle' && raw.vehicleType !== 'car') throw bad('Invalid vehicleType')
+    set.vehicleType = raw.vehicleType
+  }
+  if (raw.plate !== undefined) {
+    set.plate = raw.plate === null || raw.plate === '' ? null : str(raw.plate, 'plate', 20).toUpperCase()
+  }
   if (raw.meters !== undefined) {
     if (!isBikeMeters(raw.meters)) throw bad('Invalid meters')
     set.meters = raw.meters

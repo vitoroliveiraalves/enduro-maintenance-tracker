@@ -201,5 +201,35 @@ describe('bikes api logic', () => {
       await expect(patchBike(bike, { premixRatio: 5 })).rejects.toMatchObject({ statusCode: 400 })
       await expect(patchBike(bike, { premixRatio: 150 })).rejects.toMatchObject({ statusCode: 400 })
     })
+
+    it('creates car vehicle: defaults stroke to 4T, meters to km, sets plate and lists vehicleType', async () => {
+      const car = await createBike(uid, {
+        clientId: crypto.randomUUID(),
+        name: 'Daily Golf',
+        make: 'Volkswagen',
+        model: 'Golf GTI',
+        year: 2020,
+        vehicleType: 'car',
+        plate: 'aa-01-bb',
+        km: 45000,
+        items: [],
+      })
+      expect(car.vehicleType).toBe('car')
+      expect(car.stroke).toBe('4T')
+      expect(car.meters).toBe('km')
+      expect(car.plate).toBe('AA-01-BB')
+      expect(car.premixRatio).toBeNull()
+
+      const list = await listBikes(uid)
+      const carSummary = list.find((b) => b.id === car.id)
+      expect(carSummary).toMatchObject({
+        vehicleType: 'car',
+        plate: 'AA-01-BB',
+      })
+
+      const patched = await patchBike(car, { plate: '99-ZZ-88', name: 'Track Golf' })
+      expect(patched.plate).toBe('99-ZZ-88')
+      expect(patched.name).toBe('Track Golf')
+    })
   })
 })
