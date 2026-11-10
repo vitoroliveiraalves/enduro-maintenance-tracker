@@ -1,4 +1,4 @@
-# Enduro Tracker: Nuxt SPA + Nitro server. Build: docker build -t enduro-tracker .
+# Dirt Garage: Nuxt SPA + Nitro server. Build: docker build -t enduro-tracker .
 # Migrate: docker run --rm --env-file <your env> enduro-tracker node .output/migrate.mjs
 # Run:     docker run -p 3000:3000 --env-file <your env> enduro-tracker
 ARG NODE_IMAGE=node:22.21.1-bookworm-slim

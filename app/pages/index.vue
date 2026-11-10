@@ -22,8 +22,8 @@ watch(syncTick, load)
     <div class="brand-band -mx-4 mb-4" aria-hidden="true" />
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2.5">
-        <span class="brand-mark" aria-hidden="true">ET</span>
-        <span class="font-tag text-[11px] leading-tight tracking-[0.08em] text-muted">ENDURO TRACKER<br>MAINTENANCE · COSTS</span>
+        <span class="brand-mark" aria-hidden="true">DG</span>
+        <span class="font-tag text-[11px] leading-tight tracking-[0.08em] text-muted">DIRT GARAGE<br>MAINTENANCE · COSTS</span>
       </div>
       <NuxtLink to="/settings" class="-mr-2 flex size-11 items-center justify-center text-text" aria-label="Settings" data-testid="settings-link"><Icon name="settings" :size="22" /></NuxtLink>
     </div>

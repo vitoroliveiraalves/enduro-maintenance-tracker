@@ -117,7 +117,7 @@ test('pending sheet with a set-aside write (Retry)', async ({ page, context }) =
 
 test('smoke: home', async ({ page }) => {
   await page.goto('/')
-  await page.getByText('Enduro Tracker').first().waitFor()
+  await page.getByText('Dirt Garage').first().waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/task-1-smoke.png' })
 })
 

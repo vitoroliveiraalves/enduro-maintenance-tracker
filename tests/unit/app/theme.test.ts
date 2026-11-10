@@ -7,17 +7,17 @@ const store = (init: Record<string, string> = {}) => {
 }
 
 describe('theme', () => {
-  it('offers Stamped Steel (default) and the tricolor', () => {
+  it('offers Stamped Steel and the tricolor (default)', () => {
     expect(THEMES.map((t) => t.id)).toEqual(['steel', 'tricolor'])
-    expect(DEFAULT_THEME).toBe('steel')
+    expect(DEFAULT_THEME).toBe('tricolor')
   })
 
   it('reads the saved theme, falling back to the default for missing or unknown values or no storage', () => {
-    expect(readTheme(store({ 'enduro.theme': 'tricolor' }))).toBe('tricolor')
-    expect(readTheme(store({ 'enduro.theme': 'pink' }))).toBe('steel')
-    expect(readTheme(store())).toBe('steel')
-    expect(readTheme(null)).toBe('steel')
-    expect(readTheme({ getItem: () => { throw new Error('blocked') }, setItem: () => {} })).toBe('steel')
+    expect(readTheme(store({ 'enduro.theme': 'steel' }))).toBe('steel')
+    expect(readTheme(store({ 'enduro.theme': 'pink' }))).toBe('tricolor')
+    expect(readTheme(store())).toBe('tricolor')
+    expect(readTheme(null)).toBe('tricolor')
+    expect(readTheme({ getItem: () => { throw new Error('blocked') }, setItem: () => {} })).toBe('tricolor')
   })
 
   it('saves and applies it to the root element', () => {

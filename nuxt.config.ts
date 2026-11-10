@@ -67,13 +67,13 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
-      title: 'Enduro Tracker',
+      title: 'Dirt Garage',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content' },
-        { name: 'theme-color', content: '#121417' },
+        { name: 'theme-color', content: '#0f1012' }, // the default (tricolor) look's bg; app/lib/theme.ts
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
-        { name: 'apple-mobile-web-app-title', content: 'Enduro' },
+        { name: 'apple-mobile-web-app-title', content: 'Dirt Garage' },
         { name: 'mobile-web-app-capable', content: 'yes' },
       ],
       link: [
@@ -99,12 +99,12 @@ export default defineNuxtConfig({
     filename: 'sw.ts',
     devOptions: { enabled: false },
     manifest: {
-      name: 'Enduro Tracker',
-      short_name: 'Enduro',
-      description: 'Maintenance and costs for your enduro bikes.',
+      name: 'Dirt Garage',
+      short_name: 'Dirt Garage',
+      description: 'Hours, service, parts and costs for your dirt bikes.',
       lang: 'en',
-      theme_color: '#121417',
-      background_color: '#121417',
+      theme_color: '#0f1012',
+      background_color: '#0f1012',
       display: 'standalone',
       orientation: 'portrait',
       id: '/',
@@ -115,7 +115,7 @@ export default defineNuxtConfig({
         { name: 'Costs', url: '/costs', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
         { name: 'Parts shelf', short_name: 'Shelf', url: '/shelf', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
       ],
-      // "Share → Enduro" from the gallery or Files: handled by the worker (app/sw.ts), read on /invoice.
+      // "Share → Dirt Garage" from the gallery or Files: handled by the worker (app/sw.ts), read on /invoice.
       share_target: {
         action: '/share-target',
         method: 'POST',

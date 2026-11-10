@@ -46,7 +46,7 @@ async function submit() {
 <template>
   <main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-8">
     <h1 class="text-3xl font-bold text-accent-text">Create account</h1>
-    <p class="mt-1 text-sm text-muted">Enduro Tracker keeps your bikes, service and costs.</p>
+    <p class="mt-1 text-sm text-muted">Dirt Garage keeps your bikes, service and costs.</p>
 
     <form class="mt-8 space-y-4" @submit.prevent="submit">
       <label class="block">

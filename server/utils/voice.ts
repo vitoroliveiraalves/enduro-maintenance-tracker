@@ -114,7 +114,7 @@ async function call(body: object, cfg: VoiceCfg, fetchImpl: typeof fetch): Promi
   try {
     res = await fetchImpl(OPENROUTER_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json', 'X-Title': 'Enduro Tracker' },
+      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json', 'X-Title': 'Dirt Garage' },
       body: JSON.stringify({ model: cfg.model, ...body }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })

@@ -42,7 +42,7 @@ self.addEventListener('push', (event) => {
     p = { body: event.data?.text() }
   }
   event.waitUntil(
-    self.registration.showNotification(p.title || 'Enduro Tracker', {
+    self.registration.showNotification(p.title || 'Dirt Garage', {
       body: p.body ?? '',
       icon: '/pwa-192x192.png',
       badge: '/badge-96x96.png', // monochrome on transparent: Android masks it, an opaque icon turns into a white square
@@ -70,7 +70,7 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
-// Share target: "Share → Enduro" from the gallery or Files lands here as a POST. Park the files, open the Invoice screen.
+// Share target: "Share → Dirt Garage" from the gallery or Files lands here as a POST. Park the files, open the Invoice screen.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'POST' || new URL(event.request.url).pathname !== SHARE_PATH) return
   event.respondWith(

@@ -31,7 +31,7 @@ async function submit() {
 
 <template>
   <main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-8">
-    <h1 class="text-3xl font-bold text-accent-text">Enduro Tracker</h1>
+    <h1 class="text-3xl font-bold text-accent-text">Dirt Garage</h1>
     <p class="mt-1 text-sm text-muted">Sign in to your garage.</p>
     <p v-if="deleted" role="status" class="mt-4 rounded-lg bg-surface p-3 text-sm text-text" data-testid="deleted-notice">Your account and data were deleted.</p>
 
