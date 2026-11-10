@@ -45,7 +45,7 @@ test('admin switches AI off for a rider: voice and invoice reading stop, the QR 
   expect(upload.ok()).toBeTruthy()
   const docId = ((await upload.json()) as { id: string }).id
   const read = await rider.request.post(`/api/documents/${docId}/read`)
-  expect(((await read.json()) as { status: string }).status).toBe('manual')
+  expect(await read.json()).toMatchObject({ status: 'manual', error: 'Automatic reading is off for this account.' })
   expect(((await (await rider.request.get(`/api/documents/${docId}`)).json()) as { canRead: boolean }).canRead).toBe(false)
 
   // Settings says why the mic is gone.
@@ -58,6 +58,16 @@ test('admin switches AI off for a rider: voice and invoice reading stop, the QR 
   await card.getByTestId('admin-ai-toggle').click()
   await expect(card.getByTestId('admin-ai-toggle')).toHaveAttribute('aria-checked', 'true')
   expect(await (await rider.request.get('/api/voice/status')).json()).toEqual({ available: true, off: false })
+
+  // Toggling the admin's own AI switch resets the in-memory voice check on the spot.
+  const myCard = page.getByTestId('admin-rider').filter({ hasText: E2E_ADMIN.email })
+  await myCard.getByTestId('admin-ai-toggle').click()
+  await expect(myCard.getByTestId('admin-ai-toggle')).toHaveAttribute('aria-checked', 'false')
+  await page.getByRole('link', { name: '← SETTINGS' }).click()
+  await expect(page.getByTestId('voice-off-account')).toBeVisible()
+  await page.getByTestId('admin-link').click()
+  await myCard.getByTestId('admin-ai-toggle').click()
+  await expect(myCard.getByTestId('admin-ai-toggle')).toHaveAttribute('aria-checked', 'true')
   await riderCtx.close()
 })
 

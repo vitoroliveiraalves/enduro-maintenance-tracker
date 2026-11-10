@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { formatDate } from '~/lib/format'
 import { errorMessage, statusOf } from '~/offline/outbox'
 import { readSession } from '~/offline/session'
+import { resetVoiceStatus } from '~/composables/useVoice'
 
 type Rider = {
   id: string
@@ -16,6 +16,7 @@ const COUNTS = ['bikes', 'services', 'expenses', 'invoices', 'readings', 'parts'
 
 const { get, mutate } = useApi()
 const { t } = useI18n()
+const { date } = useFormatters()
 const riders = ref<Rider[] | null>(null)
 const loadError = ref('')
 const saveError = ref('')
@@ -41,6 +42,7 @@ async function toggle(r: Rider) {
   try {
     const res = await mutate<{ aiEnabled: boolean }>(`/api/admin/users/${r.id}`, { aiEnabled: !r.aiEnabled }, { method: 'PATCH' })
     r.aiEnabled = res.aiEnabled
+    if (r.email === me) resetVoiceStatus()
   } catch (e) {
     saveError.value = errorMessage(e, t.value.admin.saveFailed, true)
   } finally {
@@ -60,7 +62,8 @@ async function toggle(r: Rider) {
     <p v-if="loadError" role="alert" class="mt-4 text-sm text-danger-text">{{ loadError }}</p>
     <p v-if="saveError" role="alert" class="mt-4 text-sm text-danger-text" data-testid="admin-save-error">{{ saveError }}</p>
 
-    <ul v-if="riders" class="mt-4 grid gap-2">
+    <Skeleton v-if="!riders && !loadError" :rows="3" height="h-28" class="mt-4" />
+    <ul v-else-if="riders" class="mt-4 grid gap-2">
       <li v-for="r in riders" :key="r.id" class="rounded-xl bg-surface p-3" data-testid="admin-rider">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
@@ -69,9 +72,9 @@ async function toggle(r: Rider) {
               <span v-if="r.email === me" class="ml-1 border border-text px-1 font-tag text-[10px] uppercase">{{ t.admin.you }}</span>
             </p>
             <p class="mt-0.5 font-tag text-[11px] text-muted">
-              {{ t.admin.lastLogin(r.lastLoginAt ? formatDate(r.lastLoginAt) : t.admin.never) }}
+              {{ t.admin.lastLogin(r.lastLoginAt ? date(r.lastLoginAt) : t.admin.never) }}
             </p>
-            <p class="font-tag text-[11px] text-muted">{{ t.admin.joined(formatDate(r.createdAt)) }}</p>
+            <p class="font-tag text-[11px] text-muted">{{ t.admin.joined(date(r.createdAt)) }}</p>
           </div>
           <div class="flex shrink-0 flex-col items-center gap-1">
             <span class="font-tag text-[10px] uppercase text-muted" aria-hidden="true">{{ t.admin.ai }}</span>

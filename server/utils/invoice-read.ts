@@ -20,6 +20,8 @@ export type ReaderCfg = {
   dailyCap: number
   /** All users together, per 24 h (NUXT_INVOICE_GLOBAL_DAILY_CAP). */
   globalDailyCap?: number
+  /** True when the server has a reader configured, but the admin switched AI off for this account. */
+  aiOff?: boolean
 }
 
 export const isMock = (cfg: Pick<ReaderCfg, 'reader'>) => cfg.reader === 'mock' || cfg.reader === 'mock-fail'
@@ -39,7 +41,7 @@ export function readerConfig(event: H3Event): ReaderCfg {
 /** The reader for this rider: an account with AI switched off reads like a server without a key (QR only, manual lines). */
 export async function readerConfigFor(event: H3Event, userId: string): Promise<ReaderCfg> {
   const cfg = readerConfig(event)
-  return (await aiEnabled(userId)) ? cfg : { ...cfg, apiKey: '', reader: '' }
+  return (await aiEnabled(userId)) ? cfg : { ...cfg, apiKey: '', reader: '', aiOff: readingAvailable(cfg) }
 }
 
 const MOCK_FAIL = Buffer.from('MOCK-FAIL')
@@ -121,7 +123,7 @@ export async function requestRead(
   if (running) return { status: 'reading', error: null, done: running }
   const notConfirmed = and(own(doc.id, doc.userId), ne(documents.status, 'confirmed'))
   if (!readingAvailable(cfg)) {
-    const error = readErrorMessage('no_key')
+    const error = readErrorMessage(cfg.aiOff ? 'ai_off' : 'no_key')
     await db.update(documents).set({ status: 'manual', error }).where(notConfirmed)
     return { status: 'manual', error, done: Promise.resolve() }
   }

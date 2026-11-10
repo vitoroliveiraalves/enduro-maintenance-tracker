@@ -124,6 +124,7 @@ describe('server text and seeded names', () => {
   it('Portuguese translates known server messages, including the ones with numbers', () => {
     setActiveLocale('pt')
     expect(serverText('Daily invoice reading limit reached — you can still add the lines yourself.')).toBe('Atingiu o limite diário de leitura de faturas — pode juntar as linhas à mão.')
+    expect(serverText('Automatic reading is off for this account.')).toBe('A leitura automática está desligada nesta conta.')
     expect(serverText('Too many voice notes — try again in 7 min.')).toBe('Demasiadas notas de voz — tente de novo daqui a 7 min.')
     expect(serverText('Gearbox oil on KTM 300 — overdue')).toBe('Gearbox oil na KTM 300 — em atraso')
     expect(serverText('keep 2, have 1')).toBe('manter 2, tem 1')
