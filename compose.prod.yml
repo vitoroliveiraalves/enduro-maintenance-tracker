@@ -12,7 +12,7 @@ name: enduro-prod
 
 x-app: &app
   build: .
-  image: enduro-tracker:latest
+  image: ${APP_IMAGE:-ghcr.io/vitoroliveiraalves/enduro-maintenance-tracker:latest}
   env_file: ${ENV_FILE:-prod.env} # the same file as --env-file
   environment:
     # Built from the compose values, so prod.env can't point them elsewhere by mistake.
@@ -23,6 +23,7 @@ x-app: &app
     AUTH_TRUSTED_PROXIES: ''
     # Inside the container it is always 3000; the host side is APP_PORT.
     PORT: '3000'
+    AUTO_MIGRATE: 'true'
   networks: [internal]
 
 services:
@@ -62,6 +63,8 @@ services:
       - '${APP_BIND:?set APP_BIND in prod.env (the LAN IP of this server, e.g. 192.168.1.172)}:${APP_PORT:-3020}:3000'
     # edge: the way out to OpenRouter (invoice lines) and the Web Push services.
     networks: [internal, edge]
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     # Healthcheck (GET /api/health) comes from the image.
 
   # Daily pg_dump into BACKUP_DIR on the host (copy that folder off the server).
@@ -94,6 +97,22 @@ services:
           sleep 86400
         done
     networks: [internal]
+
+  # Optional auto-updater: Watchtower periodically checks GHCR for updated images,
+  # pulls new layers, and seamlessly restarts the app container (auto-applying migrations on start).
+  # Uncomment this service if you want fully autonomous CD without Portainer webhooks:
+  # watchtower:
+  #   image: containrrr/watchtower
+  #   restart: unless-stopped
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     # If GHCR package is private, mount Docker credentials:
+  #     # - /root/.docker/config.json:/config.json:ro
+  #   environment:
+  #     WATCHTOWER_CLEANUP: 'true'
+  #     WATCHTOWER_POLL_INTERVAL: 300 # check every 5 minutes
+  #     WATCHTOWER_LABEL_ENABLE: 'true' # only update containers with com.centurylinklabs.watchtower.enable=true
+  #   networks: [edge]
 
 volumes:
   db-data:

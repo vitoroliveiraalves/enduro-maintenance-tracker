@@ -80,6 +80,31 @@ Then in NPM add a **Proxy Host**:
 **Update:** `git pull`, then the same `up -d --build` command. It rebuilds, migrates,
 then restarts the app. Expect a few seconds of downtime.
 
+### Automated CI/CD & Homelab Deployments
+
+Every push to `main` triggers a GitHub Actions workflow (`.github/workflows/deploy.yml`) that:
+1. Runs code checks (`pnpm check` - typecheck + ESLint) and Vitest unit tests.
+2. Builds the multi-stage Docker image and publishes it to GitHub Container Registry:
+   - `ghcr.io/vitoroliveiraalves/enduro-maintenance-tracker:latest`
+   - `ghcr.io/vitoroliveiraalves/enduro-maintenance-tracker:sha-<short-sha>`
+
+Database migrations run automatically at container startup via `docker-entrypoint.sh` before traffic is served.
+
+#### Option A: Autonomous Updates via Watchtower (Recommended for Homelab)
+Uncomment the `watchtower` service block in `compose.prod.yml` (or run a standalone Watchtower on your Docker host). Watchtower polls GHCR every 5 minutes and automatically updates the `app` container whenever a new image is pushed:
+```sh
+# Authenticate your homelab Docker with GHCR if the package is private:
+echo $GHCR_PAT | docker login ghcr.io -u <your-github-username> --password-stdin
+
+# Pull and run with compose:
+docker compose -f compose.prod.yml --env-file prod.env pull
+docker compose -f compose.prod.yml --env-file prod.env up -d
+```
+
+#### Option B: Portainer Stack
+1. In Portainer, create a new Stack using `compose.prod.yml` and paste your `prod.env` variables into the Stack Environment variables.
+2. When a new image is pushed, either click **Pull and redeploy** in the Stack editor, or enable the Portainer Stack Webhook and trigger it.
+
 **Logs and status:** `docker compose -f compose.prod.yml --env-file prod.env ps`
 (and `logs app`).
 
