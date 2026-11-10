@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { loginAs, sql } from './helpers/login'
 import { seedMockupBike } from './helpers/seed'
 
@@ -128,4 +129,29 @@ test('a wrong total can be corrected, down as well as up, even on the first read
   await page.getByTestId('hours-input').fill('100')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByTestId('log-error')).toContainText("Hours can't go down")
+})
+
+test('log ride: camera photo scan fills hours and km', async ({ page }) => {
+  await loginAs(page)
+  const name = `Scan Bike ${Date.now()}`
+  await seedMockupBike(page.request, name)
+  await page.goto('/')
+  await page.getByTestId('bike-card').filter({ has: page.getByText(name, { exact: true }) }).click()
+  await page.getByTestId('log-ride').click()
+
+  const fileInput = page.getByTestId('odometer-file-input')
+  await fileInput.setInputFiles({
+    name: 'odometer.jpg',
+    mimeType: 'image/jpeg',
+    buffer: readFileSync('tests/e2e/fixtures/invoice-garage.jpg'),
+  })
+
+  // The hours and km are populated automatically from the scan
+  await expect(page.getByTestId('hours-input')).toHaveValue('145')
+  await expect(page.getByTestId('km-input')).toHaveValue('3857')
+
+  // Save saves the scanned reading
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByTestId('log-sheet')).toHaveCount(0)
+  await expect(page.getByTestId('hours-value')).toHaveText('145.0 h')
 })

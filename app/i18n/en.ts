@@ -326,6 +326,10 @@ export const en = {
     failed: 'Could not save the reading. Try again.',
     saveAnyway: 'Save anyway',
     fixIt: 'Fix it',
+    scan: 'Scan display photo',
+    scanning: 'Reading display…',
+    scanUnreadable: "Couldn't read the numbers — type them below.",
+    scanFailed: "Couldn't read the photo. Try again.",
   },
 
   markDone: {

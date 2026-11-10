@@ -84,3 +84,29 @@ export function assertVoiceAllowed(userId: string, dailyCap = VOICE_DAILY_CAP, n
   buckets.set(globalKey, [...all, now])
   gc(now)
 }
+
+export const SCAN_DAILY_COPY = 'Daily scan limit reached — you can still type the numbers.'
+export const SCAN_GLOBAL_COPY = 'Photo scanning is busy today — you can still type the numbers.'
+export const SCAN_SHORT_MAX = 20
+export const SCAN_DAILY_CAP = 60
+export const SCAN_GLOBAL_DAILY_CAP = 600
+
+/** Scan rate limiter: global/24 h, 20 / user / 10 min, `dailyCap` / user / 24 h. */
+export function assertScanAllowed(userId: string, dailyCap = SCAN_DAILY_CAP, now = Date.now(), globalCap = SCAN_GLOBAL_DAILY_CAP) {
+  const globalKey = 'scan-global'
+  const shortKey = `scan:${userId}`
+  const dayKey = `scan-day:${userId}`
+  const all = hitsIn(globalKey, DAY_MS, now)
+  if (all.length >= globalCap) throw createError({ statusCode: 429, statusMessage: SCAN_GLOBAL_COPY })
+  const day = hitsIn(dayKey, DAY_MS, now)
+  if (day.length >= dailyCap) throw createError({ statusCode: 429, statusMessage: SCAN_DAILY_COPY })
+  const short = hitsIn(shortKey, READS_WINDOW_MS, now)
+  if (short.length >= SCAN_SHORT_MAX) {
+    const wait = Math.ceil((READS_WINDOW_MS - (now - short[0]!)) / 60_000)
+    throw createError({ statusCode: 429, statusMessage: `Too many scans — try again in ${wait} min, or type the numbers.` })
+  }
+  buckets.set(shortKey, [...short, now])
+  buckets.set(dayKey, [...day, now])
+  buckets.set(globalKey, [...all, now])
+  gc(now)
+}

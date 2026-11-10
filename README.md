@@ -1,6 +1,6 @@
 # Dirt Garage
 
-A phone-first PWA for enduro (and street) riders: log rides, see which maintenance
+A phone-first PWA for enduro (and street) riders: log rides (by hand or photo of the hour meter / odometer), see which maintenance
 items are due, record services and costs, and read garage invoices (QR code first,
 an AI model only for the lines; saved invoices can be listed, changed, moved to another bike or deleted). Works offline: screens come from the last sync and
 writes wait in an outbox until the phone is back online. Each bike counts hours & km,
@@ -36,7 +36,7 @@ notice and riders type the lines. Push reminders need a VAPID key pair
 
 Admin: accounts listed in `NUXT_ADMIN_EMAILS` (comma-separated) get Settings → Admin, a list of
 riders with last login, usage counts and an AI switch per account (on by default; off = no invoice
-line reading, no voice notes). Everyone else gets 404 on `/api/admin/*`.
+line reading, no voice notes, no photo scanning). Everyone else gets 404 on `/api/admin/*`.
 
 ## Tests
 

@@ -46,6 +46,13 @@ const SERVER: ServerText[] = [
   [exact('No invoice lines were found.'), 'Não foram encontradas linhas na fatura.'],
   [exact('The reading service did not answer properly.'), 'O serviço de leitura não respondeu como devia.'],
   [exact('Too many reads.'), 'Demasiadas leituras.'],
+  [exact('Daily scan limit reached — you can still type the numbers.'), 'Atingiu o limite diário de leitura de fotos — pode escrever os números à mão.'],
+  [exact('Photo scanning is busy today — you can still type the numbers.'), 'A leitura de fotos está muito ocupada hoje — pode escrever os números à mão.'],
+  [/^Too many scans — try again in (\d+) min, or type the numbers\.$/, (n) => `Demasiadas fotos — tente de novo daqui a ${n} min, ou escreva os números à mão.`],
+  [exact('Photo scanning is not set up on this server.'), 'A leitura de fotos não está configurada neste servidor.'],
+  [exact("Photo scanning couldn't be processed — try again."), 'Não foi possível processar a foto — tente de novo.'],
+  [exact('Unsupported format — use JPEG or PNG.'), 'Formato não suportado — use JPEG ou PNG.'],
+  [exact('The file is not a valid image.'), 'O ficheiro não é uma imagem válida.'],
   // Shopping list ("To buy") details
   [/^(.+) on (.+) — overdue$/, (item, bike) => `${item} na ${bike} — em atraso`],
   [/^(.+) on (.+) — due soon$/, (item, bike) => `${item} na ${bike} — em breve`],
@@ -405,6 +412,10 @@ export const pt: Messages = {
     failed: 'Não foi possível guardar a leitura. Tente de novo.',
     saveAnyway: 'Guardar mesmo assim',
     fixIt: 'Corrigir',
+    scan: 'Ler visor por foto',
+    scanning: 'A ler o visor…',
+    scanUnreadable: 'Não foi possível ler os números — escreva-os abaixo.',
+    scanFailed: 'Não foi possível ler a foto. Tente de novo.',
   },
 
   markDone: {

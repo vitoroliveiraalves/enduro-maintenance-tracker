@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatHoursLong } from '~/lib/format'
 import { parseDecimal } from '~/lib/parse-number'
+import { downscaleImage } from '~/lib/image-downscale'
 import { errorMessage } from '~/offline/outbox'
 const { t } = useI18n()
 
@@ -31,8 +32,43 @@ const condition = ref<(typeof CONDITION_KEYS)[number]>('normal')
 const error = ref('')
 const jump = ref('')
 const busy = ref(false)
+const scanning = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 // One id per "log this ride" intent: a double tap or a retry can never create two readings.
 let clientId = crypto.randomUUID()
+
+async function onFileChanged(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  input.value = ''
+  scanning.value = true
+  error.value = ''
+  jump.value = ''
+  try {
+    const downscaled = await downscaleImage(file, 800, 0.8)
+    const form = new FormData()
+    form.append('bikeId', props.bikeId)
+    form.append('file', downscaled, 'odometer.jpg')
+    const res = await mutate<{ hours: number | null; km: number | null; confidence: string }>('/api/readings/scan', form)
+    let found = false
+    if (res.hours !== null && hasHours.value) {
+      hoursText.value = String(res.hours)
+      found = true
+    }
+    if (res.km !== null && hasKm.value) {
+      kmText.value = String(res.km)
+      found = true
+    }
+    if (!found) {
+      error.value = t.value.logRide.scanUnreadable
+    }
+  } catch (err) {
+    error.value = errorMessage(err, t.value.logRide.scanFailed, true)
+  } finally {
+    scanning.value = false
+  }
+}
 
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -123,7 +159,7 @@ async function save(confirmBigJump = false) {
 <template>
   <Sheet v-model:open="open" :title="title" testid="log-sheet">
     <form @submit.prevent="save(false)">
-      <div class="flex gap-2.5">
+      <div class="flex items-end gap-2.5">
         <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
           {{ t.common.hours }}
           <input
@@ -146,7 +182,28 @@ async function save(confirmBigJump = false) {
             @input="jump = ''"
           >
         </label>
+        <button
+          type="button"
+          :disabled="scanning || busy"
+          class="flex size-[54px] shrink-0 items-center justify-center rounded-xl bg-bg text-text transition-colors hover:bg-surface disabled:opacity-50"
+          :aria-label="t.logRide.scan"
+          data-testid="scan-odometer-btn"
+          @click="fileInput?.click()"
+        >
+          <Icon v-if="!scanning" name="camera" :size="22" />
+          <span v-else class="size-5 animate-spin rounded-full border-2 border-text border-t-transparent" aria-hidden="true" />
+        </button>
+        <input
+          ref="fileInput"
+          type="file"
+          accept="image/jpeg,image/png"
+          capture="environment"
+          class="hidden"
+          data-testid="odometer-file-input"
+          @change="onFileChanged"
+        >
       </div>
+      <p v-if="scanning" class="mt-2 text-xs font-semibold text-muted font-tag animate-pulse" data-testid="scan-status">{{ t.logRide.scanning }}</p>
       <div v-if="hasHours" class="mt-3 flex gap-1.5" role="radiogroup" :aria-label="t.logRide.conditionsLabel">
         <button
           v-for="c in CONDITIONS"
