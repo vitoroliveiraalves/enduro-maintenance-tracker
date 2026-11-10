@@ -111,13 +111,17 @@ describe('requestRead', () => {
     expect((await reload(doc.id)).status).toBe('manual')
   })
 
-  it('no key → manual at once, no network call', async () => {
+  it('no key → manual at once, no network call; aiOff gives the account-off reason', async () => {
     const doc = await makeDoc()
     const fetchImpl = vi.fn()
     const r = await requestRead(doc, { ...cfg, apiKey: '' }, { fetchImpl: fetchImpl as unknown as typeof fetch })
     await r.done
     expect(r.status).toBe('manual')
     expect(await reload(doc.id)).toMatchObject({ status: 'manual', error: MANUAL_NO_KEY })
+    const docOff = await makeDoc()
+    const rOff = await requestRead(docOff, { ...cfg, apiKey: '', aiOff: true }, { fetchImpl: fetchImpl as unknown as typeof fetch })
+    await rOff.done
+    expect(await reload(docOff.id)).toMatchObject({ status: 'manual', error: 'Automatic reading is off for this account.' })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 

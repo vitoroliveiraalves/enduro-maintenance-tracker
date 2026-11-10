@@ -5,6 +5,7 @@ import { OfflineError } from '~/offline/outbox'
 import { setBadge } from '~/lib/badge'
 import { forgetSession } from '~/offline/session'
 import { unsubscribeThisDevice } from './usePush'
+import { resetVoiceStatus } from './useVoice'
 
 /**
  * Forget everything this device holds for the rider: cached data, queued
@@ -14,6 +15,7 @@ import { unsubscribeThisDevice } from './usePush'
 export async function forgetThisDevice() {
   await clearOfflineData() // cache, outbox and pending invoice photos
   forgetSession()
+  resetVoiceStatus()
   useOffline().forgetUploaded()
   useBikesStore().setLast(null)
   await setBadge(navigator, 0) // the next rider shouldn't see this garage's count

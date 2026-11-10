@@ -206,6 +206,7 @@ export async function extractInvoice(
 /** A short reason shown under the manual-entry notice. */
 export function readErrorMessage(error: string): string {
   if (error === 'no_key') return 'Automatic reading is not set up on this server.'
+  if (error === 'ai_off') return 'Automatic reading is off for this account.'
   if (error === 'unreadable') return 'The photo looks blurred or cut off.'
   if (error === 'timeout') return 'Reading took too long.'
   if (error === 'no_lines') return 'No invoice lines were found.'

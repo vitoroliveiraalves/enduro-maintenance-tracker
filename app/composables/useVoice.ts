@@ -1,5 +1,5 @@
 import { msgs } from '~/lib/i18n'
-import { errorMessage, OfflineError } from '~/offline/outbox'
+import { errorMessage, OfflineError, statusOf } from '~/offline/outbox'
 import { readSession } from '~/offline/session'
 import { localTz, queueVoice, removeVoice, voiceForm } from '~/offline/voice'
 
@@ -26,11 +26,18 @@ const available = ref(false)
 const off = ref(false)
 let checked = false
 
+export function resetVoiceStatus() {
+  checked = false
+  available.value = false
+  off.value = false
+  history.value = []
+}
+
 export function useVoice() {
   const { get, mutate } = useApi()
 
-  async function checkAvailable() {
-    if (checked) return
+  async function checkAvailable(force = false) {
+    if (checked && !force) return
     try {
       const s = await get<{ available: boolean; off?: boolean }>('/api/voice/status')
       available.value = s.available
@@ -69,6 +76,10 @@ export function useVoice() {
         }
         return
       }
+      if (statusOf(err) === 403) {
+        available.value = false
+        off.value = true
+      }
       sheet.value = { status: 'error', error: errorMessage(err, msgs().voice.failed) }
     }
   }
@@ -80,6 +91,10 @@ export function useVoice() {
     try {
       await post(form)
     } catch (err) {
+      if (statusOf(err) === 403) {
+        available.value = false
+        off.value = true
+      }
       sheet.value = { status: 'error', error: errorMessage(err, msgs().voice.failed) }
     }
   }

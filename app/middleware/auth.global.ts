@@ -2,6 +2,7 @@ import { authClient } from '~/lib/auth-client'
 import { clearOfflineData } from '~/offline/db'
 import { sessionForRoute } from '~/offline/session'
 import { requestFlush, warmCacheOnce } from '~/composables/useOffline'
+import { resetVoiceStatus } from '~/composables/useVoice'
 
 const PUBLIC = ['/login', '/register']
 
@@ -14,6 +15,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (changedUser) {
     // Another account on this device: never show the previous rider's data.
     await clearOfflineData()
+    resetVoiceStatus()
     useBikesStore().setLast(null)
   }
   // Fill the offline cache for screens not opened yet (non-blocking, once per run).

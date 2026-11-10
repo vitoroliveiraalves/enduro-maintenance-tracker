@@ -40,6 +40,7 @@ const SERVER: ServerText[] = [
   [exact('File too large (10 MB max).'), 'Ficheiro demasiado grande (máx. 10 MB).'],
   [exact('The file is not a valid PDF or image.'), 'O ficheiro não é um PDF ou imagem válidos.'],
   [exact('Automatic reading is not set up on this server.'), 'A leitura automática não está configurada neste servidor.'],
+  [exact('Automatic reading is off for this account.'), 'A leitura automática está desligada nesta conta.'],
   [exact('The photo looks blurred or cut off.'), 'A foto parece desfocada ou cortada.'],
   [exact('Reading took too long.'), 'A leitura demorou demasiado.'],
   [exact('No invoice lines were found.'), 'Não foram encontradas linhas na fatura.'],
