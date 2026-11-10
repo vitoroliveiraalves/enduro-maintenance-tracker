@@ -21,7 +21,7 @@ watch(
       returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
       await nextTick()
       const first = panel.value?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled])')
-      ;(first ?? panel.value)?.focus()
+      ;(first ?? panel.value)?.focus({ preventScroll: true })
     } else {
       returnTo?.focus()
       returnTo = null

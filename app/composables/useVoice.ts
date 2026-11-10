@@ -19,6 +19,7 @@ type SheetState = { status: 'listening' | 'done' | 'error'; result?: VoiceResult
 // One voice sheet for the whole app.
 const open = ref(false)
 const sheet = ref<SheetState>({ status: 'listening' })
+const submitting = ref(false)
 /** Last 3 question/answer turns of this sheet, sent with a follow-up. Never stored. */
 const history = ref<Array<{ q: string; a: string }>>([])
 const available = ref(false)
@@ -30,6 +31,7 @@ export function resetVoiceStatus() {
   checked = false
   available.value = false
   off.value = false
+  submitting.value = false
   history.value = []
 }
 
@@ -54,9 +56,9 @@ export function useVoice() {
     if (result.answer) history.value = [...history.value, { q: result.transcript, a: result.answer }].slice(-3)
   }
 
-  async function post(form: FormData) {
+  async function post(form: FormData, openEarly = false) {
     sheet.value = { status: 'listening' }
-    open.value = true
+    if (openEarly) open.value = true
     form.append('tz', localTz())
     if (history.value.length) form.append('history', JSON.stringify(history.value))
     show(await mutate<VoiceResult>('/api/voice', form))
@@ -64,8 +66,9 @@ export function useVoice() {
 
   /** A finished recording: answered now, or kept on the phone when there is no connection. */
   async function sendAudio(wav: ArrayBuffer) {
+    submitting.value = true
     try {
-      await post(voiceForm(wav))
+      await post(voiceForm(wav), false)
     } catch (err) {
       if (err instanceof OfflineError) {
         const uid = readSession()?.userId
@@ -81,6 +84,9 @@ export function useVoice() {
         off.value = true
       }
       sheet.value = { status: 'error', error: errorMessage(err, msgs().voice.failed) }
+      open.value = true
+    } finally {
+      submitting.value = false
     }
   }
 
@@ -89,7 +95,7 @@ export function useVoice() {
     const form = new FormData()
     form.append('transcript', transcript)
     try {
-      await post(form)
+      await post(form, true)
     } catch (err) {
       if (statusOf(err) === 403) {
         available.value = false
@@ -111,5 +117,5 @@ export function useVoice() {
     history.value = []
   }
 
-  return { open, sheet, history, available, off, checkAvailable, sendAudio, sendTranscript, openReady, close }
+  return { open, sheet, history, available, off, submitting, checkAvailable, sendAudio, sendTranscript, openReady, close }
 }

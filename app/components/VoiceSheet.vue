@@ -130,11 +130,11 @@ watch(open, (v) => {
   <Sheet v-model:open="open" :title="t.voiceSheet.title" testid="voice-sheet">
     <div v-if="voice.sheet.value.status === 'listening'" class="flex flex-col items-center justify-center py-8 gap-3" data-testid="voice-listening">
       <div class="flex items-center gap-1.5 h-6" aria-hidden="true">
-        <span class="w-1.5 rounded-full bg-accent animate-pulse h-3" />
-        <span class="w-1.5 rounded-full bg-accent animate-pulse h-5" style="animation-delay: 150ms" />
-        <span class="w-1.5 rounded-full bg-accent animate-pulse h-6" style="animation-delay: 300ms" />
-        <span class="w-1.5 rounded-full bg-accent animate-pulse h-4" style="animation-delay: 450ms" />
-        <span class="w-1.5 rounded-full bg-accent animate-pulse h-2.5" style="animation-delay: 600ms" />
+        <span class="inline-block w-1.5 rounded-full bg-accent animate-pulse h-3" />
+        <span class="inline-block w-1.5 rounded-full bg-accent animate-pulse h-5" style="animation-delay: 150ms" />
+        <span class="inline-block w-1.5 rounded-full bg-accent animate-pulse h-6" style="animation-delay: 300ms" />
+        <span class="inline-block w-1.5 rounded-full bg-accent animate-pulse h-4" style="animation-delay: 450ms" />
+        <span class="inline-block w-1.5 rounded-full bg-accent animate-pulse h-2.5" style="animation-delay: 600ms" />
       </div>
       <p class="text-sm font-medium text-muted">{{ t.voiceSheet.working }}</p>
     </div>
