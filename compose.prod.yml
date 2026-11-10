@@ -63,8 +63,6 @@ services:
       - '${APP_BIND:?set APP_BIND in prod.env (the LAN IP of this server, e.g. 192.168.1.172)}:${APP_PORT:-3020}:3000'
     # edge: the way out to OpenRouter (invoice lines) and the Web Push services.
     networks: [internal, edge]
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     # Healthcheck (GET /api/health) comes from the image.
 
   # Daily pg_dump into BACKUP_DIR on the host (copy that folder off the server).
@@ -97,20 +95,6 @@ services:
           sleep 86400
         done
     networks: [internal]
-
-  # Auto-updater: Watchtower periodically checks GHCR for updated images,
-  # pulls new layers, and seamlessly restarts the app container (auto-applying migrations on start).
-  watchtower:
-    image: containrrr/watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      DOCKER_API_VERSION: '1.44'
-      WATCHTOWER_CLEANUP: 'true'
-      WATCHTOWER_POLL_INTERVAL: '120' # check every 2 minutes
-      WATCHTOWER_LABEL_ENABLE: 'true' # only update containers with com.centurylinklabs.watchtower.enable=true
-    networks: [edge]
 
 volumes:
   db-data:

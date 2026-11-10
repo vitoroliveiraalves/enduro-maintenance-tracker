@@ -90,16 +90,14 @@ Every push to `main` triggers a GitHub Actions workflow (`.github/workflows/depl
 
 Database migrations run automatically at container startup via `docker-entrypoint.sh` before traffic is served.
 
-#### Option A: Autonomous Updates via Watchtower (Recommended for Homelab)
-Uncomment the `watchtower` service block in `compose.prod.yml` (or run a standalone Watchtower on your Docker host). Watchtower polls GHCR every 5 minutes and automatically updates the `app` container whenever a new image is pushed:
-```sh
-# Authenticate your homelab Docker with GHCR if the package is private:
-echo $GHCR_PAT | docker login ghcr.io -u <your-github-username> --password-stdin
-
-# Pull and run with compose:
-docker compose -f compose.prod.yml --env-file prod.env pull
-docker compose -f compose.prod.yml --env-file prod.env up -d
+#### Option A: Host Cron Job as `root` (Recommended — Zero 3rd-Party Containers)
+Since Docker runs as root/admin on the host, add a root cron job (`sudo crontab -e`) so no third-party container ever mounts `/var/run/docker.sock`:
+```cron
+*/5 * * * * flock -n /tmp/enduro-deploy.lock sh -c 'cd /path/to/enduro-tracker && docker compose -f compose.prod.yml --env-file prod.env up -d --pull always --quiet-pull && docker image prune -f' >/var/log/enduro-deploy.log 2>&1
 ```
+- Runs as `root` (`sudo crontab -e`), so no interactive `sudo` password prompt is needed.
+- `flock -n` ensures two runs never overlap if a pull takes longer than 5 minutes.
+- If the image on GHCR hasn't changed, `docker compose up -d` leaves the running container untouched; when a new image exists, it pulls it, recreates `app` (which auto-runs DB migrations via `docker-entrypoint.sh`), and prunes old dangling image layers.
 
 #### Option B: Portainer Stack
 1. In Portainer, create a new Stack using `compose.prod.yml` and paste your `prod.env` variables into the Stack Environment variables.
