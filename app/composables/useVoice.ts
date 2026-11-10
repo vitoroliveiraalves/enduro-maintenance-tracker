@@ -22,6 +22,8 @@ const sheet = ref<SheetState>({ status: 'listening' })
 /** Last 3 question/answer turns of this sheet, sent with a follow-up. Never stored. */
 const history = ref<Array<{ q: string; a: string }>>([])
 const available = ref(false)
+/** Set up on the server but switched off for this account by the admin. */
+const off = ref(false)
 let checked = false
 
 export function useVoice() {
@@ -30,7 +32,9 @@ export function useVoice() {
   async function checkAvailable() {
     if (checked) return
     try {
-      available.value = (await get<{ available: boolean }>('/api/voice/status')).available
+      const s = await get<{ available: boolean; off?: boolean }>('/api/voice/status')
+      available.value = s.available
+      off.value = !!s.off
       checked = true
     } catch {
       // offline at start: try again on the next call
@@ -92,5 +96,5 @@ export function useVoice() {
     history.value = []
   }
 
-  return { open, sheet, history, available, checkAvailable, sendAudio, sendTranscript, openReady, close }
+  return { open, sheet, history, available, off, checkAvailable, sendAudio, sendTranscript, openReady, close }
 }

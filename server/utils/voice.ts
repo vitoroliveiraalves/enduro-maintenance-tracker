@@ -23,6 +23,7 @@ export type VoiceInput = { audio: Buffer | null; transcript: string | null; hist
 export type VoiceCfg = { apiKey: string; model: string; reader: string; dailyCap: number; globalDailyCap: number }
 
 export const NOT_SET_UP = "Voice isn't set up on this server."
+export const AI_OFF = "Voice notes are off for this account."
 export const DONT_KNOW = "I don't know from your records."
 const FAILED = "Voice couldn't be processed — try again."
 

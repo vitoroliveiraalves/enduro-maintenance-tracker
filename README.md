@@ -34,6 +34,10 @@ Invoice reading needs `NUXT_OPENROUTER_API_KEY`; without it the app shows a calm
 notice and riders type the lines. Push reminders need a VAPID key pair
 (`pnpm vapid:generate`).
 
+Admin: accounts listed in `NUXT_ADMIN_EMAILS` (comma-separated) get Settings → Admin, a list of
+riders with last login, usage counts and an AI switch per account (on by default; off = no invoice
+line reading, no voice notes). Everyone else gets 404 on `/api/admin/*`.
+
 ## Tests
 
 ```sh

@@ -38,6 +38,10 @@ export const user = pgTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
+  /** Beta AI features (invoice line reading, voice notes); the admin can switch them off per account. */
+  aiEnabled: boolean('ai_enabled').notNull().default(true),
+  /** Set by the session-create hook (server/utils/auth.ts); sessions themselves go on sign-out. */
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })

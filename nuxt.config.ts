@@ -58,6 +58,8 @@ export default defineNuxtConfig({
     voiceDailyCap: 60,
     voiceGlobalDailyCap: 600,
     voiceReader: '',
+    // Comma-separated emails with the admin screen (NUXT_ADMIN_EMAILS).
+    adminEmails: '',
     // Web Push (NUXT_VAPID_*; `pnpm vapid:generate`). No keys → push disabled, Settings says so.
     vapidPublicKey: '',
     vapidPrivateKey: '',
