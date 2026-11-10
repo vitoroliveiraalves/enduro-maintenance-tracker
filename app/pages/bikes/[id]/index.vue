@@ -126,7 +126,8 @@ const lastRide = computed(() => {
   return t.value.bike.lastRide(weekdayDay(r.at), !!r.pending)
 })
 
-// Empty bike: a small inline form to add the first item.
+// Add item form state (for empty bike or adding more items).
+const showAddForm = ref(false)
 const newName = ref('')
 const newHours = ref('')
 const newKm = ref('')
@@ -157,6 +158,7 @@ async function addItem() {
     if (isQueued(res)) addNote.value = b.itemQueued
     else data.value = await get<Detail>(`/api/bikes/${id}`)
     newName.value = newHours.value = newKm.value = newMonths.value = ''
+    showAddForm.value = false
   } catch (e) {
     addError.value = errorMessage(e, b.addFailed)
   } finally {
@@ -237,6 +239,50 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <template v-if="data.items.length">
         <h2 class="mb-2 mt-3 font-tag text-[11px] uppercase tracking-[0.12em] text-muted">{{ t.bike.maintenance }}</h2>
         <ItemRow v-for="it in data.items" :key="it.id" :item="it" :to="`/bikes/${id}/items/${it.id}`" />
+
+        <div class="mt-3">
+          <button
+            v-if="!showAddForm"
+            type="button"
+            class="w-full rounded-xl border border-dashed border-white/20 bg-surface/50 py-3 text-center font-tag text-xs font-bold text-accent-text hover:border-accent hover:bg-surface transition"
+            data-testid="open-add-item-btn"
+            @click="showAddForm = true"
+          >
+            + {{ t.bike.addItem }}
+          </button>
+          <section v-else class="rounded-xl bg-surface p-3.5 border border-track" data-testid="inline-add-item">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-tag font-bold uppercase tracking-wider text-white">{{ t.bike.addItem }}</span>
+              <button type="button" class="text-xs text-muted hover:text-white" @click="showAddForm = false">{{ t.common.cancel }}</button>
+            </div>
+            <form @submit.prevent="addItem" @input="addError = ''">
+              <label class="block text-[11px] uppercase tracking-wider text-muted">
+                {{ t.manage.name }}
+                <input v-model="newName" autocomplete="off" maxlength="80" data-testid="new-item-name" :class="field">
+              </label>
+              <div class="mt-3 flex gap-2.5">
+                <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+                  {{ t.bike.everyH }}
+                  <input v-model="newHours" inputmode="decimal" autocomplete="off" data-testid="new-item-hours" :class="field">
+                </label>
+                <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+                  {{ t.bike.everyKm }}
+                  <input v-model="newKm" inputmode="decimal" autocomplete="off" data-testid="new-item-km" :class="field">
+                </label>
+                <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+                  {{ t.bike.everyMo }}
+                  <input v-model="newMonths" inputmode="decimal" autocomplete="off" data-testid="new-item-months" :class="field">
+                </label>
+              </div>
+              <p v-if="addError" role="alert" class="mt-2 text-sm text-danger-text" data-testid="new-item-error">{{ addError }}</p>
+              <p v-else-if="addNote" role="status" class="mt-2 text-sm text-warn-text" data-testid="new-item-queued">{{ addNote }}</p>
+              <div class="mt-3 flex gap-2">
+                <button type="button" class="flex-1 rounded-xl border border-white/10 py-3 text-sm font-semibold text-muted hover:text-white" @click="showAddForm = false">{{ t.common.cancel }}</button>
+                <button type="submit" :disabled="adding" class="flex-[2] rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60" data-testid="new-item-save">{{ t.bike.addItem }}</button>
+              </div>
+            </form>
+          </section>
+        </div>
       </template>
 
       <section v-else class="mt-3 rounded-xl bg-surface p-3" data-testid="empty-items">

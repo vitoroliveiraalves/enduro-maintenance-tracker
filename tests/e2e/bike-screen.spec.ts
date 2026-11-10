@@ -75,6 +75,15 @@ test('empty bike offers an inline add-item form', async ({ page }) => {
   await expect(row).toContainText('Fork oil')
   await expect(row.getByTestId('item-state')).toHaveText('Unknown')
   await expect(page.getByTestId('empty-items')).toHaveCount(0)
+
+  // A bike with existing items can add more maintenance items via the add-item button
+  await page.getByTestId('open-add-item-btn').click()
+  await expect(page.getByTestId('inline-add-item')).toBeVisible()
+  await page.getByTestId('new-item-name').fill('Spark plug')
+  await page.getByTestId('new-item-hours').fill('50')
+  await page.getByTestId('new-item-save').click()
+  await expect(page.getByTestId('item-row')).toHaveCount(2)
+  await expect(page.getByTestId('item-row').filter({ hasText: 'Spark plug' })).toBeVisible()
 })
 
 test('an item link under the wrong bike goes to the right one', async ({ page }) => {
