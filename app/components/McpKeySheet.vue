@@ -55,7 +55,7 @@ const claudeConfig = computed(() => {
           args: [
             '-y',
             'mcp-remote',
-            `${origin.value}/api/mcp/sse`,
+            `${origin.value}/api/mcp`,
             '--header',
             `Authorization: Bearer ${createdToken.value}`,
           ],
@@ -73,7 +73,7 @@ const cursorConfig = computed(() => {
     {
       mcpServers: {
         'dirt-garage': {
-          url: `${origin.value}/api/mcp/sse`,
+          url: `${origin.value}/api/mcp`,
           headers: {
             Authorization: `Bearer ${createdToken.value}`,
           },
@@ -85,7 +85,7 @@ const cursorConfig = computed(() => {
   )
 })
 
-const sseUrl = computed(() => `${origin.value}/api/mcp/sse`)
+const mcpUrl = computed(() => `${origin.value}/api/mcp`)
 
 async function copyText(text: string) {
   try {
@@ -218,23 +218,23 @@ async function copyText(text: string) {
       <div v-else-if="activeTab === 'gemini'" class="mb-4 space-y-3">
         <div>
           <div class="flex items-center justify-between mb-1">
-            <span class="text-[11px] text-muted">Remote MCP Server URL:</span>
+            <span class="text-[11px] text-muted">Remote MCP Server URL (Streamable HTTP):</span>
             <button
               type="button"
               class="text-xs font-semibold text-accent-text"
-              @click="copyText(sseUrl)"
+              @click="copyText(mcpUrl)"
             >
               {{ t.common.copy }}
             </button>
           </div>
           <input
             readonly
-            :value="sseUrl"
+            :value="mcpUrl"
             class="w-full rounded-xl border border-white/10 bg-bg px-3 py-2 text-xs font-mono text-white focus:outline-none"
           >
         </div>
         <p class="text-[11px] text-muted leading-relaxed">
-          In Gemini, connect your app by entering the URL above and pasting your Bearer token in the authentication header.
+          In your AI assistant or connector settings, enter the URL above and paste your Bearer token in the authorization header.
         </p>
       </div>
 
