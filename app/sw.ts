@@ -45,7 +45,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(p.title || 'Enduro Tracker', {
       body: p.body ?? '',
       icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
+      badge: '/badge-96x96.png', // monochrome on transparent: Android masks it, an opaque icon turns into a white square
       tag: p.tag,
       data: { url: p.url || '/' },
     }),

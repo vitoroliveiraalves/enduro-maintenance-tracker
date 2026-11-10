@@ -26,12 +26,22 @@ function svg(scale, rounded) {
 </svg>`
 }
 
+/** Notification badge: Android masks it by alpha only, so a solid white mark on transparent (an opaque icon shows as a white square). */
+function badgeSvg() {
+  const knobs = Array.from({ length: 16 }, (_, i) => `<rect x="-17" y="-196" width="34" height="40" rx="6" transform="rotate(${(i * 360) / 16})"/>`).join('')
+  const spokes = Array.from({ length: 6 }, (_, i) => `<rect x="-9" y="-98" width="18" height="58" rx="5" transform="rotate(${i * 60})"/>`).join('')
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <g transform="translate(256 256) scale(1.12)" fill="#fff">${knobs}<circle r="160" fill="none" stroke="#fff" stroke-width="48"/>${spokes}<circle r="44"/></g>
+</svg>`
+}
+
 const out = [
   ['public/pwa-192x192.png', 192, svg(1, false)],
   ['public/pwa-512x512.png', 512, svg(1, false)],
   // Maskable: the mark stays inside the central 80 % safe zone.
   ['public/maskable-512x512.png', 512, svg(0.74, false)],
   ['public/apple-touch-icon.png', 180, svg(0.92, false)],
+  ['public/badge-96x96.png', 96, badgeSvg()],
 ]
 
 await mkdir('public', { recursive: true })
