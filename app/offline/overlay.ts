@@ -72,8 +72,17 @@ export function overlay<T>(url: string, data: T, rows: OutboxRow[]): T {
   const q = queryOf(url)
 
   if (/^\/api\/bikes\/[^/]+$/.test(path)) {
-    const d = out as { bike?: { id: string }; latestReading: Reading | null; items?: Obj[] }
-    const bikeId = d.bike?.id ?? path.slice('/api/bikes/'.length)
+    const d = out as { bike?: Obj; latestReading: Reading | null; items?: Obj[] }
+    const bikeId = (d.bike?.id as string | undefined) ?? path.slice('/api/bikes/'.length)
+    if (d.bike) {
+      for (const r of rows) {
+        if (r.method === 'PATCH' && pathOf(r.url) === `/api/bikes/${bikeId}`) {
+          for (const k of ['name', 'plate', 'make', 'model', 'year', 'notes', 'stroke', 'meters', 'premixRatio']) {
+            if (k in r.body) d.bike[k] = r.body[k]
+          }
+        }
+      }
+    }
     d.latestReading = latest(d.latestReading, readingsFor(rows, bikeId))
     const touched = new Set(servicesFor(rows, bikeId).flatMap((r) => (Array.isArray(r.body.itemIds) ? (r.body.itemIds as string[]) : [])))
     for (const it of d.items ?? []) if (touched.has(it.id as string)) it.pendingSync = true

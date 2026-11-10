@@ -165,6 +165,7 @@ export const bikes = pgTable(
     plate: text('plate'),
     meters: text('meters', { enum: ['hours_km', 'km', 'hours'] }).notNull().default('hours_km'),
     premixRatio: integer('premix_ratio'),
+    notes: text('notes'),
     photoDocumentId: uuid('photo_document_id').references(() => documents.id, { onDelete: 'set null' }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: createdAt(),

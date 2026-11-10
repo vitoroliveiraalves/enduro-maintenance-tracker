@@ -115,12 +115,14 @@ test('a wrong total can be corrected, down as well as up, even on the first read
   await page.getByTestId('bike-card').filter({ has: page.getByText(name, { exact: true }) }).click()
   await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
 
+  await page.getByTestId('vehicle-settings-link').click()
   await page.getByTestId('correct-total').click()
   await expect(page.getByTestId('correct-hours')).toHaveValue('142.5')
   await page.getByTestId('correct-hours').fill('120,5')
   await page.getByTestId('correct-km').fill('3000')
   await page.getByTestId('correct-save').click()
   await expect(page.getByTestId('correct-sheet')).toHaveCount(0)
+  await page.getByTestId('back-to-bike').click()
   await expect(page.getByTestId('hours-value')).toHaveText('120.5 h')
   await expect(page.getByTestId('km-value')).toContainText('3 000')
 

@@ -227,9 +227,14 @@ describe('bikes api logic', () => {
         plate: 'AA-01-BB',
       })
 
-      const patched = await patchBike(car, { plate: '99-ZZ-88', name: 'Track Golf' })
+      const patched = await patchBike(car, { plate: '99-ZZ-88', name: 'Track Golf', model: 'Golf R', notes: 'Stage 1 remap, 19-inch tyres' })
       expect(patched.plate).toBe('99-ZZ-88')
       expect(patched.name).toBe('Track Golf')
+      expect(patched.model).toBe('Golf R')
+      expect(patched.notes).toBe('Stage 1 remap, 19-inch tyres')
+
+      const cleared = await patchBike(car, { notes: '' })
+      expect(cleared.notes).toBeNull()
     })
   })
 })

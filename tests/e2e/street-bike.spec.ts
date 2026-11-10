@@ -69,13 +69,16 @@ test('street bike: add with km only, log a ride, mark done, switch meters, costs
   await expect(page.getByTestId('kpi-km-total')).toBeVisible()
   await expect(page.getByTestId('costs-bike-row').first()).not.toContainText(HOURS)
 
-  // Switch to Hours & km and back: hours appear, then go again; nothing lost.
-  await page.goto(`/bikes/${bikeId}`)
+  // Switch to Hours & km and back in vehicle settings: hours appear, then go again; nothing lost.
+  await page.goto(`/bikes/${bikeId}/settings`)
   await page.getByTestId('bike-meters').getByText('Hours & km').click()
   await page.getByTestId('bike-meters-save').click()
+  await page.getByTestId('back-to-bike').click()
   await expect(page.getByTestId('hours-value')).toBeVisible()
+  await page.getByTestId('vehicle-settings-link').click()
   await page.getByTestId('bike-meters').getByText('Km only').click()
   await page.getByTestId('bike-meters-save').click()
+  await page.getByTestId('back-to-bike').click()
   await expect(page.getByTestId('hours-value')).toHaveCount(0)
   await expect(page.getByTestId('km-value')).toHaveText(`4${T}100`)
 })

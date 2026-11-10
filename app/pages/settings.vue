@@ -39,13 +39,15 @@ const remError = ref('')
 const sheetOpen = ref(false)
 const reminderToEdit = ref<Reminder | null>(null)
 
-function editReminder(r: Reminder) {
+async function editReminder(r: Reminder) {
   reminderToEdit.value = r
+  if (!store.bikes.length) await store.fetchBikes().catch(() => {})
   sheetOpen.value = true
 }
 
-function openNewReminder() {
+async function openNewReminder() {
   reminderToEdit.value = null
+  if (!store.bikes.length) await store.fetchBikes().catch(() => {})
   sheetOpen.value = true
 }
 

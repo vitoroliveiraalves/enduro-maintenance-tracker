@@ -28,6 +28,8 @@ export type BikeInput = {
   vehicleType?: 'motorcycle' | 'car'
   plate?: string | null
   meters?: BikeMeters
+  premixRatio?: number | null
+  notes?: string | null
   hoursTenths?: number
   km?: number
   items: ItemInput[]
@@ -147,6 +149,7 @@ export function parseBikeInput(raw: unknown) {
   if (raw.meters !== undefined && !isBikeMeters(raw.meters)) throw bad('Invalid meters')
   const meters: BikeMeters = raw.meters ?? defaultMeters
   const plate = typeof raw.plate === 'string' && raw.plate.trim() ? str(raw.plate, 'plate', 20).toUpperCase() : null
+  const notes = typeof raw.notes === 'string' && raw.notes.trim() ? str(raw.notes, 'notes', 5000) : null
   const parsed = {
     clientId: uuid(raw.clientId),
     name: str(raw.name, 'name'),
@@ -158,6 +161,7 @@ export function parseBikeInput(raw: unknown) {
     plate,
     meters,
     premixRatio: vehicleType !== 'car' && stroke === '2T' ? (raw.premixRatio !== undefined ? (raw.premixRatio === null ? null : int(raw.premixRatio, 'premixRatio', 10, 100)) : 50) : null,
+    notes,
     hoursTenths: countsHours(meters) ? int(raw.hoursTenths, 'hoursTenths') : null,
     km: countsKm(meters) ? int(raw.km, 'km') : null,
     items: raw.items.map((i) => cleanItem(i, meters)),
@@ -189,6 +193,7 @@ export async function createBike(userId: string, raw: unknown): Promise<Bike> {
         plate: input.plate,
         meters: input.meters,
         premixRatio: input.premixRatio,
+        notes: input.notes,
       })
       .onConflictDoNothing({ target: [bikes.userId, bikes.clientId] })
       .returning()
@@ -330,12 +335,19 @@ export async function patchBike(bike: Bike, raw: unknown): Promise<Bike> {
   if (raw.make !== undefined) set.make = str(raw.make, 'make')
   if (raw.model !== undefined) set.model = str(raw.model, 'model')
   if (raw.year !== undefined) set.year = int(raw.year, 'year', 1950, 2100)
+  if (raw.stroke !== undefined) {
+    if (raw.stroke !== '2T' && raw.stroke !== '4T') throw bad('Invalid stroke')
+    set.stroke = raw.stroke
+  }
   if (raw.vehicleType !== undefined) {
     if (raw.vehicleType !== 'motorcycle' && raw.vehicleType !== 'car') throw bad('Invalid vehicleType')
     set.vehicleType = raw.vehicleType
   }
   if (raw.plate !== undefined) {
     set.plate = raw.plate === null || raw.plate === '' ? null : str(raw.plate, 'plate', 20).toUpperCase()
+  }
+  if (raw.notes !== undefined) {
+    set.notes = raw.notes === null || raw.notes === '' ? null : str(raw.notes, 'notes', 5000)
   }
   if (raw.meters !== undefined) {
     if (!isBikeMeters(raw.meters)) throw bad('Invalid meters')

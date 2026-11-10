@@ -10,7 +10,7 @@ test('rows follow urgency, show driver text, bars and open the item history', as
   await expect(page.getByTestId('last-ride')).toHaveText(/^Last ride: \w{3}, \d{1,2} \w{3}$/)
   await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
   await expect(page.getByTestId('km-value')).toHaveText('3 812')
-  await expect(page.getByTestId('settings-link')).toHaveAttribute('href', '/settings')
+  await expect(page.getByTestId('vehicle-settings-link')).toHaveAttribute('href', `/bikes/${id}/settings`)
 
   const rows = page.getByTestId('item-row')
   await expect(rows).toHaveCount(5)
@@ -130,10 +130,15 @@ test('add license plate and quick IUC reminder directly on a motorcycle screen',
   const id = await seedMockupBike(page.request, 'Plated KTM')
   await page.goto(`/bikes/${id}`)
 
-  // Add license plate to the motorcycle
+  // Add license plate and notes to the motorcycle in vehicle settings
+  await page.getByTestId('vehicle-settings-link').click()
+  await expect(page).toHaveURL(`/bikes/${id}/settings`)
   await page.getByTestId('bike-plate-input').fill('99-ZZ-11')
-  await page.getByTestId('bike-plate-save').click()
+  await page.getByTestId('bike-notes-input').fill('Motul 300V, 14T front sprocket')
+  await page.getByTestId('bike-settings-save').click()
+  await page.getByTestId('back-to-bike').click()
   await expect(page.getByTestId('bike-plate')).toHaveText('99-ZZ-11')
+  await expect(page.getByTestId('bike-notes-card')).toContainText('Motul 300V')
 
   // Quick-add an IUC reminder due in 10 days from the vehicle page
   const d = new Date()

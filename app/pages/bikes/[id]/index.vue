@@ -6,16 +6,19 @@ import { errorMessage } from '~/offline/outbox'
 import type { ItemRowJson } from '../../../../server/domain/item-row'
 const { t } = useI18n()
 
-type Detail = {
+export type Detail = {
   bike: {
     id: string
     name: string
+    make?: string
+    model?: string
     year: number
     stroke: '2T' | '4T'
     vehicleType?: 'motorcycle' | 'car'
     plate?: string | null
     meters: BikeMeters
     premixRatio?: number | null
+    notes?: string | null
   }
   latestReading: { id?: string; at: string; hoursTenths: number | null; km: number | null; pending?: boolean } | null
   items: Array<ItemRowJson & { pendingSync?: boolean }>
@@ -40,7 +43,6 @@ const store = useBikesStore()
 const data = ref<Detail | null>(null)
 const error = ref('')
 const sheetOpen = ref(false)
-const correctOpen = ref(false)
 const premixOpen = ref(false)
 const reminderOpen = ref(false)
 const reminderToEdit = ref<VehicleReminder | null>(null)
@@ -91,46 +93,10 @@ onMounted(async () => {
 // A flush sent queued writes: show the server's view (status recomputed there).
 watch(syncTick, load)
 
-async function renameBike(name: string) {
-  await mutate(`/api/bikes/${id}`, { name }, { method: 'PATCH', queue: true })
-  await load()
-  toast.show(t.value.bike.renamed(name))
-}
-async function updatePlate(plate: string | null) {
-  await mutate(`/api/bikes/${id}`, { plate }, { method: 'PATCH', queue: true })
-  await load()
-  toast.show(t.value.bike.plateSaved)
-}
-async function removeBike() {
-  const name = data.value?.bike.name ?? t.value.bike.fallbackName
-  await mutate(`/api/bikes/${id}`, { archived: true }, { method: 'PATCH', queue: true })
-  store.setLast(null)
-  toast.show(t.value.bike.removed(name))
-  await navigateTo('/')
-}
-
 // What the bike counts: online only (a queued switch could reorder against queued readings).
 const meters = computed<BikeMeters>(() => data.value?.bike.meters ?? 'hours_km')
 const hasHours = computed(() => countsHours(meters.value))
 const hasKm = computed(() => countsKm(meters.value))
-const metersDraft = ref<BikeMeters>('hours_km')
-watch(meters, (m) => (metersDraft.value = m), { immediate: true })
-const metersBusy = ref(false)
-const metersError = ref('')
-async function saveMeters() {
-  if (metersBusy.value || metersDraft.value === meters.value) return
-  metersBusy.value = true
-  metersError.value = ''
-  try {
-    await mutate(`/api/bikes/${id}`, { meters: metersDraft.value }, { method: 'PATCH' })
-    await load()
-    toast.show(t.value.meters.countsToast(t.value.meters.label[metersDraft.value]))
-  } catch (e) {
-    metersError.value = errorMessage(e, t.value.bike.metersFailed)
-  } finally {
-    metersBusy.value = false
-  }
-}
 
 const toast = useToast()
 async function onSaved(detail: Record<string, unknown>) {
@@ -145,11 +111,6 @@ async function onSaved(detail: Record<string, unknown>) {
   if (queued || r.pending || !r.id) return toast.show(text)
   const readingId = r.id
   toast.show(text, { action: { label: t.value.bike.undo, run: () => undoReading(readingId) } })
-}
-
-function onCorrected(detail: Record<string, unknown>) {
-  data.value = detail as unknown as Detail
-  toast.show(t.value.bike.corrected)
 }
 
 async function undoReading(readingId: string) {
@@ -215,7 +176,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
     <div class="flex items-center justify-between text-[13px] text-muted">
       <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">{{ t.common.garageBack }}</NuxtLink>
-      <NuxtLink to="/settings" class="-m-2 flex size-11 items-center justify-center text-lg" :aria-label="t.garage.settings" data-testid="settings-link"><Icon name="settings" :size="22" /></NuxtLink>
+      <NuxtLink :to="`/bikes/${id}/settings`" class="-m-2 flex size-11 items-center justify-center text-lg text-muted hover:text-white" :aria-label="t.bike.settings" data-testid="vehicle-settings-link"><Icon name="settings" :size="22" /></NuxtLink>
     </div>
     <template v-if="data">
       <div class="mb-1 mt-2 flex items-center justify-between gap-2">
@@ -270,6 +231,10 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           + {{ t.bike.addReminder }}
         </button>
       </div>
+      <div v-if="data.bike.notes" class="mt-2.5 rounded-xl border border-white/5 bg-surface/50 p-3 text-xs leading-relaxed" data-testid="bike-notes-card">
+        <span class="block font-tag text-[10px] uppercase tracking-wider text-muted mb-1">{{ t.bike.notes }}</span>
+        <p class="whitespace-pre-line text-text">{{ data.bike.notes }}</p>
+      </div>
       <div v-if="data.latestReading" class="mb-3.5 mt-3 flex gap-2.5">
         <MeterCard v-if="hasHours" :label="t.common.hours" :value="data.latestReading.hoursTenths === null ? '—' : hours(data.latestReading.hoursTenths)" testid="hours-value" />
         <MeterCard v-if="hasKm" :label="t.common.km" :value="data.latestReading.km === null ? '—' : km(data.latestReading.km).replace(/ km$/, '')" testid="km-value" />
@@ -284,16 +249,6 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         {{ t.bike.logRide(hasHours && hasKm ? 'meters' : hasHours ? 'hours' : 'km') }}
       </button>
       <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" :meters="meters" @saved="onSaved" />
-      <button
-        v-if="data.latestReading && !data.latestReading.pending"
-        type="button"
-        class="-mt-1.5 mb-3.5 min-h-11 w-full text-sm font-semibold text-accent-text"
-        data-testid="correct-total"
-        @click="correctOpen = true"
-      >
-        {{ t.bike.correct }}
-      </button>
-      <CorrectTotalSheet v-model:open="correctOpen" :bike-id="data.bike.id" :current="data.latestReading" :meters="meters" @saved="onCorrected" />
 
       <template v-if="data.items.length">
         <h2 class="mb-2 mt-3 font-tag text-[11px] uppercase tracking-[0.12em] text-muted">{{ t.bike.maintenance }}</h2>
@@ -371,25 +326,6 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </form>
       </section>
 
-      <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted font-tag">
-        {{ data.bike.vehicleType === 'car' ? t.bike.carSection : t.bike.bikeSection }}
-      </h2>
-      <form v-if="data.bike.vehicleType !== 'car'" class="mb-3 rounded-xl bg-surface p-3" data-testid="bike-meters" @submit.prevent="saveMeters">
-        <MetersChoice v-model="metersDraft" :disabled="metersBusy" />
-        <p class="mt-2 text-xs text-muted">{{ t.bike.metersHint }}</p>
-        <p v-if="metersError" role="alert" class="mt-2 text-sm text-danger-text">{{ metersError }}</p>
-        <button type="submit" :disabled="metersBusy || metersDraft === meters" class="mt-2 min-h-11 w-full rounded-xl bg-bg text-sm font-semibold text-accent-text disabled:opacity-40" data-testid="bike-meters-save">{{ t.bike.saveCounts }}</button>
-      </form>
-      <ManagePanel
-        what="bike"
-        :what-label="data.bike.vehicleType === 'car' ? t.manage.what.car : t.manage.what.bike"
-        :name="data.bike.name"
-        :plate="data.bike.plate"
-        :remove-note="t.bike.removeNote"
-        :rename="renameBike"
-        :save-plate="updatePlate"
-        :remove="removeBike"
-      />
       <PremixSheet
         v-if="data.bike.vehicleType !== 'car' && data.bike.stroke === '2T'"
         v-model:open="premixOpen"

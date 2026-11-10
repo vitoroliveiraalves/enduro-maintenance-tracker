@@ -128,6 +128,9 @@ watch(
 
 function pickPreset(presetId: string, label: string) {
   title.value = label
+  if (!bikeId.value && !bikeTouched.value) {
+    bikeId.value = defaultBike()
+  }
   const existing = findExistingForVehicle(presetId)
   if (existing) {
     editingId.value = existing.id
@@ -159,6 +162,7 @@ async function save() {
   }
 
   const targetId = editingId.value || props.initialReminder?.id
+  const resolvedBikeId = bikeId.value || (!bikeTouched.value ? defaultBike() : '')
 
   busy.value = true
   try {
@@ -166,7 +170,7 @@ async function save() {
       title: title.value.trim(),
       dueOn: dueOn.value,
       repeatYearly: repeatYearly.value,
-      bikeId: bikeId.value || (targetId ? null : undefined),
+      bikeId: resolvedBikeId || (targetId ? null : undefined),
       amountCents: amountCents ?? (targetId ? null : undefined),
       provider: provider.value.trim() || (targetId ? null : undefined),
       policyNumber: policyNumber.value.trim() || (targetId ? null : undefined),

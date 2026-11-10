@@ -325,7 +325,7 @@ test('voice review card and a sourced answer', async ({ page }) => {
 test('correct total sheet', async ({ page }) => {
   await loginAs(page)
   const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
-  await page.goto(`/bikes/${id}`)
+  await page.goto(`/bikes/${id}/settings`)
   await page.getByTestId('correct-total').click()
   await page.getByTestId('correct-hours').waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/correct-total.png' })
