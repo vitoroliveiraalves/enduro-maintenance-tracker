@@ -101,27 +101,30 @@ function onKey(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-40 flex items-end bg-black/60" :style="keyboard ? { paddingBottom: `${keyboard}px` } : undefined" :data-testid="props.testid ? `${props.testid}-backdrop` : undefined" @click.self="open = false">
-    <div
-      ref="panel"
-      role="dialog"
-      aria-modal="true"
-      :aria-labelledby="titleId"
-      tabindex="-1"
-      class="mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 outline-none"
-      :style="{
-        paddingBottom: keyboard ? '1rem' : 'calc(1.5rem + env(safe-area-inset-bottom))',
-        ...(keyboard && viewH ? { maxHeight: `${Math.round(viewH * 0.92)}px` } : {}),
-      }"
-      :data-testid="props.testid"
-      @keydown="onKey"
-      @focusin="onFocusIn"
-    >
-      <div class="mb-3 flex items-start justify-between gap-2">
-        <h2 :id="titleId" class="pt-2.5 text-base font-bold text-white">{{ props.title }}</h2>
-        <button type="button" class="-mr-2 -mt-1 size-11 shrink-0 rounded-lg text-2xl leading-none text-muted" :aria-label="t.common.close" data-testid="sheet-close" @click="open = false">×</button>
+  <Transition name="sheet">
+    <div v-if="open" class="fixed inset-0 z-40 flex items-end bg-black/60 backdrop-blur-[2px]" :style="keyboard ? { paddingBottom: `${keyboard}px` } : undefined" :data-testid="props.testid ? `${props.testid}-backdrop` : undefined" @click.self="open = false">
+      <div
+        ref="panel"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="titleId"
+        tabindex="-1"
+        class="sheet-panel mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 outline-none"
+        :style="{
+          paddingBottom: keyboard ? '1rem' : 'calc(1.5rem + env(safe-area-inset-bottom))',
+          ...(keyboard && viewH ? { maxHeight: `${Math.round(viewH * 0.92)}px` } : {}),
+        }"
+        :data-testid="props.testid"
+        @keydown="onKey"
+        @focusin="onFocusIn"
+      >
+        <div aria-hidden="true" class="mx-auto -mt-1 mb-3 h-1 w-10 rounded-full bg-muted/30" />
+        <div class="mb-3 flex items-start justify-between gap-2">
+          <h2 :id="titleId" class="pt-2.5 text-base font-bold text-white">{{ props.title }}</h2>
+          <button type="button" class="-mr-2 -mt-1 size-11 shrink-0 rounded-lg text-2xl leading-none text-muted active:scale-95" :aria-label="t.common.close" data-testid="sheet-close" @click="open = false">×</button>
+        </div>
+        <slot />
       </div>
-      <slot />
     </div>
-  </div>
+  </Transition>
 </template>

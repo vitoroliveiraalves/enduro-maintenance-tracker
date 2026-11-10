@@ -55,17 +55,27 @@ watch(open, () => (confirmKey.value = null))
 </script>
 
 <template>
-  <div v-if="visible">
-    <button
-      type="button"
-      data-testid="pending-badge"
-      class="fixed right-3 z-30 rounded-full px-3.5 py-2 text-xs font-bold shadow-lg shadow-black/40"
-      :class="failed.length ? 'bg-danger text-on-danger' : 'bg-warn text-on-warn'"
-      style="bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem)"
-      @click="tap"
+  <div>
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="translate-y-3 opacity-0 scale-95"
+      enter-to-class="translate-y-0 opacity-100 scale-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="translate-y-0 opacity-100 scale-100"
+      leave-to-class="translate-y-3 opacity-0 scale-95"
     >
-      {{ label }}
-    </button>
+      <button
+        v-if="visible"
+        type="button"
+        data-testid="pending-badge"
+        class="fixed right-3 z-30 rounded-full px-3.5 py-2 text-xs font-bold shadow-lg shadow-black/40 active:scale-95"
+        :class="failed.length ? 'bg-danger text-on-danger' : 'bg-warn text-on-warn'"
+        style="bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem)"
+        @click="tap"
+      >
+        {{ label }}
+      </button>
+    </Transition>
     <Sheet v-model:open="open" :title="t.pending.sheetTitle" testid="pending-sheet">
       <section v-if="failed.length" data-testid="pending-failed">
         <p class="text-sm font-semibold text-danger-text">{{ t.pending.notSavedList(failed.length) }}</p>

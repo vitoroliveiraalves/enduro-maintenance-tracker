@@ -13,6 +13,6 @@ const fill = computed(() => ({ overdue: 'bg-danger', soon: 'bg-warn', ok: 'bg-ok
     :aria-valuenow="pct"
     class="mt-[7px] h-1.5 overflow-hidden rounded-[3px] bg-track"
   >
-    <i class="block h-full rounded-[3px]" :class="fill" :style="{ width: `${pct}%` }" />
+    <i class="block h-full rounded-[3px] transition-[width,background-color] duration-500 ease-out" :class="fill" :style="{ width: `${pct}%` }" />
   </div>
 </template>

@@ -289,9 +289,18 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </button>
       </div>
 
-      <p v-if="editingId" class="mb-3 rounded-lg bg-surface px-3 py-2 text-xs text-ok-text border border-ok/20 font-medium flex items-center gap-1.5" data-testid="updating-notice">
-        <span>✓</span> {{ t.reminderSheet.updatingExisting }}
-      </p>
+      <Transition
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="-translate-y-1 opacity-0"
+        enter-to-class="translate-y-0 opacity-100"
+        leave-active-class="transition-all duration-150 ease-in"
+        leave-from-class="translate-y-0 opacity-100"
+        leave-to-class="-translate-y-1 opacity-0"
+      >
+        <p v-if="editingId" class="mb-3 rounded-lg bg-surface px-3 py-2 text-xs text-ok-text border border-ok/20 font-medium flex items-center gap-1.5" data-testid="updating-notice">
+          <span>✓</span> {{ t.reminderSheet.updatingExisting }}
+        </p>
+      </Transition>
 
       <label class="block text-[11px] uppercase tracking-wider text-muted">
         {{ t.reminderSheet.name }}

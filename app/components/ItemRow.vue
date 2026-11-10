@@ -14,7 +14,7 @@ const router = useRouter()
 </script>
 
 <template>
-  <NuxtLink :to="to" class="mb-2 block bg-surface px-3 py-2.5" :class="{ 'item-overdue': item.status.state === 'overdue' }" data-testid="item-row">
+  <NuxtLink :to="to" class="item-row-card mb-2 block bg-surface px-3 py-2.5" :class="{ 'item-overdue': item.status.state === 'overdue' }" data-testid="item-row">
     <div class="flex justify-between gap-2 text-white">
       <span class="brand-slant min-w-0 text-[17px] font-extrabold uppercase leading-tight" style="font-stretch: 105%">{{ itemLabel(item.name) }}</span>
       <span class="flex shrink-0 items-center gap-2 font-tag text-xs font-semibold">

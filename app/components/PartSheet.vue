@@ -224,46 +224,56 @@ const lbl = 'block text-[11px] uppercase tracking-wider text-muted'
       </div>
 
       <div v-if="!isNew" class="mt-2">
-        <button
-          v-if="!restockOpen"
-          type="button"
-          class="w-full rounded-xl border border-dashed border-white/15 py-2.5 text-xs font-semibold text-accent-text hover:border-accent"
-          data-testid="part-restock-open"
-          @click="restockOpen = true"
+        <Transition
+          mode="out-in"
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="-translate-y-1 opacity-0"
+          enter-to-class="translate-y-0 opacity-100"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="translate-y-0 opacity-100"
+          leave-to-class="-translate-y-1 opacity-0"
         >
-          {{ t.partSheet.restockBtn }}
-        </button>
-        <div v-else class="rounded-xl border border-white/10 bg-bg p-3" data-testid="part-restock-panel">
-          <div class="grid grid-cols-2 gap-2.5">
-            <label :class="lbl">
-              {{ t.partSheet.restockQty }}
-              <input v-model="restockQtyText" inputmode="decimal" autocomplete="off" data-testid="part-restock-qty" class="mt-1 block w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent">
-            </label>
-            <label :class="lbl">
-              {{ t.partSheet.restockCost }}
-              <input v-model="restockCostText" inputmode="decimal" autocomplete="off" :placeholder="t.partSheet.restockCostPh" data-testid="part-restock-cost" class="mt-1 block w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent">
-            </label>
+          <button
+            v-if="!restockOpen"
+            type="button"
+            class="w-full rounded-xl border border-dashed border-white/15 py-2.5 text-xs font-semibold text-accent-text hover:border-accent"
+            data-testid="part-restock-open"
+            @click="restockOpen = true"
+          >
+            {{ t.partSheet.restockBtn }}
+          </button>
+          <div v-else class="rounded-xl border border-white/10 bg-bg p-3" data-testid="part-restock-panel">
+            <div class="grid grid-cols-2 gap-2.5">
+              <label :class="lbl">
+                {{ t.partSheet.restockQty }}
+                <input v-model="restockQtyText" inputmode="decimal" autocomplete="off" data-testid="part-restock-qty" class="mt-1 block w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent">
+              </label>
+              <label :class="lbl">
+                {{ t.partSheet.restockCost }}
+                <input v-model="restockCostText" inputmode="decimal" autocomplete="off" :placeholder="t.partSheet.restockCostPh" data-testid="part-restock-cost" class="mt-1 block w-full rounded-lg bg-surface px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent">
+              </label>
+            </div>
+            <div class="mt-2.5 flex gap-2">
+              <button
+                type="button"
+                :disabled="busy"
+                class="min-h-11 flex-1 rounded-lg bg-accent py-2 text-xs font-bold text-on-accent disabled:opacity-60"
+                data-testid="part-restock-save"
+                @click="restock"
+              >
+                {{ t.partSheet.restockSave }}
+              </button>
+              <button
+                type="button"
+                class="min-h-11 rounded-lg border border-white/15 px-3 py-2 text-xs text-muted"
+                data-testid="part-restock-cancel"
+                @click="restockOpen = false"
+              >
+                {{ t.partSheet.restockCancel }}
+              </button>
+            </div>
           </div>
-          <div class="mt-2.5 flex gap-2">
-            <button
-              type="button"
-              :disabled="busy"
-              class="min-h-11 flex-1 rounded-lg bg-accent py-2 text-xs font-bold text-on-accent disabled:opacity-60"
-              data-testid="part-restock-save"
-              @click="restock"
-            >
-              {{ t.partSheet.restockSave }}
-            </button>
-            <button
-              type="button"
-              class="min-h-11 rounded-lg border border-white/15 px-3 py-2 text-xs text-muted"
-              data-testid="part-restock-cancel"
-              @click="restockOpen = false"
-            >
-              {{ t.partSheet.restockCancel }}
-            </button>
-          </div>
-        </div>
+        </Transition>
       </div>
 
       <div class="mt-3 grid grid-cols-2 gap-2.5">

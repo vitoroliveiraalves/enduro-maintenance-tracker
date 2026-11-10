@@ -26,12 +26,14 @@ const tabs = computed(() => [
       :key="tab.key"
       :to="tab.to"
       :data-testid="`tab-${tab.key}`"
-      class="flex h-full flex-1 flex-col items-center justify-center gap-1"
+      class="flex h-full flex-1 flex-col items-center justify-center gap-1 transition-all duration-150 ease-out active:scale-95"
       :class="tab.active ? 'tab-active font-semibold' : ''"
       :aria-current="tab.active ? 'page' : undefined"
       @click="tick()"
     >
-      <Icon :name="tab.icon as 'garage'" />
+      <span class="transition-transform duration-150 ease-out" :class="tab.active ? 'scale-105' : ''">
+        <Icon :name="tab.icon as 'garage'" />
+      </span>
       {{ tab.label }}
     </NuxtLink>
   </nav>

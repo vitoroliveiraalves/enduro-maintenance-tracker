@@ -26,7 +26,7 @@ const max = computed(() => Math.max(1, ...props.rows.map((r) => r.cents)))
     >
       <span class="w-[104px] shrink-0 truncate text-text">{{ categoryLabel(r.name) }}</span>
       <span class="h-2 flex-1 overflow-hidden rounded bg-track" aria-hidden="true">
-        <i class="block h-full bg-accent" :style="{ width: `${Math.max(2, Math.round((r.cents / max) * 100))}%` }" />
+        <i class="block h-full bg-accent transition-[width] duration-500 ease-out" :style="{ width: `${Math.max(2, Math.round((r.cents / max) * 100))}%` }" />
       </span>
       <span class="w-[78px] shrink-0 text-right font-semibold text-white">{{ money(r.cents) }}</span>
     </li>

@@ -266,11 +266,74 @@ html:not([data-theme='tricolor']) :is(button, a).bg-danger {
     animation: 180ms ease-out both vt-in;
   }
 }
+
+/* Native bottom-sheet transitions (iOS-style spring curve). */
+.sheet-enter-active {
+  transition: opacity 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet-leave-active {
+  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet-enter-active .sheet-panel {
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet-leave-active .sheet-panel {
+  transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet-enter-from,
+.sheet-leave-to {
+  opacity: 0;
+}
+.sheet-enter-from .sheet-panel,
+.sheet-leave-to .sheet-panel {
+  transform: translateY(100%);
+}
+
+/* Tactile press micro-interactions for buttons, cards, and interactive rows. */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+.bike-tag,
+.item-row-card {
+  transition:
+    transform 120ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease,
+    box-shadow 150ms ease;
+}
+button:not(:disabled):active,
+[role='button']:not([aria-disabled='true']):active,
+.bike-tag:active,
+.item-row-card:active {
+  transform: scale(0.98);
+}
+.mic-btn:not(:disabled):active {
+  transform: scale(0.93);
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  button:not(:disabled):active,
+  [role='button']:not([aria-disabled='true']):active,
+  .bike-tag:active,
+  .item-row-card:active,
+  .mic-btn:not(:disabled):active,
+  .sheet-enter-from .sheet-panel,
+  .sheet-leave-to .sheet-panel {
+    transform: none !important;
   }
 }
 @keyframes vt-out {
