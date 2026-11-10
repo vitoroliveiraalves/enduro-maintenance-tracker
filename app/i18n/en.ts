@@ -295,7 +295,7 @@ export const en = {
     failed: "Couldn't save the reminder. Try again.",
     name: 'Name',
     dueOn: 'Due on',
-    bike: 'Bike',
+    bike: 'Vehicle',
     yearly: 'Repeats every year',
   },
 

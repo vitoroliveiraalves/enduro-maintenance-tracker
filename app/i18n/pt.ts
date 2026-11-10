@@ -388,7 +388,7 @@ export const pt: Messages = {
     failed: 'Não foi possível guardar o lembrete. Tente de novo.',
     name: 'Nome',
     dueOn: 'Data limite',
-    bike: 'Mota',
+    bike: 'Veículo',
     yearly: 'Repete todos os anos',
   },
 
