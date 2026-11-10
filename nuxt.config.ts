@@ -1,4 +1,5 @@
 import tailwindcss from '@tailwindcss/vite'
+import { SPLASH, splashFile } from './scripts/splash-sizes.mjs'
 
 // Changes every build: revision of the precached SPA shell.
 const BUILD_ID = Date.now().toString(36)
@@ -14,6 +15,8 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@pinia/nuxt', '@vueuse/nuxt', '@vite-pwa/nuxt'],
   css: ['~/assets/css/main.css'],
   vite: { plugins: [tailwindcss()] },
+  // Cross-fade between screens (browsers without the API just switch).
+  experimental: { viewTransition: true },
   typescript: { strict: true, typeCheck: false },
 
   nitro: {
@@ -69,13 +72,21 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content' },
         { name: 'theme-color', content: '#121417' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: 'Enduro' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/pwa-192x192.png' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
         // In the static HTML, so browsers see the app as installable before any JS runs.
         { rel: 'manifest', href: '/manifest.webmanifest' },
+        // iOS launch images (scripts/splash.mjs); without them the app opens on white.
+        ...SPLASH.map(([w, h, r]: number[]) => ({
+          rel: 'apple-touch-startup-image' as const,
+          href: `/${splashFile(w, h, r)}`,
+          media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)`,
+        })),
       ],
     },
   },
@@ -96,6 +107,21 @@ export default defineNuxtConfig({
       background_color: '#121417',
       display: 'standalone',
       orientation: 'portrait',
+      id: '/',
+      categories: ['productivity', 'utilities', 'lifestyle'],
+      // Long-press the home-screen icon.
+      shortcuts: [
+        { name: 'Read an invoice', short_name: 'Invoice', url: '/invoice', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+        { name: 'Costs', url: '/costs', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+        { name: 'Parts shelf', short_name: 'Shelf', url: '/shelf', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+      ],
+      // "Share → Enduro" from the gallery or Files: handled by the worker (app/sw.ts), read on /invoice.
+      share_target: {
+        action: '/share-target',
+        method: 'POST',
+        enctype: 'multipart/form-data',
+        params: { files: [{ name: 'files', accept: ['image/jpeg', 'image/png', 'application/pdf'] }] },
+      },
       start_url: '/',
       scope: '/',
       icons: [
@@ -109,6 +135,7 @@ export default defineNuxtConfig({
       // per build so the worker's navigation fallback has something to serve.
       additionalManifestEntries: [{ url: 'index.html', revision: BUILD_ID }],
       globPatterns: ['**/*.{js,css,html,wasm,woff2,png,svg,ico,webmanifest}'],
+      globIgnores: ['splash/**'], // iOS-only, fetched by the OS at launch: no need to precache ~10 images
       // ZXing's decoder wasm is ~1 MB+; the default 2 MB cap is too tight.
       maximumFileSizeToCacheInBytes: 4_000_000,
     },

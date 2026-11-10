@@ -1,6 +1,7 @@
 import { authClient } from '~/lib/auth-client'
 import { clearOfflineData } from '~/offline/db'
 import { OfflineError } from '~/offline/outbox'
+import { setBadge } from '~/lib/badge'
 import { forgetSession } from '~/offline/session'
 import { unsubscribeThisDevice } from './usePush'
 
@@ -14,6 +15,7 @@ export async function forgetThisDevice() {
   forgetSession()
   useOffline().forgetUploaded()
   useBikesStore().setLast(null)
+  await setBadge(navigator, 0) // the next rider shouldn't see this garage's count
 }
 
 /** Sign out (online-only): push off for this device first, then the session, then local data. */

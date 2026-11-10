@@ -19,7 +19,8 @@
     "build:migrate": "esbuild scripts/migrate.ts --bundle --platform=node --format=esm --target=node22 --outfile=.output/migrate.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "user:create": "tsx scripts/user-create.ts",
     "vapid:generate": "node scripts/vapid-generate.mjs",
-    "pwa:icons": "node scripts/pwa-icons.mjs"
+    "pwa:icons": "node scripts/pwa-icons.mjs",
+    "pwa:splash": "node scripts/splash.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

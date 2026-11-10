@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tick } from '~/lib/haptics'
 const route = useRoute()
 
 const HIDDEN = ['/login', '/register']
@@ -27,6 +28,7 @@ const tabs = computed(() => [
       class="flex h-full flex-1 flex-col items-center justify-center gap-1"
       :class="t.active ? 'tab-active font-semibold' : ''"
       :aria-current="t.active ? 'page' : undefined"
+      @click="tick()"
     >
       <Icon :name="t.icon as 'garage'" />
       {{ t.label }}

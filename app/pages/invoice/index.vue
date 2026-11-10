@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { downscaleImage } from '~/lib/image-downscale'
 import { errorMessage, OFFLINE_MESSAGE, OfflineError } from '~/offline/outbox'
+import { takeShared } from '~/lib/share-target'
 import { queuePhotos } from '~/offline/photos'
 import { readSession } from '~/offline/session'
 
@@ -104,6 +105,16 @@ async function chooseFile(e: Event) {
   const input = e.target as HTMLInputElement
   const picked = Array.from(input.files ?? [])
   input.value = ''
+  await readPicked(picked)
+}
+
+// Files shared into the app from the gallery / Files (share target) wait in a cache.
+onMounted(async () => {
+  const shared = await takeShared()
+  if (shared.length) await readPicked(shared)
+})
+
+async function readPicked(picked: File[]) {
   if (!picked.length) return
   if (picked.length > MAX_PAGES) {
     error.value = `At most ${MAX_PAGES} pages per invoice.`
