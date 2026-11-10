@@ -105,3 +105,27 @@ test('a saved typo can be undone from the toast; Back closes the sheet, not the 
   const res = await page.request.delete(`/api/bikes/${bikeId}/latest-reading`, { data: { readingId: detail.latestReading.id } })
   expect(res.status()).toBe(409)
 })
+
+test('a wrong total can be corrected, down as well as up, even on the first reading', async ({ page }) => {
+  await loginAs(page)
+  const name = `Correct Bike ${Date.now()}`
+  await seedMockupBike(page.request, name)
+  await page.goto('/')
+  await page.getByTestId('bike-card').filter({ has: page.getByText(name, { exact: true }) }).click()
+  await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
+
+  await page.getByTestId('correct-total').click()
+  await expect(page.getByTestId('correct-hours')).toHaveValue('142.5')
+  await page.getByTestId('correct-hours').fill('120,5')
+  await page.getByTestId('correct-km').fill('3000')
+  await page.getByTestId('correct-save').click()
+  await expect(page.getByTestId('correct-sheet')).toHaveCount(0)
+  await expect(page.getByTestId('hours-value')).toHaveText('120.5 h')
+  await expect(page.getByTestId('km-value')).toContainText('3 000')
+
+  // Logging a ride still can't go lower; only the correction can.
+  await page.getByTestId('log-ride').click()
+  await page.getByTestId('hours-input').fill('100')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByTestId('log-error')).toContainText("Hours can't go down")
+})

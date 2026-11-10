@@ -106,3 +106,28 @@ export async function undoLatestReading(bike: Bike, raw: unknown) {
   await db.delete(meterReadings).where(and(scope, eq(meterReadings.id, target.id)))
   return bikeDetail(bike)
 }
+
+/**
+ * Correct the total: rewrite the counted meters of the bike's latest reading in place.
+ * Deliberately no "never lower" rule (that is for logging rides); it is the way out of a
+ * typo, including on the first reading. Only counted meters are taken; an uncounted one is ignored.
+ */
+export async function correctLatestReading(bike: Bike, raw: unknown) {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw bad('Invalid body')
+  const o = raw as Record<string, unknown>
+  const next = {
+    hoursTenths: countsHours(bike.meters) ? int(o.hoursTenths, 'hoursTenths') : null,
+    km: countsKm(bike.meters) ? int(o.km, 'km') : null,
+  }
+  const latest = await latestReading(bike.id, bike.userId)
+  if (!latest) throw createError({ statusCode: 409, statusMessage: 'This bike has no reading to correct yet.' })
+  await db
+    .update(meterReadings)
+    .set({
+      // an uncounted meter keeps whatever was stored (switching the counts back brings it back)
+      hoursTenths: next.hoursTenths ?? latest.hoursTenths,
+      km: next.km ?? latest.km,
+    })
+    .where(and(eq(meterReadings.id, latest.id), eq(meterReadings.userId, bike.userId)))
+  return bikeDetail(bike)
+}

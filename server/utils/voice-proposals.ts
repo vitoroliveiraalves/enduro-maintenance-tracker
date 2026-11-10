@@ -12,6 +12,7 @@ type Meters = { hoursTenths?: number; km?: number }
 
 export type Proposal =
   | ({ kind: 'reading' } & Pick1<'bikeId'> & Meters)
+  | ({ kind: 'correct_total' } & Pick1<'bikeId'> & Meters)
   | ({
       kind: 'service'
       at: string
@@ -84,6 +85,12 @@ function one(o: Obj, own: Owned): Proposal {
       const m = meters(o, 'bikeId' in b ? own.bikes.get(b.bikeId) : undefined)
       if (m.hoursTenths === undefined && m.km === undefined) throw bad('no meter value')
       return { kind: 'reading', ...b, ...m }
+    }
+    case 'correct_total': {
+      const b = pick(o, 'bikeId', ownsBike)
+      const m = meters(o, 'bikeId' in b ? own.bikes.get(b.bikeId) : undefined)
+      if (m.hoursTenths === undefined && m.km === undefined) throw bad('no meter value')
+      return { kind: 'correct_total', ...b, ...m }
     }
     case 'service': {
       const b = pick(o, 'bikeId', ownsBike)

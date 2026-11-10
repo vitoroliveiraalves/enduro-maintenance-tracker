@@ -161,7 +161,7 @@ const ANSWER_TOOL: ToolDef = {
           items: {
             type: 'object',
             properties: {
-              kind: { type: 'string', enum: ['reading', 'service', 'use_part', 'add_part', 'shopping', 'expense', 'reminder'] },
+              kind: { type: 'string', enum: ['reading', 'correct_total', 'service', 'use_part', 'add_part', 'shopping', 'expense', 'reminder'] },
               bikeId: { type: 'string' }, candidates: { type: 'array', items: { type: 'string' } },
               itemIds: { type: 'array', items: { type: 'string' } }, itemCandidates: { type: 'array', items: { type: 'string' } },
               partId: { type: 'string' }, categoryId: { type: 'string' },
@@ -193,6 +193,7 @@ async function systemPrompt(userId: string, today: string): Promise<string> {
     'Look things up with the tools. Units: hours are integer tenths (142.5 h = 1425), money integer cents, quantities integer hundredths (2 pcs = 200).',
     'Never state a number, date or name that a tool did not return. If the records don\'t say, answer exactly that you don\'t know from the records.',
     'When the rider reports something done (a ride, a service, a part used or bought, a cost, a reminder), propose the change; never claim it is saved — the rider reviews and saves it.',
+    'A ride or a new reading is kind "reading"; hours and km can only go up. When the rider says the total was wrong or asks to set/correct the bike\'s hours or km (it may go down), propose kind "correct_total" with the right totals instead.',
     'Proposals use ids from tool results only. If unsure which bike, item, part or category, give candidates (ids) instead of one id.',
     'Always finish by calling the answer tool, listing in sources the refs of the tool results you used.',
   ].join('\n\n')
