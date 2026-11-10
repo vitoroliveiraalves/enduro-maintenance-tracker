@@ -92,7 +92,7 @@ test('IUC reminder: add from Settings, chip on the bike screen, mark done rolls 
 
 test('insurance reminder: motorcycle hides IPO preset, supports price/provider, done creates cost', async ({ page }) => {
   await signUpFresh(page)
-  const bikeId = await seedBike(page, 'GasGas EC 300')
+  await seedBike(page, 'GasGas EC 300')
   const due = dayFromNow(20)
 
   await page.goto('/settings')

@@ -396,6 +396,7 @@ export const pt: Messages = {
     providerPh: 'ex. Fidelidade, Tranquilidade',
     policy: 'Nº de Apólice / Ref.',
     policyPh: 'ex. 1234567',
+    updatingExisting: 'A atualizar o lembrete existente deste veículo',
     yearly: 'Repete todos os anos',
   },
 

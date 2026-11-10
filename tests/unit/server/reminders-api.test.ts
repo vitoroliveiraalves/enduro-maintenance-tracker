@@ -66,6 +66,16 @@ describe('createReminder', () => {
     expect(forBike.map((r) => r.title).sort()).toEqual(['IUC', 'Insurance'])
     expect(forBike.find((r) => r.title === 'Insurance')!.bikeName).toBe('KTM')
   })
+
+  it('upserts and deduplicates standard obligations like IUC on the same vehicle', async () => {
+    const first = await rem({ title: 'IUC', dueOn: '2027-03-15', amountCents: 5000 }, uid, bike)
+    const second = await rem({ title: 'IUC', dueOn: '2027-04-20', amountCents: 5840 }, uid, bike)
+    expect(second.id).toBe(first.id)
+    expect(second.dueOn).toBe('2027-04-20')
+    expect(second.amountCents).toBe(5840)
+    const all = await listReminders(uid, bike.id)
+    expect(all.filter((r) => r.title === 'IUC')).toHaveLength(1)
+  })
 })
 
 describe('markReminderDone', () => {

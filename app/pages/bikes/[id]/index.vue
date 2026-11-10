@@ -21,10 +21,21 @@ type Detail = {
   items: Array<ItemRowJson & { pendingSync?: boolean }>
 }
 
+type VehicleReminder = {
+  id: string
+  title: string
+  dueOn: string
+  repeatYearly: boolean
+  amountCents?: number | null
+  provider?: string | null
+  policyNumber?: string | null
+  bikeId?: string | null
+}
+
 const route = useRoute()
 const id = route.params.id as string
 const { get, mutate } = useApi()
-const { hours, km, weekdayDay } = useFormatters()
+const { hours, km, weekdayDay, dayMonth } = useFormatters()
 const store = useBikesStore()
 const data = ref<Detail | null>(null)
 const error = ref('')
@@ -32,14 +43,34 @@ const sheetOpen = ref(false)
 const correctOpen = ref(false)
 const premixOpen = ref(false)
 const reminderOpen = ref(false)
+const reminderToEdit = ref<VehicleReminder | null>(null)
+const bikeReminders = ref<VehicleReminder[]>([])
 const chips = ref<DueChip[]>([])
 const { syncTick } = useOffline()
 
 function loadReminders() {
   // Reminders for this bike (or all bikes) due in 30 days or less; never blocks the screen.
-  get<Array<{ id: string; title: string; dueOn: string }>>(`/api/reminders?bikeId=${id}`)
-    .then((list) => (chips.value = dueChips(list)))
+  get<VehicleReminder[]>(`/api/reminders?bikeId=${id}`)
+    .then((list) => {
+      bikeReminders.value = list
+      chips.value = dueChips(list)
+    })
     .catch(() => {})
+}
+
+const nonUrgentReminders = computed(() => {
+  const chipIds = new Set(chips.value.map((c) => c.id))
+  return bikeReminders.value.filter((r) => r.bikeId === id && !chipIds.has(r.id))
+})
+
+function editReminder(r: VehicleReminder) {
+  reminderToEdit.value = r
+  reminderOpen.value = true
+}
+
+function openNewReminder() {
+  reminderToEdit.value = null
+  reminderOpen.value = true
 }
 
 async function load() {
@@ -221,10 +252,20 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           {{ c.text }}
         </NuxtLink>
         <button
+          v-for="r in nonUrgentReminders"
+          :key="r.id"
+          type="button"
+          class="rounded-full border border-track bg-surface px-2.5 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent"
+          data-testid="vehicle-obligation-chip"
+          @click="editReminder(r)"
+        >
+          {{ r.title }} · {{ dayMonth(r.dueOn) }}
+        </button>
+        <button
           type="button"
           class="rounded-full border border-track bg-surface px-2.5 py-1 text-xs font-semibold text-muted font-tag transition hover:border-accent hover:text-text"
           data-testid="add-reminder-chip"
-          @click="reminderOpen = true"
+          @click="openNewReminder"
         >
           + {{ t.bike.addReminder }}
         </button>
@@ -361,6 +402,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         v-model:open="reminderOpen"
         :bikes="store.bikes.length ? store.bikes : [{ id: data.bike.id, name: data.bike.name, vehicleType: data.bike.vehicleType }]"
         :default-bike-id="data.bike.id"
+        :initial-reminder="reminderToEdit"
         @saved="loadReminders"
       />
     </template>

@@ -303,6 +303,7 @@ export const en = {
     providerPh: 'e.g. Fidelidade, Allianz',
     policy: 'Policy / Ref.',
     policyPh: 'e.g. 1234567',
+    updatingExisting: 'Updating existing reminder for this vehicle',
     yearly: 'Repeats every year',
   },
 

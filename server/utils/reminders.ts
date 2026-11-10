@@ -7,6 +7,17 @@ import { bad, day, int, uuid } from './validate'
 
 export const REMINDER_PRESETS = ['Insurance', 'IUC', 'Inspection', 'Licence'] as const
 
+export type PresetKind = 'insurance' | 'iuc' | 'inspection' | 'licence' | null
+
+export function reminderPresetKind(title: string): PresetKind {
+  const norm = title.trim().toLowerCase()
+  if (norm === 'insurance' || norm === 'seguro') return 'insurance'
+  if (norm === 'iuc') return 'iuc'
+  if (norm === 'inspection' || norm === 'inspeção' || norm === 'inspecao' || norm === 'ipo') return 'inspection'
+  if (norm === 'licence' || norm === 'license' || norm === 'carta de condução' || norm === 'carta de conducao') return 'licence'
+  return null
+}
+
 export type ReminderRow = {
   id: string
   bikeId: string | null
@@ -72,7 +83,30 @@ export async function listReminders(userId: string, bikeId?: string): Promise<Re
       ),
     )
     .orderBy(asc(reminders.dueOn), asc(reminders.createdAt))
-  return rows.map(({ r, bikeName }) => toRow(r, bikeName))
+
+  // Deduplicate any accidental duplicate active obligation presets for the same bike
+  const seenObligations = new Set<string>()
+  const deduplicated: typeof rows = []
+  const staleDuplicateIds: string[] = []
+
+  for (const row of rows) {
+    const kind = reminderPresetKind(row.r.title)
+    if (kind && (row.r.bikeId || kind === 'licence')) {
+      const key = `${row.r.bikeId ?? 'all'}:${kind}`
+      if (seenObligations.has(key)) {
+        staleDuplicateIds.push(row.r.id)
+        continue
+      }
+      seenObligations.add(key)
+    }
+    deduplicated.push(row)
+  }
+
+  if (staleDuplicateIds.length > 0) {
+    void db.delete(reminders).where(and(eq(reminders.userId, userId), inArray(reminders.id, staleDuplicateIds))).catch(() => {})
+  }
+
+  return deduplicated.map(({ r, bikeName }) => toRow(r, bikeName))
 }
 
 async function rowOf(userId: string, id: string): Promise<ReminderRow> {
@@ -89,16 +123,57 @@ export async function createReminder(userId: string, bike: Bike | null, raw: unk
   if (!isObj(raw)) throw bad('Invalid body')
   if (raw.bikeId != null && typeof raw.bikeId !== 'string') throw bad('Invalid bikeId')
   const clientId = uuid(raw.clientId)
+  const title = str(raw.title, 'title')
+  const due = dueOn(raw.dueOn)
+  const isRepeat = repeat(raw.repeatYearly)
   const amountCents = raw.amountCents !== undefined && raw.amountCents !== null && raw.amountCents !== '' ? int(raw.amountCents, 'amountCents', 0, 10_000_000) : null
   const provider = typeof raw.provider === 'string' && raw.provider.trim() ? str(raw.provider, 'provider', 100) : null
   const policyNumber = typeof raw.policyNumber === 'string' && raw.policyNumber.trim() ? str(raw.policyNumber, 'policyNumber', 50) : null
+
+  // If this is a standard obligation preset for a vehicle (or licence for user), upsert if an active one already exists!
+  const kind = reminderPresetKind(title)
+  if (kind && (bike || kind === 'licence')) {
+    const existingActive = await db
+      .select()
+      .from(reminders)
+      .where(
+        and(
+          eq(reminders.userId, userId),
+          bike ? eq(reminders.bikeId, bike.id) : isNull(reminders.bikeId),
+          isNull(reminders.doneAt),
+        ),
+      )
+
+    const matches = existingActive.filter((r) => reminderPresetKind(r.title) === kind)
+    if (matches.length > 0) {
+      const primary = matches[0]!
+      const set: Partial<typeof reminders.$inferInsert> = {
+        title,
+        dueOn: due,
+        repeatYearly: isRepeat,
+        amountCents,
+        provider,
+        policyNumber,
+      }
+      await db.update(reminders).set(set).where(and(eq(reminders.id, primary.id), eq(reminders.userId, userId)))
+      if (set.dueOn && set.dueOn !== primary.dueOn) await rearm(userId, primary.id)
+
+      if (matches.length > 1) {
+        const extraIds = matches.slice(1).map((m) => m.id)
+        await db.delete(reminders).where(and(eq(reminders.userId, userId), inArray(reminders.id, extraIds)))
+      }
+
+      return rowOf(userId, primary.id)
+    }
+  }
+
   const values = {
     userId,
     clientId,
     bikeId: bike?.id ?? null,
-    title: str(raw.title, 'title'),
-    dueOn: dueOn(raw.dueOn),
-    repeatYearly: repeat(raw.repeatYearly),
+    title,
+    dueOn: due,
+    repeatYearly: isRepeat,
     amountCents,
     provider,
     policyNumber,
