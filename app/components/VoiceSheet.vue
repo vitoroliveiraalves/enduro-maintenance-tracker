@@ -79,7 +79,7 @@ async function saveAll() {
       }
       c.status = 'saving'
       try {
-        await mutate(req.url, req.body, { queue: true })
+        await mutate(req.url, req.body, req.method ? { method: req.method } : { queue: true })
         Object.assign(c, { status: 'saved', error: '' })
         any = true
       } catch (e) {
@@ -124,7 +124,7 @@ watch(open, (v) => {
 
 <template>
   <Sheet v-model:open="open" title="Voice note" testid="voice-sheet">
-    <p v-if="voice.sheet.value.status === 'listening'" class="py-6 text-center text-sm text-muted" data-testid="voice-listening">Listening…</p>
+    <p v-if="voice.sheet.value.status === 'listening'" class="py-6 text-center text-sm text-muted" data-testid="voice-listening">Working on it…</p>
     <p v-else-if="voice.sheet.value.status === 'error'" role="alert" class="text-sm text-danger-text" data-testid="voice-error">{{ voice.sheet.value.error }}</p>
 
     <template v-if="result">
@@ -161,19 +161,28 @@ watch(open, (v) => {
         </template>
       </section>
 
+    </template>
+
+    <!-- Talk again: say what you want next, or just the correction. -->
+    <div v-if="voice.available.value && voice.sheet.value.status !== 'listening'" class="mt-3">
+      <div v-if="rec.state.value === 'asking' || rec.state.value === 'recording'" class="mb-2 flex items-center gap-3 rounded-xl bg-bg p-3" role="status" data-testid="voice-recording">
+        <span class="size-2.5 shrink-0 rounded-full" :class="rec.state.value === 'recording' ? 'animate-pulse bg-danger' : 'bg-muted'" aria-hidden="true" />
+        <span class="text-sm font-semibold text-white">{{ rec.state.value === 'recording' ? 'Listening… speak now' : 'Starting the microphone…' }}</span>
+        <span v-if="rec.state.value === 'recording'" class="ml-auto font-tag text-sm tabular-nums text-white">0:{{ String(rec.seconds.value).padStart(2, '0') }}</span>
+      </div>
       <button
-        v-if="voice.available.value"
         type="button"
-        class="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-semibold"
+        class="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-semibold"
         :class="rec.state.value === 'recording' ? 'border-danger text-danger-text' : 'border-white/15 text-white'"
+        :disabled="rec.state.value === 'asking'"
         data-testid="voice-followup"
         @click="followUp"
       >
         <Icon v-if="rec.state.value !== 'recording'" name="mic" :size="18" />
-        {{ rec.state.value === 'recording' ? `Send · 0:${String(rec.seconds.value).padStart(2, '0')}` : 'Ask a follow-up' }}
+        {{ rec.state.value === 'recording' ? 'Tap to send' : rec.state.value === 'asking' ? 'Starting…' : 'Tap to speak' }}
       </button>
       <p v-if="rec.state.value === 'denied'" class="mt-2 text-sm text-muted">The microphone is blocked for this app. Allow it in your browser's site settings, then try again.</p>
-    </template>
+    </div>
 
     <!-- Cards outlive a follow-up: still visible while it is listening or if it fails. -->
       <p v-if="ctxError" role="alert" class="mt-3 text-sm text-danger-text">{{ ctxError }}</p>

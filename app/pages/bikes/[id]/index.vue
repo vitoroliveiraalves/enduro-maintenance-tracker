@@ -19,6 +19,7 @@ const store = useBikesStore()
 const data = ref<Detail | null>(null)
 const error = ref('')
 const sheetOpen = ref(false)
+const correctOpen = ref(false)
 const chips = ref<DueChip[]>([])
 const { syncTick } = useOffline()
 
@@ -92,6 +93,11 @@ async function onSaved(detail: Record<string, unknown>) {
   if (queued || r.pending || !r.id) return toast.show(text)
   const readingId = r.id
   toast.show(text, { action: { label: 'Undo', run: () => undoReading(readingId) } })
+}
+
+function onCorrected(detail: Record<string, unknown>) {
+  data.value = detail as unknown as Detail
+  toast.show('Total corrected')
 }
 
 async function undoReading(readingId: string) {
@@ -185,6 +191,16 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         + Log ride / update {{ hasHours && hasKm ? 'meters' : hasHours ? 'hours' : 'km' }}
       </button>
       <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" :meters="meters" @saved="onSaved" />
+      <button
+        v-if="data.latestReading && !data.latestReading.pending"
+        type="button"
+        class="-mt-1.5 mb-3.5 min-h-11 w-full text-sm font-semibold text-accent-text"
+        data-testid="correct-total"
+        @click="correctOpen = true"
+      >
+        Wrong total? Correct it
+      </button>
+      <CorrectTotalSheet v-model:open="correctOpen" :bike-id="data.bike.id" :current="data.latestReading" :meters="meters" @saved="onCorrected" />
 
       <template v-if="data.items.length">
         <h2 class="mb-2 mt-3 font-tag text-[11px] uppercase tracking-[0.12em] text-muted">Maintenance · due soonest first</h2>

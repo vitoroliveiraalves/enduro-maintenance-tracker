@@ -62,7 +62,7 @@ function choice(p: P, key: string, all: string[]): [string, string[] | null] {
 
 export function draftFrom(p: P, ctx: CardCtx): Draft {
   const allBikes = ctx.bikes.map((b) => b.id)
-  const usesBike = ['reading', 'service'].includes(p.kind)
+  const usesBike = ['reading', 'correct_total', 'service'].includes(p.kind)
   const [bikeId, bikeChoices] = usesBike ? choice(p, 'bikeId', allBikes) : [s(p.bikeId), null]
   const [partId, partChoices] = p.kind === 'use_part' ? choice(p, 'partId', ctx.parts.map((x) => x.id)) : [s(p.partId), null]
   const [categoryId, categoryChoices] = p.kind === 'expense' ? choice(p, 'categoryId', ctx.categories.map((x) => x.id)) : ['', null]
@@ -102,7 +102,7 @@ export function draftFrom(p: P, ctx: CardCtx): Draft {
     repeatYearly: p.repeatYearly === true,
   }
   // A reading needs every meter the bike counts: the one not spoken starts at its last value.
-  if (p.kind === 'reading' && bikeId) fillMeters(d, ctx)
+  if ((p.kind === 'reading' || p.kind === 'correct_total') && bikeId) fillMeters(d, ctx)
   return d
 }
 
@@ -115,7 +115,7 @@ export function fillMeters(d: Draft, ctx: CardCtx) {
 
 export const metersOf = (d: Draft, ctx: CardCtx): BikeMeters => ctx.bikes.find((b) => b.id === d.bikeId)?.meters ?? 'hours_km'
 
-type Req = { url: string; body: Record<string, unknown> } | { error: string }
+type Req = { url: string; body: Record<string, unknown>; method?: 'PATCH' } | { error: string }
 
 function num(text: string, scale: number, min = 0): number | null | undefined {
   if (!text.trim()) return null
@@ -141,6 +141,13 @@ export function requestFor(d: Draft, ctx: CardCtx): Req {
       if ('error' in mm) return mm
       if ((countsHours(m) && mm.hoursTenths === undefined) || (countsKm(m) && mm.km === undefined)) return { error: 'Enter the meters.' }
       return { url: '/api/readings', body: { clientId: d.clientId, bikeId: d.bikeId, ...mm } }
+    }
+    case 'correct_total': {
+      if (!d.bikeId) return { error: 'Choose the bike.' }
+      const mm = meter()
+      if ('error' in mm) return mm
+      if ((countsHours(m) && mm.hoursTenths === undefined) || (countsKm(m) && mm.km === undefined)) return { error: 'Enter the totals.' }
+      return { url: `/api/bikes/${d.bikeId}/latest-reading`, method: 'PATCH', body: mm }
     }
     case 'service': {
       if (!d.bikeId) return { error: 'Choose the bike.' }
@@ -197,6 +204,7 @@ export function requestFor(d: Draft, ctx: CardCtx): Req {
 
 export const CARD_TITLE: Record<string, string> = {
   reading: 'Log ride / meters',
+  correct_total: 'Correct total',
   service: 'Mark maintenance done',
   use_part: 'Use part from shelf',
   add_part: 'Add part to shelf',

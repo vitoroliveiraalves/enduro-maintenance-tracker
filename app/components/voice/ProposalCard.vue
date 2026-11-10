@@ -18,7 +18,7 @@ const done = computed(() => d.value.status === 'saved')
 function pickBike(id: string) {
   d.value.bikeId = id
   d.value.itemIds = d.value.itemIds.filter((i) => (props.items[id] ?? []).some((x) => x.id === i))
-  if (d.value.kind === 'reading') fillMeters(d.value, props.ctx)
+  if (d.value.kind === 'reading' || d.value.kind === 'correct_total') fillMeters(d.value, props.ctx)
 }
 function toggleItem(id: string, on: boolean) {
   d.value.itemIds = on ? [...new Set([...d.value.itemIds, id])] : d.value.itemIds.filter((x) => x !== id)
@@ -44,7 +44,7 @@ const label = 'block text-xs text-muted'
           <option v-for="id in d.bikeChoices" :key="id" :value="id">{{ bikeName(id) }}</option>
         </select>
       </label>
-      <p v-else-if="d.bikeId && ['reading', 'service'].includes(d.kind)" class="text-xs text-muted">{{ bikeName(d.bikeId) }}</p>
+      <p v-else-if="d.bikeId && ['reading', 'correct_total', 'service'].includes(d.kind)" class="text-xs text-muted">{{ bikeName(d.bikeId) }}</p>
 
       <template v-if="d.kind === 'service'">
         <div v-if="d.bikeId">
@@ -56,7 +56,7 @@ const label = 'block text-xs text-muted'
         <label :class="label">Date<input v-model="d.at" type="date" :class="field" data-testid="card-at"></label>
       </template>
 
-      <div v-if="['reading', 'service'].includes(d.kind) && d.bikeId" class="grid gap-2" :class="countsHours(m) && countsKm(m) ? 'grid-cols-2' : 'grid-cols-1'">
+      <div v-if="['reading', 'correct_total', 'service'].includes(d.kind) && d.bikeId" class="grid gap-2" :class="countsHours(m) && countsKm(m) ? 'grid-cols-2' : 'grid-cols-1'">
         <label v-if="countsHours(m)" :class="label">Hours<input v-model="d.hours" inputmode="decimal" :class="field" data-testid="card-hours"></label>
         <label v-if="countsKm(m)" :class="label">Km<input v-model="d.km" inputmode="numeric" :class="field" data-testid="card-km"></label>
       </div>

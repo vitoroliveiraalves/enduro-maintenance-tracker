@@ -315,6 +315,20 @@ test('voice review card and a sourced answer', async ({ page }) => {
   await page.getByTestId('voice-resend').click()
   await page.getByTestId('voice-source').first().waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/voice-answer.png' })
+  // Talk again from the sheet: clear "listening" state while recording.
+  await page.getByTestId('voice-followup').click()
+  await page.getByTestId('voice-recording').waitFor()
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/voice-talk-again.png' })
+})
+
+test('correct total sheet', async ({ page }) => {
+  await loginAs(page)
+  const id = await seedMockupBike(page.request, "KTM 300 EXC '23")
+  await page.goto(`/bikes/${id}`)
+  await page.getByTestId('correct-total').click()
+  await page.getByTestId('correct-hours').waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/correct-total.png' })
 })
 
 test('invoices list, saved invoice and delete with a stock warning', async ({ page }) => {
