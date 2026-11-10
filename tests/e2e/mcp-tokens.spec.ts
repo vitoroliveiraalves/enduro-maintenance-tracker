@@ -32,31 +32,32 @@ test('MCP access token lifecycle: generate, display config, list, and revoke', a
   await expect(row).toHaveCount(1)
   await expect(row.getByTestId('mcp-token-name')).toHaveText('Claude Desktop Mac')
 
-  // 5. Test token authentication via SSE endpoint (aborted immediately after headers)
-  const sseRes = await page.evaluate(async (tok) => {
-    const ctrl = new AbortController()
-    try {
-      const res = await fetch(`/api/mcp/sse?token=${tok}`, { signal: ctrl.signal })
-      const contentType = res.headers.get('content-type')
-      const status = res.status
-      ctrl.abort()
-      return { status, contentType }
-    } catch {
-      return { status: 0, contentType: '' }
-    }
-  }, token)
-  expect(sseRes.status).toBe(200)
-  expect(sseRes.contentType).toContain('text/event-stream')
+  // 5. Test modern Streamable HTTP endpoint (/api/mcp)
+  const probeRes = await page.request.get(`/api/mcp?token=${token}`)
+  expect(probeRes.status()).toBe(200)
+  const probeJson = await probeRes.json()
+  expect(probeJson.transport).toBe('streamable-http')
+  expect(probeJson.status).toBe('ok')
 
-  // 6. Revoke token
+  // 6. Test OPTIONS probe provides WWW-Authenticate header
+  const optionsRes = await page.request.fetch('/api/mcp', { method: 'OPTIONS' })
+  expect(optionsRes.status()).toBe(204)
+  expect(optionsRes.headers()['www-authenticate']).toContain('Bearer')
+
+  // 7. Test unauthenticated request returns 401 with WWW-Authenticate
+  const unauthRes = await page.request.get('/api/mcp')
+  expect(unauthRes.status()).toBe(401)
+  expect(unauthRes.headers()['www-authenticate']).toContain('Bearer')
+
+  // 8. Revoke token
   await row.getByTestId('mcp-revoke-btn').click()
   await row.getByTestId('mcp-revoke-confirm').click()
 
-  // 7. Verify token is gone from UI
+  // 9. Verify token is gone from UI
   await expect(page.getByTestId('mcp-token-row')).toHaveCount(0)
   await expect(page.getByTestId('mcp-no-tokens')).toBeVisible()
 
-  // 8. Verify revoked token is now rejected with 401
-  const revokedRes = await page.request.get(`/api/mcp/sse?token=${token}`)
+  // 10. Verify revoked token is now rejected with 401
+  const revokedRes = await page.request.get(`/api/mcp?token=${token}`)
   expect(revokedRes.status()).toBe(401)
 })
