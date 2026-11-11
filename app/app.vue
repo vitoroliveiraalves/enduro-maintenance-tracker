@@ -14,9 +14,9 @@ const topInset = computed(() => online.value || route.path === '/invoice')
 </script>
 
 <template>
-  <div class="app-layout min-h-dvh bg-bg text-text lg:flex lg:flex-row lg:!pb-0" :style="{ paddingBottom: bottomPad }">
+  <div class="app-layout min-h-dvh bg-bg text-text lg:flex lg:flex-row lg:!pb-0 overflow-x-clip" :style="{ paddingBottom: bottomPad }">
     <DesktopSidebar />
-    <div class="min-w-0 lg:flex-1">
+    <div class="min-w-0 lg:flex-1 overflow-x-clip">
       <div v-if="topInset" aria-hidden="true" style="height: env(safe-area-inset-top)" class="lg:hidden" />
       <OfflineBanner />
       <PendingInvoices />

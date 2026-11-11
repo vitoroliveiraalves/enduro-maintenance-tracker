@@ -259,13 +259,56 @@ html:not([data-theme='tricolor']) :is(button, a).bg-danger {
   font-weight: 600;
 }
 
-/* Screen changes: a quick fade with a small rise; the tab bar stays put. */
+/*
+ * Screen changes: moving up, left, and right like an actual native app.
+ * Tab bars and sidebar stay pinned with their own view-transition-name.
+ */
+[data-testid='bottom-tabs'] {
+  view-transition-name: bottom-nav;
+}
+[data-testid='desktop-sidebar'] {
+  view-transition-name: desktop-sidebar;
+}
+
 @media (prefers-reduced-motion: no-preference) {
+  /* Default subtle fade */
   ::view-transition-old(root) {
-    animation: 120ms ease-out both vt-out;
+    animation: 200ms cubic-bezier(0.25, 1, 0.5, 1) both vt-out;
   }
   ::view-transition-new(root) {
-    animation: 180ms ease-out both vt-in;
+    animation: 240ms cubic-bezier(0.25, 1, 0.5, 1) both vt-in;
+  }
+
+  /* Slide Left (Forward tab navigation or drill-down push) */
+  html[data-direction='slide-left']::view-transition-old(root) {
+    animation: 260ms cubic-bezier(0.25, 1, 0.5, 1) both vt-slide-left-out;
+  }
+  html[data-direction='slide-left']::view-transition-new(root) {
+    animation: 260ms cubic-bezier(0.25, 1, 0.5, 1) both vt-slide-left-in;
+  }
+
+  /* Slide Right (Backward tab navigation or hierarchical pop back) */
+  html[data-direction='slide-right']::view-transition-old(root) {
+    animation: 260ms cubic-bezier(0.25, 1, 0.5, 1) both vt-slide-right-out;
+  }
+  html[data-direction='slide-right']::view-transition-new(root) {
+    animation: 260ms cubic-bezier(0.25, 1, 0.5, 1) both vt-slide-right-in;
+  }
+
+  /* Slide Up (Modal creation flow - Add Vehicle / New form) */
+  html[data-direction='slide-up']::view-transition-old(root) {
+    animation: 260ms cubic-bezier(0.25, 1, 0.5, 1) both vt-modal-bg-out;
+  }
+  html[data-direction='slide-up']::view-transition-new(root) {
+    animation: 280ms cubic-bezier(0.25, 1, 0.5, 1) both vt-slide-up-in;
+  }
+
+  /* Slide Down (Modal dismiss / return to garage) */
+  html[data-direction='slide-down']::view-transition-old(root) {
+    animation: 240ms cubic-bezier(0.25, 1, 0.5, 1) both vt-slide-down-out;
+  }
+  html[data-direction='slide-down']::view-transition-new(root) {
+    animation: 240ms cubic-bezier(0.25, 1, 0.5, 1) both vt-modal-bg-in;
   }
 }
 
@@ -371,6 +414,91 @@ button:not(:disabled):active,
   from {
     opacity: 0;
     transform: translateY(6px);
+  }
+}
+
+/* Directional View Transitions Keyframes */
+@keyframes vt-slide-left-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-22%);
+    opacity: 0.35;
+  }
+}
+@keyframes vt-slide-left-in {
+  from {
+    transform: translateX(100%);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes vt-slide-right-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 1;
+  }
+}
+@keyframes vt-slide-right-in {
+  from {
+    transform: translateX(-22%);
+    opacity: 0.35;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes vt-slide-up-in {
+  from {
+    transform: translateY(100%);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes vt-modal-bg-out {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.97);
+    opacity: 0.5;
+  }
+}
+
+@keyframes vt-slide-down-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 1;
+  }
+}
+@keyframes vt-modal-bg-in {
+  from {
+    transform: scale(0.97);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 

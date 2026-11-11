@@ -101,7 +101,7 @@ function open(p: ShelfPart | null) {
         </p>
       </div>
       <div class="flex items-center gap-3">
-        <button v-if="tab === 'parts'" type="button" class="rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" @click="open(null)">
+        <button v-if="tab === 'parts'" type="button" class="rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" data-testid="desktop-add-part-btn" @click="open(null)">
           {{ t.shelf.addPart }}
         </button>
         <button v-else type="button" class="rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" @click="addBuy(null)">
@@ -181,7 +181,7 @@ function open(p: ShelfPart | null) {
         {{ parts.length ? t.shelf.noMatch : t.shelf.empty }}
       </p>
 
-      <button type="button" class="mt-5 block w-full lg:max-w-md rounded-xl bg-accent py-3 text-center font-bold text-on-accent hover:brightness-110 active:scale-95 transition" data-testid="add-part" @click="open(null)">{{ t.shelf.addPart }}</button>
+      <button type="button" class="lg:hidden mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-on-accent hover:brightness-110 active:scale-95 transition" data-testid="add-part" @click="open(null)">{{ t.shelf.addPart }}</button>
     </template>
 
     <template v-else>

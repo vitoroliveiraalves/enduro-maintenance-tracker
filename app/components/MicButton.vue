@@ -128,9 +128,9 @@ const waveformBars = computed(() => {
       </p>
     </Transition>
 
-    <!-- Floating Mic Button with Pulsing Radar Effect when Active -->
+    <!-- Floating Mic Button with Pulsing Radar Effect when Active (Mobile only; desktop triggers via sidebar) -->
     <div
-      class="fixed right-3 z-30 flex size-14 items-center justify-center lg:!bottom-6 lg:!right-6"
+      class="lg:hidden fixed right-3 z-30 flex size-14 items-center justify-center"
       :style="{ bottom: `calc(3.5rem + env(safe-area-inset-bottom) + ${badge ? '3.5rem' : '0.75rem'})` }"
     >
       <!-- Radar pulse waves when actively recording or submitting -->

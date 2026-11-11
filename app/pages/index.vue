@@ -235,7 +235,7 @@ const totalKmCount = computed(() =>
 
       <NuxtLink
         to="/bikes/new"
-        class="brand-slant block bg-accent py-3.5 px-6 text-center font-black uppercase tracking-[0.04em] text-on-accent transition hover:brightness-110 active:scale-95" style="font-stretch: 125%"
+        class="lg:hidden brand-slant block bg-accent py-3.5 px-6 text-center font-black uppercase tracking-[0.04em] text-on-accent transition hover:brightness-110 active:scale-95" style="font-stretch: 125%"
         data-testid="add-bike"
       >
         {{ t.garage.addBike }}
