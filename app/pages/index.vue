@@ -161,7 +161,7 @@ const totalKmCount = computed(() =>
     <section class="hidden lg:block mt-8 rounded border border-text/15 bg-surface p-5 font-tag" data-testid="desktop-ai-hub">
       <div class="flex items-center justify-between border-b border-text/10 pb-3 mb-4">
         <div class="flex items-center gap-2.5">
-          <Icon name="cpu" :size="20" class="text-accent" />
+          <Icon name="cpu" :size="20" class="text-accent-text" />
           <h2 class="text-sm font-bold uppercase tracking-wider text-text">{{ t.desktop.aiHub.title }}</h2>
           <span class="rounded bg-ok-text/15 px-2 py-0.5 text-[10px] font-bold tracking-widest text-ok-text border border-ok-text/30 uppercase">
             {{ t.desktop.aiHub.badge }}
@@ -206,7 +206,7 @@ const totalKmCount = computed(() =>
                 <Icon name="cpu" :size="15" />
                 {{ t.desktop.aiHub.mcpTitle }}
               </span>
-              <code class="px-1.5 py-0.5 text-[10px] rounded bg-surface text-accent font-mono border border-track">
+              <code class="px-1.5 py-0.5 text-[10px] rounded bg-surface text-accent-text font-mono border border-track">
                 /api/mcp
               </code>
             </div>
