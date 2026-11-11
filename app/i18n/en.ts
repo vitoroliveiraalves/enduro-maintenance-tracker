@@ -338,6 +338,11 @@ export const en = {
 
   logRide: {
     title: (what: 'meters' | 'hours' | 'km') => `Log ride / update ${what === 'meters' ? 'meters' : what}`,
+    modeTotal: 'Total meter',
+    modeDelta: '+ Ride added',
+    deltaHours: '+ Hours ridden',
+    deltaKm: '+ Km ridden',
+    newTotal: 'New total',
     conditions: { normal: 'Normal', mud: 'Mud', sand: 'Sand', dust: 'Dust', race: 'Race' },
     conditionsLabel: 'Conditions',
     jump: (parts: string[]) => `That's ${parts.join(' and ')} more than last time. Save anyway?`,
@@ -659,6 +664,11 @@ export const en = {
     metersHint: 'Switching hides the other meter; nothing is deleted, and switching back brings it back.',
     saveCounts: 'Save counts',
     removeNote: 'It leaves the garage; its services and costs stay in History and Costs.',
+    specs: 'Specs & Torques',
+    viewAllSpecs: (n: number) => `View all ${n} specs`,
+    noSpecs: 'No torque or fluid specs saved yet.',
+    noSpecsHint: 'Add notes with torque values or capacities to your maintenance items to see them here at a glance.',
+    searchSpecs: 'Search specs, torques, fluids...',
   },
 
   item: {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { itemLabel } from '~/lib/server-text'
 import { parseDecimal } from '~/lib/parse-number'
 import { dueChips, type DueChip } from '~/lib/reminders'
 import { rideToast } from '~/lib/save-toast'
@@ -22,6 +23,14 @@ export type Detail = {
   }
   latestReading: { id?: string; at: string; hoursTenths: number | null; km: number | null; pending?: boolean } | null
   items: Array<ItemRowJson & { pendingSync?: boolean }>
+  specs?: Array<{
+    id: string
+    itemId: string
+    itemName: string
+    title: string
+    body: string
+    specs: Array<{ label: string; value: string }>
+  }>
 }
 
 type VehicleReminder = {
@@ -45,10 +54,25 @@ const error = ref('')
 const sheetOpen = ref(false)
 const premixOpen = ref(false)
 const reminderOpen = ref(false)
+const specsOpen = ref(false)
 const reminderToEdit = ref<VehicleReminder | null>(null)
 const bikeReminders = ref<VehicleReminder[]>([])
 const chips = ref<DueChip[]>([])
 const { syncTick } = useOffline()
+
+const allSpecs = computed(() => {
+  const list: Array<{ label: string; value: string; itemName: string }> = []
+  for (const n of data.value?.specs ?? []) {
+    for (const s of n.specs) {
+      if (s.label.trim() || s.value.trim()) {
+        list.push({ label: s.label, value: s.value, itemName: n.itemName })
+      }
+    }
+  }
+  return list
+})
+const allSpecsCount = computed(() => allSpecs.value.length)
+const highlightedSpecs = computed(() => allSpecs.value.slice(0, 4))
 
 function loadReminders() {
   // Reminders for this bike (or all bikes) due in 30 days or less; never blocks the screen.
@@ -236,10 +260,37 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         >
           + {{ t.bike.addReminder }}
         </button>
+        <button
+          type="button"
+          class="min-h-9 rounded-full border border-track bg-surface px-3 py-1.5 text-xs font-semibold text-text font-tag transition hover:border-accent flex items-center gap-1.5"
+          data-testid="specs-chip"
+          @click="specsOpen = true"
+        >
+          <Icon name="wrench" :size="13" />
+          <span>{{ t.bike.specs }}<span v-if="allSpecsCount"> ({{ allSpecsCount }})</span></span>
+        </button>
       </div>
       <div v-if="data.bike.notes" class="mt-2.5 rounded-xl border border-white/5 bg-surface/50 p-3 text-xs leading-relaxed" data-testid="bike-notes-card">
         <span class="block font-tag text-[10px] uppercase tracking-wider text-muted mb-1">{{ t.bike.notes }}</span>
         <p class="whitespace-pre-line text-text">{{ data.bike.notes }}</p>
+      </div>
+      <div v-if="allSpecsCount > 0" class="mt-2.5 rounded-xl border border-white/5 bg-surface/50 p-3" data-testid="bike-specs-card">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-tag text-[10px] uppercase tracking-wider text-muted flex items-center gap-1.5">
+            <Icon name="wrench" :size="12" />
+            {{ t.bike.specs }}
+          </span>
+          <button type="button" class="font-tag text-xs font-bold text-accent-text hover:underline" data-testid="view-all-specs-btn" @click="specsOpen = true">
+            {{ t.bike.viewAllSpecs(allSpecsCount) }} →
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div v-for="(s, i) in highlightedSpecs" :key="i" class="rounded bg-bg/60 p-2 cursor-pointer hover:bg-bg transition" @click="specsOpen = true">
+            <div class="text-[10px] text-muted truncate">{{ itemLabel(s.itemName) }}</div>
+            <div class="font-medium text-text truncate">{{ s.label }}</div>
+            <div class="font-tag font-bold text-white text-sm tabular-nums truncate">{{ s.value }}</div>
+          </div>
+        </div>
       </div>
       <div v-if="data.latestReading" class="mb-3.5 mt-3 flex gap-2.5">
         <MeterCard v-if="hasHours" :label="t.common.hours" :value="data.latestReading.hoursTenths === null ? '—' : hours(data.latestReading.hoursTenths)" testid="hours-value" />
@@ -346,6 +397,14 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         :default-bike-id="data.bike.id"
         :initial-reminder="reminderToEdit"
         @saved="loadReminders"
+      />
+      <SpecsSheet
+        v-if="data"
+        v-model:open="specsOpen"
+        :bike-id="data.bike.id"
+        :bike-name="data.bike.name"
+        :specs="data.specs ?? []"
+        :items="data.items"
       />
     </template>
     <div v-else-if="!error" class="mt-2" data-testid="bike-loading">

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { bikes, maintenanceItems, meterReadings, partItems, parts, serviceItems, services } from '../db/schema'
+import { bikes, itemNotes, maintenanceItems, meterReadings, partItems, parts, serviceItems, services } from '../db/schema'
 import type { Bike, ConditionMultipliers, MaintenanceItem } from '../db/schema'
 import { computeStatus, pickLastDone, sortByUrgency } from '../domain/maintenance-status'
 import type { ItemDef, Reading } from '../domain/maintenance-status'
@@ -296,8 +296,53 @@ export async function itemRows(bikeId: string, userId: string, now = new Date())
   return sortByUrgency(rows)
 }
 
+export type BikeSpecEntry = {
+  id: string
+  itemId: string
+  itemName: string
+  title: string
+  body: string
+  specs: Array<{ label: string; value: string }>
+}
+
+export async function bikeSpecs(bikeId: string, userId: string): Promise<BikeSpecEntry[]> {
+  const rows = await db
+    .select({
+      id: itemNotes.id,
+      itemId: itemNotes.itemId,
+      itemName: maintenanceItems.name,
+      title: itemNotes.title,
+      body: itemNotes.body,
+      specs: itemNotes.specs,
+    })
+    .from(itemNotes)
+    .innerJoin(maintenanceItems, eq(itemNotes.itemId, maintenanceItems.id))
+    .where(
+      and(
+        eq(itemNotes.userId, userId),
+        eq(maintenanceItems.bikeId, bikeId),
+        isNull(maintenanceItems.archivedAt),
+      ),
+    )
+    .orderBy(asc(maintenanceItems.sortOrder), asc(maintenanceItems.name), asc(itemNotes.title))
+
+  return rows.map((r) => ({
+    id: r.id,
+    itemId: r.itemId,
+    itemName: r.itemName,
+    title: r.title,
+    body: r.body,
+    specs: (r.specs as Array<{ label: string; value: string }>) || [],
+  }))
+}
+
 export async function bikeDetail(bike: Bike) {
-  return { bike, latestReading: await latestReading(bike.id, bike.userId), items: await itemRows(bike.id, bike.userId) }
+  const [rd, rows, specsList] = await Promise.all([
+    latestReading(bike.id, bike.userId),
+    itemRows(bike.id, bike.userId),
+    bikeSpecs(bike.id, bike.userId),
+  ])
+  return { bike, latestReading: rd, items: rows, specs: specsList }
 }
 
 export async function listBikes(userId: string): Promise<BikeSummary[]> {

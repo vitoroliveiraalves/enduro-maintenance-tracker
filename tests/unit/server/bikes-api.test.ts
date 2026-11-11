@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { db } from '../../../server/db/client'
-import { bikes, maintenanceItems, meterReadings, services, user } from '../../../server/db/schema'
+import { bikes, itemNotes, maintenanceItems, meterReadings, services, user } from '../../../server/db/schema'
 import { TEMPLATES } from '../../../server/domain/templates'
 import { bikeDetail, createBike, createItem, itemRows, listBikes, patchBike, patchItem } from '../../../server/utils/bikes'
 import { truncateUsers } from '../../support/truncate'
@@ -51,6 +51,22 @@ describe('bikes api logic', () => {
     const svc = await db.select().from(services).where(eq(services.bikeId, bike.id))
     expect(svc).toHaveLength(1)
     expect(svc[0]).toMatchObject({ by: 'diy', notes: 'Initial', hoursTenths: 1220 })
+
+    expect(detail.specs).toEqual([])
+    await db.insert(itemNotes).values({
+      clientId: crypto.randomUUID(),
+      userId: uid,
+      itemId: first.id,
+      title: 'Torque specs',
+      specs: [{ label: 'Drain bolt', value: '20 Nm' }],
+    })
+    const withSpecs = await bikeDetail(bike)
+    expect(withSpecs.specs).toHaveLength(1)
+    expect(withSpecs.specs[0]).toMatchObject({
+      itemName: 'Gearbox oil',
+      title: 'Torque specs',
+      specs: [{ label: 'Drain bolt', value: '20 Nm' }],
+    })
   })
 
   it('replaying the same clientId returns the existing bike and creates nothing', async () => {

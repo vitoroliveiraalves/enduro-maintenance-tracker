@@ -157,3 +157,39 @@ test('log ride: camera photo scan fills hours and km', async ({ page }) => {
   await expect(page.getByTestId('log-sheet')).toHaveCount(0)
   await expect(page.getByTestId('hours-value')).toHaveText('145.0 h')
 })
+
+test('log ride: delta mode allows incremental entry and computes new total', async ({ page }) => {
+  await loginAs(page)
+  const name = `Delta Bike ${Date.now()}`
+  await seedMockupBike(page.request, name)
+  await page.goto('/')
+  await page.getByTestId('bike-card').filter({ has: page.getByText(name, { exact: true }) }).click()
+  await expect(page.getByTestId('hours-value')).toHaveText('142.5 h')
+  await expect(page.getByTestId('km-value')).toHaveText('3 812')
+
+  await page.getByTestId('log-ride').click()
+  await expect(page.getByTestId('mode-delta-btn')).toBeVisible()
+  await page.getByTestId('mode-delta-btn').click()
+
+  // Type delta values with commas: +2,5 h and +48 km
+  await expect(page.getByTestId('delta-hours-input')).toBeVisible()
+  await page.getByTestId('delta-hours-input').fill('2,5')
+  await page.getByTestId('delta-km-input').fill('48')
+
+  // Preview shows the live calculation equation
+  await expect(page.getByTestId('delta-preview')).toContainText('145.0 h')
+  await expect(page.getByTestId('delta-preview')).toContainText('3 860 km')
+
+  // Switching back to total shows the pre-computed totals in the inputs
+  await page.getByTestId('mode-total-btn').click()
+  await expect(page.getByTestId('hours-input')).toHaveValue('145')
+  await expect(page.getByTestId('km-input')).toHaveValue('3860')
+
+  // Switch back to delta and save
+  await page.getByTestId('mode-delta-btn').click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+
+  await expect(page.getByTestId('log-sheet')).toHaveCount(0)
+  await expect(page.getByTestId('hours-value')).toHaveText('145.0 h')
+  await expect(page.getByTestId('km-value')).toHaveText('3 860')
+})

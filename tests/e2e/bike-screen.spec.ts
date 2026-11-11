@@ -153,3 +153,51 @@ test('add license plate and quick IUC reminder directly on a motorcycle screen',
 
   await expect(page.getByTestId('reminder-chip').filter({ hasText: 'IUC · in 10 days' })).toBeVisible()
 })
+
+test('specs and torques: quick chip and specs sheet with search and card preview', async ({ page }) => {
+  await loginAs(page)
+  const id = await seedMockupBike(page.request, 'Specs Bike')
+  await page.goto(`/bikes/${id}`)
+
+  // 1. Initial state: specs chip visible
+  const chip = page.getByTestId('specs-chip')
+  await expect(chip).toBeVisible()
+  await chip.click()
+
+  // 2. Empty state in sheet with target items
+  await expect(page.getByTestId('specs-sheet')).toBeVisible()
+  await expect(page.getByTestId('specs-empty')).toBeVisible()
+  await page.getByTestId('item-spec-target').filter({ hasText: 'Engine/gear oil' }).click()
+
+  // 3. Navigated to item page -> Add a note with specs
+  await expect(page).toHaveURL(new RegExp(`/bikes/${id}/items/[0-9a-f-]{36}$`))
+  await page.getByTestId('note-add').click()
+  await page.getByTestId('note-sheet').getByRole('button', { name: 'Torque specs' }).click()
+  const specRows = page.getByTestId('note-spec-row')
+  await specRows.nth(0).locator('input').nth(0).fill('Drain plug')
+  await specRows.nth(0).locator('input').nth(1).fill('20 Nm')
+  await page.getByTestId('note-save').click()
+  await expect(page.getByTestId('note-sheet')).toHaveCount(0)
+
+  // 4. Return to bike page
+  await page.goto(`/bikes/${id}`)
+  await expect(page.getByTestId('specs-chip')).toContainText('(1)')
+
+  // 5. Bike specs preview card is visible on screen
+  const card = page.getByTestId('bike-specs-card')
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Drain plug')
+  await expect(card).toContainText('20 Nm')
+
+  // 6. Open sheet via View all button
+  await page.getByTestId('view-all-specs-btn').click()
+  await expect(page.getByTestId('specs-sheet')).toBeVisible()
+  await expect(page.getByTestId('spec-label')).toHaveText('Drain plug')
+  await expect(page.getByTestId('spec-value')).toHaveText('20 Nm')
+
+  // 7. Search filter in sheet
+  await page.getByTestId('specs-search-input').fill('axle')
+  await expect(page.getByTestId('specs-empty-search')).toBeVisible()
+  await page.getByTestId('specs-search-input').fill('drain')
+  await expect(page.getByTestId('spec-label')).toHaveText('Drain plug')
+})

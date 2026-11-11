@@ -431,6 +431,11 @@ export const pt: Messages = {
 
   logRide: {
     title: (w) => `Atualizar ${w === 'meters' ? 'contadores' : what(w)}`,
+    modeTotal: 'Total',
+    modeDelta: '+ Volta / sessão',
+    deltaHours: '+ Horas feitas',
+    deltaKm: '+ Km feitos',
+    newTotal: 'Novo total',
     conditions: { normal: 'Normal', mud: 'Lama', sand: 'Areia', dust: 'Pó', race: 'Corrida' },
     conditionsLabel: 'Condições',
     jump: (parts) => `São mais ${parts.join(' e ')} do que da última vez. Guardar mesmo assim?`,
@@ -752,6 +757,11 @@ export const pt: Messages = {
     metersHint: 'Mudar esconde o outro contador; nada é apagado, e voltar atrás mostra-o de novo.',
     saveCounts: 'Guardar contadores',
     removeNote: 'Sai da garagem; as manutenções e custos ficam no Histórico e nos Custos.',
+    specs: 'Apertos e especificações',
+    viewAllSpecs: (n) => `Ver as ${n} especificações`,
+    noSpecs: 'Ainda sem apertos ou especificações guardadas.',
+    noSpecsHint: 'Adicione notas com valores de aperto ou capacidades aos itens de manutenção para os ver aqui num instante.',
+    searchSpecs: 'Procurar apertos, fluidos, folgas...',
   },
 
   item: {
