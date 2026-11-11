@@ -271,6 +271,35 @@ export const pt: Messages = {
 
   tabs: { garage: 'Garagem', history: 'Histórico', invoice: 'Fatura', costs: 'Custos' },
 
+  desktop: {
+    subtitle: 'OFICINA DESKTOP',
+    activeVehicle: 'Veículo ativo',
+    switchVehicle: 'Mudar veículo',
+    noVehicles: 'Sem veículos',
+    addVehicle: '+ Adicionar veículo',
+    nav: {
+      garage: 'Frota da Garagem',
+      bikeStation: 'Posto da Mota',
+      history: 'Registos e Histórico',
+      invoice: 'Estúdio de Faturas',
+      shelf: 'Prateleira de Peças',
+      costs: 'Análise de Custos',
+      settings: 'Definições',
+    },
+    actions: {
+      logRide: '+ Registar Saída',
+      recordService: 'Registar Manutenção',
+      hotkeyL: 'L',
+      hotkeyS: 'S',
+    },
+    status: {
+      onlineSynced: 'Ligado · Sincronizado',
+      syncing: (n) => `A sincronizar (${n})`,
+      offline: 'Sem rede',
+    },
+    shortcutsHint: '[L] Registar Saída · [S] Manutenção',
+  },
+
   offlineBanner: 'Sem rede — a mostrar os últimos dados sincronizados. Saídas, manutenções e despesas ficam neste telemóvel e sincronizam quando voltar.',
 
   pending: {
@@ -653,6 +682,16 @@ export const pt: Messages = {
     shelf: 'Prateleira',
     shelfHint: 'PEÇAS · A COMPRAR →',
     addBike: '+ Juntar veículo',
+    kpi: {
+      activeFleet: 'Frota Ativa',
+      vehicles: (n) => plural(n, 'veículo', 'veículos'),
+      overdueTasks: 'Tarefas em Atraso',
+      dueSoonTasks: 'A Vencer',
+      upcoming: 'em breve',
+      telemetry: 'Telemetria da Frota',
+      actionNeeded: 'Ação necessária',
+      allClear: 'Tudo em dia',
+    },
   },
 
   newBike: {
@@ -732,6 +771,13 @@ export const pt: Messages = {
     logRide: (w) => `+ Atualizar ${w === 'meters' ? 'contadores' : what(w)}`,
     correct: 'Total errado? Corrigir',
     maintenance: 'Manutenção · mais urgente primeiro',
+    filters: {
+      all: 'Todos',
+      overdue: 'Em atraso',
+      soon: 'Em breve',
+      ok: 'Tudo OK',
+    },
+    utilities: 'Utilidades e Especificações',
     noItems: 'Sem itens de manutenção — junte um',
     everyH: 'A cada h',
     everyKm: 'A cada km',
@@ -963,6 +1009,8 @@ export const pt: Messages = {
     pdfTooBig: 'PDF demasiado grande (máx. 10 MB).',
     title: 'Nova fatura',
     intro: 'Fotografe a fatura ou escolha um ficheiro. O código QR é lido no seu telemóvel.',
+    dropZone: 'Arraste e largue ficheiros de faturas aqui, ou',
+    dropZoneHint: 'PDF ou fotos até 10 MB (máx. 5 páginas)',
     offline: 'Está sem rede — as fotos ficam neste telemóvel e são enviadas quando voltar a estar online.',
     takePhotos: 'Tirar fotos',
     chooseFile: 'Escolher ficheiro',

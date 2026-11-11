@@ -33,7 +33,14 @@ const pages = ref<Page[]>([])
 const busy = ref(false)
 const error = ref('')
 const savedOffline = ref(false)
+const isDragging = ref(false)
 let seq = 0
+
+async function onDrop(e: DragEvent) {
+  isDragging.value = false
+  const picked = Array.from(e.dataTransfer?.files ?? [])
+  if (picked.length) await readPicked(picked)
+}
 
 async function addPhotos(e: Event) {
   const input = e.target as HTMLInputElement
@@ -145,54 +152,82 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
 </script>
 
 <template>
-  <main class="mx-auto max-w-md p-4">
-    <h1 class="text-xl font-bold text-white">{{ t.invoice.title }}</h1>
-    <p class="mt-1 text-sm text-muted">{{ t.invoice.intro }}</p>
+  <main class="mx-auto max-w-md lg:max-w-7xl w-full p-4 pt-0 lg:p-8 lg:pt-6">
+    <div class="mb-6 lg:mb-8">
+      <h1 class="text-xl lg:text-3xl font-black uppercase tracking-tight text-white">{{ t.invoice.title }}</h1>
+      <p class="mt-1 text-sm lg:text-base text-muted">{{ t.invoice.intro }}</p>
+    </div>
 
     <p v-if="!online" role="status" data-testid="offline-banner" class="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn-text">
       {{ t.invoice.offline }}
     </p>
 
-    <div class="mt-5 grid gap-3">
-      <label
-        class="block rounded-lg bg-accent px-4 py-3 text-center font-semibold text-on-accent"
-        :class="{ 'pointer-events-none opacity-40': busy || pages.length >= MAX_PAGES }"
-      >
-        {{ t.invoice.takePhotos }}
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          class="sr-only"
-          data-testid="camera-input"
-          :disabled="busy || pages.length >= MAX_PAGES"
-          @change="addPhotos"
+    <!-- Upload section with desktop drag-and-drop zone -->
+    <div
+      class="mt-5 rounded-2xl transition-all"
+      :class="[
+        isDragging
+          ? 'lg:border-accent lg:bg-accent/10'
+          : 'lg:border-track lg:bg-surface/30 hover:lg:border-muted/40',
+        'lg:border-2 lg:border-dashed lg:p-10 lg:text-center'
+      ]"
+      @dragover.prevent="isDragging = true"
+      @dragleave.prevent="isDragging = false"
+      @drop.prevent="onDrop"
+    >
+      <div class="hidden lg:flex flex-col items-center justify-center pointer-events-none mb-5">
+        <div class="size-14 rounded-full bg-surface border border-track flex items-center justify-center text-3xl mb-3 shadow-sm">
+          🧾
+        </div>
+        <p class="text-base font-bold text-white">
+          {{ t.invoice.dropZone }}
+        </p>
+        <p class="text-xs text-muted mt-1">
+          {{ t.invoice.dropZoneHint }}
+        </p>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-2 lg:inline-flex lg:gap-4 lg:justify-center">
+        <label
+          class="block rounded-lg bg-accent px-4 py-3 text-center font-semibold text-on-accent cursor-pointer transition-transform active:scale-95 lg:min-w-44"
+          :class="{ 'pointer-events-none opacity-40': busy || pages.length >= MAX_PAGES }"
         >
-      </label>
-      <label
-        class="block rounded-lg border border-white/15 bg-surface px-4 py-3 text-center font-semibold"
-        :class="{ 'pointer-events-none opacity-40': busy }"
-      >
-        {{ t.invoice.chooseFile }}
-        <input
-          type="file"
-          accept="image/jpeg,image/png,application/pdf"
-          multiple
-          class="sr-only"
-          data-testid="file-input"
-          :disabled="busy"
-          @change="chooseFile"
+          {{ t.invoice.takePhotos }}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="sr-only"
+            data-testid="camera-input"
+            :disabled="busy || pages.length >= MAX_PAGES"
+            @change="addPhotos"
+          >
+        </label>
+        <label
+          class="block rounded-lg border border-white/15 bg-surface px-4 py-3 text-center font-semibold cursor-pointer transition-transform active:scale-95 hover:border-white/30 lg:min-w-44"
+          :class="{ 'pointer-events-none opacity-40': busy }"
         >
-      </label>
+          {{ t.invoice.chooseFile }}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,application/pdf"
+            multiple
+            class="sr-only"
+            data-testid="file-input"
+            :disabled="busy"
+            @change="chooseFile"
+          >
+        </label>
+      </div>
     </div>
 
-    <section v-if="pages.length" class="mt-5" data-testid="pages">
-      <ul class="grid grid-cols-3 gap-2">
-        <li v-for="(p, i) in pages" :key="p.id" class="relative">
-          <img :src="p.url" :alt="t.invoice.page(i + 1)" class="aspect-[3/4] w-full rounded-lg object-cover">
+    <section v-if="pages.length" class="mt-5 lg:mt-6" data-testid="pages">
+      <ul class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        <li v-for="(p, i) in pages" :key="p.id" class="relative group">
+          <img :src="p.url" :alt="t.invoice.page(i + 1)" class="aspect-[3/4] w-full rounded-lg object-cover border border-track">
           <button
             type="button"
-            class="absolute right-1 top-1 size-7 rounded-full bg-black/70 text-lg leading-none"
+            class="absolute right-1 top-1 size-7 rounded-full bg-black/70 text-lg leading-none text-white hover:bg-black transition-colors"
             :aria-label="t.invoice.removePage(i + 1)"
             @click="remove(p.id)"
           >
@@ -202,7 +237,7 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
       </ul>
       <button
         type="button"
-        class="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-semibold text-on-accent disabled:opacity-40"
+        class="mt-4 w-full lg:max-w-xs rounded-lg bg-accent px-4 py-3 font-semibold text-on-accent disabled:opacity-40"
         :disabled="busy"
         @click="send(pages.map((p) => p.file))"
       >
@@ -216,21 +251,24 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
     </p>
     <p v-if="error" role="alert" class="mt-4 text-sm text-danger-text">{{ error }}</p>
 
-    <section class="mt-8" data-testid="invoice-list">
-      <h2 class="text-[11px] font-semibold uppercase tracking-wider text-muted">{{ t.invoice.yours }}</h2>
+    <section class="mt-8 lg:mt-12" data-testid="invoice-list">
+      <div class="flex items-center justify-between mb-2 lg:mb-4">
+        <h2 class="text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-muted">{{ t.invoice.yours }}</h2>
+        <span v-if="invoices?.length" class="hidden lg:inline text-xs text-muted font-mono">{{ invoices.length }} {{ invoices.length === 1 ? 'item' : 'items' }}</span>
+      </div>
       <p v-if="listError" role="alert" class="mt-2 text-sm text-danger-text">{{ listError }}</p>
       <Skeleton v-else-if="!invoices" :rows="3" height="h-14" class="mt-2" />
       <p v-else-if="invoices && !invoices.length" class="mt-2 text-sm text-muted" data-testid="invoice-list-empty">{{ t.invoice.none }}</p>
-      <ul v-else-if="invoices" class="mt-2 divide-y divide-white/5 rounded-2xl bg-surface">
-        <li v-for="r in invoices" :key="r.id">
-          <NuxtLink :to="`/invoice/${r.id}`" class="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5" data-testid="invoice-row">
+      <ul v-else-if="invoices" class="mt-2 divide-y divide-white/5 lg:divide-y-0 rounded-2xl bg-surface lg:bg-transparent lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4">
+        <li v-for="r in invoices" :key="r.id" class="lg:rounded-xl lg:bg-surface lg:border lg:border-track hover:lg:border-muted/40 transition-colors">
+          <NuxtLink :to="`/invoice/${r.id}`" class="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 lg:p-4" data-testid="invoice-row">
             <span class="min-w-0">
               <span class="block truncate text-sm font-semibold text-white">{{ r.supplierName || t.invoice.fallbackName }}</span>
               <span class="block text-xs" :class="r.status === 'confirmed' ? 'text-muted' : 'text-warn-text'" data-testid="invoice-row-note">
                 {{ date(r.issuedAt ?? r.createdAt.slice(0, 10)) }} · {{ rowNote(r) }}
               </span>
             </span>
-            <span class="shrink-0 text-sm tabular-nums text-white" data-testid="invoice-row-total">{{ r.totalCents != null ? money(r.totalCents) : '—' }}</span>
+            <span class="shrink-0 text-sm tabular-nums text-white font-mono" data-testid="invoice-row-total">{{ r.totalCents != null ? money(r.totalCents) : '—' }}</span>
           </NuxtLink>
         </li>
       </ul>

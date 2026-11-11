@@ -66,6 +66,16 @@ onBeforeUnmount(() => {
 // already changed when the guard runs; a push from a link or after a save hasn't.
 const router = useRouter()
 let removeGuard: (() => void) | null = null
+const isDesktop = ref(false)
+
+onMounted(() => {
+  const mq = window.matchMedia('(min-width: 1024px)')
+  isDesktop.value = mq.matches
+  const handler = (e: MediaQueryListEvent) => { isDesktop.value = e.matches }
+  mq.addEventListener('change', handler)
+  onBeforeUnmount(() => mq.removeEventListener('change', handler))
+})
+
 watch(open, (isOpen) => {
   removeGuard?.()
   removeGuard = null
@@ -102,26 +112,47 @@ function onKey(e: KeyboardEvent) {
 
 <template>
   <Transition name="sheet">
-    <div v-if="open" class="fixed inset-0 z-40 flex items-end bg-black/60 backdrop-blur-[2px]" :style="keyboard ? { paddingBottom: `${keyboard}px` } : undefined" :data-testid="props.testid ? `${props.testid}-backdrop` : undefined" @click.self="open = false">
+    <div
+      v-if="open"
+      class="fixed inset-0 z-40 flex items-end lg:items-stretch lg:justify-end bg-black/60 backdrop-blur-[2px]"
+      :style="keyboard && !isDesktop ? { paddingBottom: `${keyboard}px` } : undefined"
+      :data-testid="props.testid ? `${props.testid}-backdrop` : undefined"
+      @click.self="open = false"
+    >
       <div
         ref="panel"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="titleId"
         tabindex="-1"
-        class="sheet-panel mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 outline-none"
-        :style="{
-          paddingBottom: keyboard ? '1rem' : 'calc(1.5rem + env(safe-area-inset-bottom))',
-          ...(keyboard && viewH ? { maxHeight: `${Math.round(viewH * 0.92)}px` } : {}),
-        }"
+        class="sheet-panel mx-auto lg:mr-0 lg:ml-auto max-h-[92dvh] lg:max-h-full lg:h-full w-full max-w-md lg:w-[480px] lg:max-w-[480px] overflow-y-auto rounded-t-2xl lg:rounded-none lg:border-l lg:border-border lg:shadow-2xl bg-surface p-4 lg:p-6 outline-none"
+        :style="
+          isDesktop
+            ? undefined
+            : {
+                paddingBottom: keyboard ? '1rem' : 'calc(1.5rem + env(safe-area-inset-bottom))',
+                ...(keyboard && viewH ? { maxHeight: `${Math.round(viewH * 0.92)}px` } : {}),
+              }
+        "
         :data-testid="props.testid"
         @keydown="onKey"
         @focusin="onFocusIn"
       >
-        <div aria-hidden="true" class="mx-auto -mt-1 mb-3 h-1 w-10 rounded-full bg-muted/30" />
-        <div class="mb-3 flex items-start justify-between gap-2">
-          <h2 :id="titleId" class="pt-2.5 text-base font-bold text-white">{{ props.title }}</h2>
-          <button type="button" class="-mr-2 -mt-1 size-11 shrink-0 rounded-lg text-2xl leading-none text-muted active:scale-95" :aria-label="t.common.close" data-testid="sheet-close" @click="open = false">×</button>
+        <div aria-hidden="true" class="mx-auto -mt-1 mb-3 h-1 w-10 rounded-full bg-muted/30 lg:hidden" />
+        <div class="mb-3 flex items-start justify-between gap-2 lg:mb-4 lg:border-b lg:border-track lg:pb-3">
+          <h2 :id="titleId" class="pt-2.5 lg:pt-0 text-base lg:text-lg font-bold text-white">{{ props.title }}</h2>
+          <div class="flex items-center gap-2">
+            <span class="hidden lg:inline-flex items-center rounded border border-track bg-bg px-1.5 py-0.5 font-mono text-[10px] font-bold text-muted uppercase tracking-wider select-none">ESC</span>
+            <button
+              type="button"
+              class="-mr-2 -mt-1 lg:mr-0 lg:mt-0 size-11 lg:size-8 shrink-0 flex items-center justify-center rounded-lg text-2xl lg:text-xl leading-none text-muted hover:text-text hover:bg-surface/80 active:scale-95"
+              :aria-label="t.common.close"
+              data-testid="sheet-close"
+              @click="open = false"
+            >
+              ×
+            </button>
+          </div>
         </div>
         <slot />
       </div>

@@ -18,7 +18,7 @@ const tabs = computed(() => [
   <nav
     v-if="visible"
     data-testid="bottom-tabs"
-    class="fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around border-t-[1.5px] border-text bg-bg font-tag text-[11px] uppercase tracking-[0.06em] text-muted"
+    class="fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around border-t-[1.5px] border-text bg-bg font-tag text-[11px] uppercase tracking-[0.06em] text-muted lg:hidden"
     style="height: calc(3.5rem + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom)"
   >
     <NuxtLink

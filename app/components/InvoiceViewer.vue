@@ -51,7 +51,7 @@ function up(e: PointerEvent) {
   <section class="rounded-2xl bg-surface p-2" data-testid="invoice-viewer">
     <div
       v-if="page && page.mime.startsWith('image/')"
-      class="relative h-[44vh] overflow-hidden rounded-xl bg-black/40"
+      class="relative h-[44vh] lg:h-[70vh] overflow-hidden rounded-xl bg-black/40"
       :style="{ touchAction: scale > 1 ? 'none' : 'pan-y' }"
       @pointerdown="down"
       @pointermove="move"

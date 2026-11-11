@@ -63,6 +63,18 @@ const { isDue: isChecklistDue } = usePreRideChecklist(id)
 const checklistOpen = ref(false)
 const checklistDue = computed(() => isChecklistDue(data.value?.latestReading?.at))
 
+const itemFilter = ref<'all' | 'overdue' | 'soon' | 'ok'>('all')
+const overdueCount = computed(() => (data.value?.items ?? []).filter((i) => i.status.state === 'overdue').length)
+const soonCount = computed(() => (data.value?.items ?? []).filter((i) => i.status.state === 'soon').length)
+
+const displayedItems = computed(() => {
+  const items = data.value?.items ?? []
+  if (itemFilter.value === 'all') return items
+  if (itemFilter.value === 'overdue') return items.filter((i) => i.status.state === 'overdue')
+  if (itemFilter.value === 'soon') return items.filter((i) => i.status.state === 'soon')
+  return items.filter((i) => i.status.state !== 'overdue' && i.status.state !== 'soon')
+})
+
 const allSpecs = computed(() => {
   const list: Array<{ label: string; value: string; itemName: string }> = []
   for (const n of data.value?.specs ?? []) {
@@ -203,7 +215,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 </script>
 
 <template>
-  <main class="mx-auto max-w-md px-4 pb-6 pt-[18px]">
+  <main class="mx-auto max-w-md lg:max-w-7xl px-4 pb-6 pt-[18px] lg:px-8 lg:pt-6">
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
     <div class="flex items-center justify-between text-[13px] text-muted">
       <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">{{ t.common.garageBack }}</NuxtLink>
@@ -224,7 +236,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
     </div>
     <template v-if="data">
       <div class="mb-1 mt-2 flex items-center justify-between gap-2">
-        <h1 class="text-[34px] text-white flex items-center gap-2" data-testid="bike-name">
+        <h1 class="text-[34px] lg:text-4xl text-white flex items-center gap-2" data-testid="bike-name">
           <span>{{ data.bike.name }}</span>
         </h1>
         <span
@@ -236,7 +248,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </span>
       </div>
       <div class="text-xs text-muted" data-testid="last-ride">{{ lastRide }}</div>
-      <div class="mt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-nowrap -mx-4 px-4">
+      <div class="mt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-nowrap -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap">
         <button
           v-if="data.bike.vehicleType !== 'car' && data.bike.stroke === '2T'"
           type="button"
@@ -285,45 +297,138 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           <span>{{ t.bike.specs }}<span v-if="allSpecsCount"> ({{ allSpecsCount }})</span></span>
         </button>
       </div>
-      <div v-if="data.bike.notes" class="mt-2.5 rounded-xl border border-white/5 bg-surface/50 p-3 text-xs leading-relaxed" data-testid="bike-notes-card">
-        <span class="block font-tag text-[10px] uppercase tracking-wider text-muted mb-1">{{ t.bike.notes }}</span>
-        <p class="whitespace-pre-line text-text">{{ data.bike.notes }}</p>
-      </div>
-      <div v-if="data.latestReading" class="mb-3.5 mt-3 flex gap-2.5">
-        <MeterCard v-if="hasHours" :label="t.common.hours" :value="data.latestReading.hoursTenths === null ? '—' : hours(data.latestReading.hoursTenths)" testid="hours-value" />
-        <MeterCard v-if="hasKm" :label="t.common.km" :value="data.latestReading.km === null ? '—' : km(data.latestReading.km).replace(/ km$/, '')" testid="km-value" />
-      </div>
-      <button
-        type="button"
-        class="brand-slant mb-3.5 block min-h-[52px] w-full bg-accent p-[11px] font-black uppercase tracking-[0.04em] text-on-accent" style="font-stretch: 125%"
-        :class="data.latestReading ? '' : 'mt-3'"
-        data-testid="log-ride"
-        @click="sheetOpen = true"
-      >
-        {{ t.bike.logRide(hasHours && hasKm ? 'meters' : hasHours ? 'hours' : 'km') }}
-      </button>
-      <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" :meters="meters" @saved="onSaved" />
 
-      <template v-if="data.items.length">
-        <h2 class="mb-2 mt-3 font-tag text-[11px] uppercase tracking-[0.12em] text-muted">{{ t.bike.maintenance }}</h2>
-        <ItemRow v-for="it in data.items" :key="it.id" :item="it" :to="`/bikes/${id}/items/${it.id}`" />
+      <!-- Asymmetrical 2-Column Workstation Grid on desktop -->
+      <div class="lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start mt-4">
+        <!-- Left Column: Telemetry Rail -->
+        <div data-testid="telemetry-rail" class="lg:col-span-5 xl:col-span-4 lg:space-y-4 lg:sticky lg:top-6">
+          <div v-if="data.latestReading" class="mb-3.5 mt-3 lg:my-0 flex gap-2.5">
+            <MeterCard v-if="hasHours" :label="t.common.hours" :value="data.latestReading.hoursTenths === null ? '—' : hours(data.latestReading.hoursTenths)" testid="hours-value" />
+            <MeterCard v-if="hasKm" :label="t.common.km" :value="data.latestReading.km === null ? '—' : km(data.latestReading.km).replace(/ km$/, '')" testid="km-value" />
+          </div>
 
-        <div class="mt-3">
           <button
-            v-if="!showAddForm"
             type="button"
-            class="w-full rounded-xl border border-dashed border-white/20 bg-surface/50 py-3 text-center font-tag text-xs font-bold text-accent-text hover:border-accent hover:bg-surface transition"
-            data-testid="open-add-item-btn"
-            @click="showAddForm = true"
+            class="brand-slant mb-3.5 lg:mb-0 block min-h-[52px] w-full bg-accent p-[11px] font-black uppercase tracking-[0.04em] text-on-accent transition hover:brightness-110 active:scale-95" style="font-stretch: 125%"
+            :class="data.latestReading ? '' : 'mt-3 lg:mt-0'"
+            data-testid="log-ride"
+            @click="sheetOpen = true"
           >
-            + {{ t.bike.addItem }}
+            {{ t.bike.logRide(hasHours && hasKm ? 'meters' : hasHours ? 'hours' : 'km') }}
           </button>
-          <section v-else class="rounded-xl bg-surface p-3.5 border border-track" data-testid="inline-add-item">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-tag font-bold uppercase tracking-wider text-white">{{ t.bike.addItem }}</span>
-              <button type="button" class="text-xs text-muted hover:text-white" @click="showAddForm = false">{{ t.common.cancel }}</button>
+
+          <div v-if="data.bike.notes" class="mt-2.5 lg:mt-0 rounded-xl border border-white/5 bg-surface/50 p-3.5 text-xs leading-relaxed" data-testid="bike-notes-card">
+            <span class="block font-tag text-[10px] uppercase tracking-wider text-muted mb-1">{{ t.bike.notes }}</span>
+            <p class="whitespace-pre-line text-text">{{ data.bike.notes }}</p>
+          </div>
+
+          <!-- Quick inspection checklist status on desktop -->
+          <div class="hidden lg:block rounded-xl border border-track bg-surface/60 p-4 space-y-3">
+            <div class="flex items-center justify-between font-tag text-xs font-bold uppercase tracking-wider text-muted">
+              <span>{{ t.checklist.title }}</span>
+              <span v-if="checklistDue" class="text-warn-text flex items-center gap-1 font-semibold text-[11px]">
+                <span class="size-2 rounded-full bg-warn animate-pulse" />
+                {{ t.checklist.dueBadge }}
+              </span>
+              <span v-else class="text-ok-text text-[11px] font-semibold">{{ t.garage.allOk }}</span>
             </div>
-            <form @submit.prevent="addItem" @input="addError = ''">
+            <button
+              type="button"
+              class="w-full flex items-center justify-between border border-text/20 bg-bg px-3 py-2 rounded font-tag text-xs font-semibold text-text hover:border-accent transition"
+              @click="checklistOpen = true"
+            >
+              <span class="flex items-center gap-2"><Icon name="clipboard" :size="15" />{{ t.checklist.startInspection }}</span>
+              <span class="text-muted text-[11px]">→</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Column: Workstation Main Checklist -->
+        <div data-testid="workstation-main" class="lg:col-span-7 xl:col-span-8 mt-2 lg:mt-0 lg:space-y-4">
+          <template v-if="data.items.length">
+            <div class="flex items-center justify-between mb-2 mt-3 lg:mt-0">
+              <h2 class="font-tag text-[11px] uppercase tracking-[0.12em] text-muted">{{ t.bike.maintenance }}</h2>
+              <!-- Desktop Urgency Filters -->
+              <div class="hidden lg:flex items-center gap-1 bg-surface/80 p-0.5 rounded border border-track font-tag text-xs">
+                <button
+                  type="button"
+                  class="px-2.5 py-1 rounded transition"
+                  :class="itemFilter === 'all' ? 'bg-bg text-text font-bold' : 'text-muted hover:text-text'"
+                  @click="itemFilter = 'all'"
+                >
+                  {{ t.bike.filters.all }} ({{ data.items.length }})
+                </button>
+                <button
+                  v-if="overdueCount"
+                  type="button"
+                  class="px-2.5 py-1 rounded transition text-danger-text"
+                  :class="itemFilter === 'overdue' ? 'bg-danger/20 font-bold border border-danger/40' : 'hover:bg-danger/10'"
+                  @click="itemFilter = 'overdue'"
+                >
+                  {{ t.bike.filters.overdue }} ({{ overdueCount }})
+                </button>
+                <button
+                  v-if="soonCount"
+                  type="button"
+                  class="px-2.5 py-1 rounded transition text-warn-text"
+                  :class="itemFilter === 'soon' ? 'bg-warn/20 font-bold border border-warn/40' : 'hover:bg-warn/10'"
+                  @click="itemFilter = 'soon'"
+                >
+                  {{ t.bike.filters.soon }} ({{ soonCount }})
+                </button>
+              </div>
+            </div>
+
+            <ItemRow v-for="it in displayedItems" :key="it.id" :item="it" :to="`/bikes/${id}/items/${it.id}`" />
+
+            <div class="mt-3">
+              <button
+                v-if="!showAddForm"
+                type="button"
+                class="w-full rounded-xl border border-dashed border-white/20 bg-surface/50 py-3 text-center font-tag text-xs font-bold text-accent-text hover:border-accent hover:bg-surface transition"
+                data-testid="open-add-item-btn"
+                @click="showAddForm = true"
+              >
+                + {{ t.bike.addItem }}
+              </button>
+              <section v-else class="rounded-xl bg-surface p-3.5 border border-track" data-testid="inline-add-item">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-tag font-bold uppercase tracking-wider text-white">{{ t.bike.addItem }}</span>
+                  <button type="button" class="text-xs text-muted hover:text-white" @click="showAddForm = false">{{ t.common.cancel }}</button>
+                </div>
+                <form @submit.prevent="addItem" @input="addError = ''">
+                  <label class="block text-[11px] uppercase tracking-wider text-muted">
+                    {{ t.manage.name }}
+                    <input v-model="newName" autocomplete="off" maxlength="80" data-testid="new-item-name" :class="field">
+                  </label>
+                  <div class="mt-3 flex gap-2.5">
+                    <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+                      {{ t.bike.everyH }}
+                      <input v-model="newHours" inputmode="decimal" autocomplete="off" data-testid="new-item-hours" :class="field">
+                    </label>
+                    <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+                      {{ t.bike.everyKm }}
+                      <input v-model="newKm" inputmode="decimal" autocomplete="off" data-testid="new-item-km" :class="field">
+                    </label>
+                    <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
+                      {{ t.bike.everyMo }}
+                      <input v-model="newMonths" inputmode="decimal" autocomplete="off" data-testid="new-item-months" :class="field">
+                    </label>
+                  </div>
+                  <p v-if="addError" role="alert" class="mt-2 text-sm text-danger-text" data-testid="new-item-error">{{ addError }}</p>
+                  <p v-else-if="addNote" role="status" class="mt-2 text-sm text-warn-text" data-testid="new-item-queued">{{ addNote }}</p>
+                  <div class="mt-3 flex gap-2">
+                    <button type="button" class="flex-1 rounded-xl border border-white/10 py-3 text-sm font-semibold text-muted hover:text-white" @click="showAddForm = false">{{ t.common.cancel }}</button>
+                    <button type="submit" :disabled="adding" class="flex-[2] rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60" data-testid="new-item-save">{{ t.bike.addItem }}</button>
+                  </div>
+                </form>
+              </section>
+            </div>
+          </template>
+
+          <section v-else class="mt-3 rounded-xl bg-surface p-3" data-testid="empty-items">
+            <p class="text-sm font-semibold text-white">{{ t.bike.noItems }}</p>
+            <form class="mt-2" @submit.prevent="addItem" @input="addError = ''">
               <label class="block text-[11px] uppercase tracking-wider text-muted">
                 {{ t.manage.name }}
                 <input v-model="newName" autocomplete="off" maxlength="80" data-testid="new-item-name" :class="field">
@@ -344,41 +449,13 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
               </div>
               <p v-if="addError" role="alert" class="mt-2 text-sm text-danger-text" data-testid="new-item-error">{{ addError }}</p>
               <p v-else-if="addNote" role="status" class="mt-2 text-sm text-warn-text" data-testid="new-item-queued">{{ addNote }}</p>
-              <div class="mt-3 flex gap-2">
-                <button type="button" class="flex-1 rounded-xl border border-white/10 py-3 text-sm font-semibold text-muted hover:text-white" @click="showAddForm = false">{{ t.common.cancel }}</button>
-                <button type="submit" :disabled="adding" class="flex-[2] rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60" data-testid="new-item-save">{{ t.bike.addItem }}</button>
-              </div>
+              <button type="submit" :disabled="adding" class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60" data-testid="new-item-save">{{ t.bike.addItem }}</button>
             </form>
           </section>
         </div>
-      </template>
+      </div>
 
-      <section v-else class="mt-3 rounded-xl bg-surface p-3" data-testid="empty-items">
-        <p class="text-sm font-semibold text-white">{{ t.bike.noItems }}</p>
-        <form class="mt-2" @submit.prevent="addItem" @input="addError = ''">
-          <label class="block text-[11px] uppercase tracking-wider text-muted">
-            {{ t.manage.name }}
-            <input v-model="newName" autocomplete="off" maxlength="80" data-testid="new-item-name" :class="field">
-          </label>
-          <div class="mt-3 flex gap-2.5">
-            <label v-if="hasHours" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-              {{ t.bike.everyH }}
-              <input v-model="newHours" inputmode="decimal" autocomplete="off" data-testid="new-item-hours" :class="field">
-            </label>
-            <label v-if="hasKm" class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-              {{ t.bike.everyKm }}
-              <input v-model="newKm" inputmode="decimal" autocomplete="off" data-testid="new-item-km" :class="field">
-            </label>
-            <label class="flex-1 text-[11px] uppercase tracking-wider text-muted">
-              {{ t.bike.everyMo }}
-              <input v-model="newMonths" inputmode="decimal" autocomplete="off" data-testid="new-item-months" :class="field">
-            </label>
-          </div>
-          <p v-if="addError" role="alert" class="mt-2 text-sm text-danger-text" data-testid="new-item-error">{{ addError }}</p>
-          <p v-else-if="addNote" role="status" class="mt-2 text-sm text-warn-text" data-testid="new-item-queued">{{ addNote }}</p>
-          <button type="submit" :disabled="adding" class="mt-3 w-full rounded-xl bg-accent py-3 text-sm font-bold text-on-accent disabled:opacity-60" data-testid="new-item-save">{{ t.bike.addItem }}</button>
-        </form>
-      </section>
+      <LogRideSheet v-model:open="sheetOpen" :bike-id="data.bike.id" :current="data.latestReading" :meters="meters" @saved="onSaved" />
 
       <PremixSheet
         v-if="data.bike.vehicleType !== 'car' && data.bike.stroke === '2T'"

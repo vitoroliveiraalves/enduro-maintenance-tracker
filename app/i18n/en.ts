@@ -178,6 +178,35 @@ export const en = {
 
   tabs: { garage: 'Garage', history: 'History', invoice: 'Invoice', costs: 'Costs' },
 
+  desktop: {
+    subtitle: 'WORKSHOP DESKTOP',
+    activeVehicle: 'Active vehicle',
+    switchVehicle: 'Switch vehicle',
+    noVehicles: 'No vehicles',
+    addVehicle: '+ Add vehicle',
+    nav: {
+      garage: 'Fleet Garage',
+      bikeStation: 'Bike Station',
+      history: 'Ride & Service Logs',
+      invoice: 'Invoice Studio',
+      shelf: 'Spare Parts Shelf',
+      costs: 'Cost Analytics',
+      settings: 'Settings',
+    },
+    actions: {
+      logRide: '+ Log Ride',
+      recordService: 'Record Service',
+      hotkeyL: 'L',
+      hotkeyS: 'S',
+    },
+    status: {
+      onlineSynced: 'Live · Synced',
+      syncing: (n: number) => `Syncing (${n})`,
+      offline: 'Offline',
+    },
+    shortcutsHint: '[L] Log Ride · [S] Service',
+  },
+
   offlineBanner: "Offline — showing your last synced data. Rides, services and expenses save on this phone and sync when you're back.",
 
   pending: {
@@ -560,6 +589,16 @@ export const en = {
     shelf: 'Shelf',
     shelfHint: 'PARTS · TO BUY →',
     addBike: '+ Add vehicle',
+    kpi: {
+      activeFleet: 'Active Fleet',
+      vehicles: (n: number) => plural(n, 'vehicle', 'vehicles'),
+      overdueTasks: 'Overdue Tasks',
+      dueSoonTasks: 'Due Soon',
+      upcoming: 'upcoming',
+      telemetry: 'Fleet Telemetry',
+      actionNeeded: 'Action needed',
+      allClear: 'All clear',
+    },
   },
 
   newBike: {
@@ -639,6 +678,13 @@ export const en = {
     logRide: (what: 'meters' | 'hours' | 'km') => `+ Log ride / update ${what}`,
     correct: 'Wrong total? Correct it',
     maintenance: 'Maintenance · due soonest first',
+    filters: {
+      all: 'All',
+      overdue: 'Overdue',
+      soon: 'Due Soon',
+      ok: 'All OK',
+    },
+    utilities: 'Utilities & Specs',
     noItems: 'No maintenance items — add one',
     everyH: 'Every h',
     everyKm: 'Every km',
@@ -870,6 +916,8 @@ export const en = {
     pdfTooBig: 'PDF too large (10 MB max).',
     title: 'Add invoice',
     intro: 'Photograph the invoice or choose a file. The QR code is read on your phone.',
+    dropZone: 'Drag and drop invoice files here, or',
+    dropZoneHint: 'PDF or photos up to 10 MB (max 5 pages)',
     offline: "You're offline — photos are saved on this phone and uploaded when you're back online.",
     takePhotos: 'Take photos',
     chooseFile: 'Choose file',

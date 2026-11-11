@@ -2,6 +2,7 @@
 const { pending, failed, online, voiceWaiting, voiceReady } = useOffline()
 const voice = useVoice()
 const route = useRoute()
+
 // Room for the pending badge above the tabs, so it never covers the last row.
 const badge = computed(() => pending.value > 0 || failed.value.length > 0 || voiceWaiting.value > 0 || voiceReady.value.length > 0)
 // …and for the mic on the screens that show it.
@@ -13,11 +14,14 @@ const topInset = computed(() => online.value || route.path === '/invoice')
 </script>
 
 <template>
-  <div class="min-h-dvh bg-bg text-text" :style="{ paddingBottom: bottomPad }">
-    <div v-if="topInset" aria-hidden="true" style="height: env(safe-area-inset-top)" />
-    <OfflineBanner />
-    <PendingInvoices />
-    <NuxtPage />
+  <div class="app-layout min-h-dvh bg-bg text-text lg:flex lg:flex-row lg:!pb-0" :style="{ paddingBottom: bottomPad }">
+    <DesktopSidebar />
+    <div class="min-w-0 lg:flex-1">
+      <div v-if="topInset" aria-hidden="true" style="height: env(safe-area-inset-top)" />
+      <OfflineBanner />
+      <PendingInvoices />
+      <NuxtPage />
+    </div>
     <PendingBadge />
     <MicButton />
     <VoiceSheet />
@@ -26,3 +30,11 @@ const topInset = computed(() => online.value || route.path === '/invoice')
     <BottomTabs />
   </div>
 </template>
+
+<style scoped>
+@media (min-width: 1024px) {
+  .app-layout {
+    padding-bottom: 0 !important;
+  }
+}
+</style>

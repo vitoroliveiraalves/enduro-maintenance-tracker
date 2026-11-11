@@ -27,6 +27,7 @@
   --color-warn-text: #c8c8c8;
   --color-ok-text: #a3a3a3;
   --color-track: #2a2a2a;
+  --color-border: #2a2a2a;
   /* Decorative: stripes, the active tab mark. */
   --color-stripe-a: #ededed;
   --color-stripe-b: #ededed;
@@ -60,6 +61,7 @@ html[data-theme='tricolor'] {
   --color-warn-text: #8fa6ff;
   --color-ok-text: #c9c6bf;
   --color-track: #33343a;
+  --color-border: #33343a;
   --color-stripe-a: #d21f2a;
   --color-stripe-b: #1f3fa8;
 }
@@ -287,6 +289,12 @@ html:not([data-theme='tricolor']) :is(button, a).bg-danger {
 .sheet-enter-from .sheet-panel,
 .sheet-leave-to .sheet-panel {
   transform: translateY(100%);
+}
+@media (min-width: 1024px) {
+  .sheet-enter-from .sheet-panel,
+  .sheet-leave-to .sheet-panel {
+    transform: translateX(100%);
+  }
 }
 
 /* Tactile press micro-interactions for buttons, cards, and interactive rows. */
