@@ -201,3 +201,44 @@ test('specs and torques: quick chip and specs sheet with search and card preview
   await page.getByTestId('specs-search-input').fill('drain')
   await expect(page.getByTestId('spec-label')).toHaveText('Drain plug')
 })
+
+test('pre-ride inspection: optional setting, alert icon after ride, and quick verification sheet', async ({ page }) => {
+  await loginAs(page)
+  const id = await seedMockupBike(page.request, 'Inspection Bike')
+  await page.goto(`/bikes/${id}`)
+
+  // 1. By default, pre-ride check is disabled: no icon visible on the vehicle page
+  await expect(page.getByTestId('preride-due-icon')).toHaveCount(0)
+
+  // 2. Go to Vehicle Settings and enable Pre-Ride Inspection
+  await page.getByTestId('vehicle-settings-link').click()
+  await expect(page).toHaveURL(`/bikes/${id}/settings`)
+  const section = page.getByTestId('checklist-settings-section')
+  await expect(section).toBeVisible()
+
+  const toggle = page.getByTestId('checklist-toggle')
+  await expect(toggle).toHaveAttribute('aria-checked', 'false')
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+  // 3. Return to bike page: since a ride already exists from seeding, icon is now visible!
+  await page.goto(`/bikes/${id}`)
+  const dueIcon = page.getByTestId('preride-due-icon')
+  await expect(dueIcon).toBeVisible()
+
+  // 4. Tap the due icon to open Pre-Ride sheet
+  await dueIcon.click()
+  await expect(page.getByTestId('preride-sheet')).toBeVisible()
+  await expect(page.getByTestId('checklist-progress')).toContainText('0 of 6')
+
+  // 5. Toggle a check item
+  await page.getByTestId('check-item-tires').click()
+  await expect(page.getByTestId('checklist-progress')).toContainText('1 of 6')
+
+  // 6. Complete checklist
+  await page.getByTestId('checklist-done-btn').click()
+  await expect(page.getByTestId('preride-sheet')).toHaveCount(0)
+
+  // 7. Due icon is cleared immediately
+  await expect(page.getByTestId('preride-due-icon')).toHaveCount(0)
+})

@@ -60,6 +60,10 @@ const bikeReminders = ref<VehicleReminder[]>([])
 const chips = ref<DueChip[]>([])
 const { syncTick } = useOffline()
 
+const { isDue: isChecklistDue } = usePreRideChecklist(id)
+const checklistOpen = ref(false)
+const checklistDue = computed(() => isChecklistDue(data.value?.latestReading?.at))
+
 const allSpecs = computed(() => {
   const list: Array<{ label: string; value: string; itemName: string }> = []
   for (const n of data.value?.specs ?? []) {
@@ -205,7 +209,20 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
     <div class="flex items-center justify-between text-[13px] text-muted">
       <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">{{ t.common.garageBack }}</NuxtLink>
-      <NuxtLink :to="`/bikes/${id}/settings`" class="-m-2 flex size-11 items-center justify-center text-lg text-muted hover:text-white" :aria-label="t.bike.settings" data-testid="vehicle-settings-link"><Icon name="settings" :size="22" /></NuxtLink>
+      <div class="flex items-center gap-2">
+        <button
+          v-if="checklistDue"
+          type="button"
+          class="relative flex size-8 items-center justify-center rounded-lg bg-warn/15 text-warn-text border border-warn/30 hover:bg-warn/25 transition"
+          :aria-label="t.checklist.dueBadge"
+          data-testid="preride-due-icon"
+          @click="checklistOpen = true"
+        >
+          <Icon name="clipboard" :size="17" />
+          <span class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-warn animate-pulse" />
+        </button>
+        <NuxtLink :to="`/bikes/${id}/settings`" class="-m-2 flex size-11 items-center justify-center text-lg text-muted hover:text-white" :aria-label="t.bike.settings" data-testid="vehicle-settings-link"><Icon name="settings" :size="22" /></NuxtLink>
+      </div>
     </div>
     <template v-if="data">
       <div class="mb-1 mt-2 flex items-center justify-between gap-2">
@@ -221,11 +238,11 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </span>
       </div>
       <div class="text-xs text-muted" data-testid="last-ride">{{ lastRide }}</div>
-      <div class="mt-2 flex flex-wrap gap-1.5">
+      <div class="mt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-nowrap -mx-4 px-4">
         <button
           v-if="data.bike.vehicleType !== 'car' && data.bike.stroke === '2T'"
           type="button"
-          class="min-h-9 rounded-full border border-track bg-surface px-3 py-1.5 text-xs font-semibold text-text font-tag transition hover:border-accent"
+          class="min-h-8 shrink-0 whitespace-nowrap rounded-full border border-track bg-surface px-3 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent"
           data-testid="premix-chip"
           @click="premixOpen = true"
         >
@@ -235,7 +252,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           v-for="c in chips"
           :key="c.id"
           type="button"
-          class="min-h-9 rounded-full border px-3 py-1.5 text-xs font-semibold transition"
+          class="min-h-8 shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition"
           :class="c.tone === 'danger' ? 'border-danger/40 bg-danger/15 text-danger-text' : 'border-warn/40 bg-warn/15 text-warn-text'"
           data-testid="reminder-chip"
           @click="editChipReminder(c.id)"
@@ -246,7 +263,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           v-for="r in nonUrgentReminders"
           :key="r.id"
           type="button"
-          class="min-h-9 rounded-full border border-track bg-surface px-3 py-1.5 text-xs font-semibold text-text font-tag transition hover:border-accent"
+          class="min-h-8 shrink-0 whitespace-nowrap rounded-full border border-track bg-surface px-3 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent"
           data-testid="vehicle-obligation-chip"
           @click="editReminder(r)"
         >
@@ -254,7 +271,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </button>
         <button
           type="button"
-          class="min-h-9 rounded-full border border-track bg-surface px-3 py-1.5 text-xs font-semibold text-muted font-tag transition hover:border-accent hover:text-text"
+          class="min-h-8 shrink-0 whitespace-nowrap rounded-full border border-track bg-surface px-3 py-1 text-xs font-semibold text-muted font-tag transition hover:border-accent hover:text-text"
           data-testid="add-reminder-chip"
           @click="openNewReminder"
         >
@@ -262,7 +279,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </button>
         <button
           type="button"
-          class="min-h-9 rounded-full border border-track bg-surface px-3 py-1.5 text-xs font-semibold text-text font-tag transition hover:border-accent flex items-center gap-1.5"
+          class="min-h-8 shrink-0 whitespace-nowrap rounded-full border border-track bg-surface px-3 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent flex items-center gap-1.5"
           data-testid="specs-chip"
           @click="specsOpen = true"
         >
@@ -405,6 +422,13 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         :bike-name="data.bike.name"
         :specs="data.specs ?? []"
         :items="data.items"
+      />
+      <PreRideSheet
+        v-if="data"
+        v-model:open="checklistOpen"
+        :bike-id="data.bike.id"
+        :bike-name="data.bike.name"
+        :vehicle-type="data.bike.vehicleType"
       />
     </template>
     <div v-else-if="!error" class="mt-2" data-testid="bike-loading">

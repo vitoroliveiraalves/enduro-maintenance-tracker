@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Line icons (stroke = currentColor), decorative unless the parent labels them.
-type Name = 'garage' | 'history' | 'invoice' | 'costs' | 'speaker' | 'mic' | 'settings' | 'shelf' | 'chevron-right' | 'camera' | 'wrench'
+type Name = 'garage' | 'history' | 'invoice' | 'costs' | 'speaker' | 'mic' | 'settings' | 'shelf' | 'chevron-right' | 'camera' | 'wrench' | 'clipboard'
 withDefaults(defineProps<{ name: Name; size?: number }>(), { size: 20 })
 const PATHS: Record<Name, string[]> = {
   garage: ['M3 10 12 4l9 6v10H3z', 'M7 20v-6h10v6M7 17h10'],
@@ -14,6 +14,11 @@ const PATHS: Record<Name, string[]> = {
   'chevron-right': ['M9 6l6 6-6 6'],
   camera: ['M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z', 'M12 9a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'],
   wrench: ['M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'],
+  clipboard: [
+    'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2',
+    'M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z',
+    'M9 12l2 2 4-4',
+  ],
 }
 </script>
 

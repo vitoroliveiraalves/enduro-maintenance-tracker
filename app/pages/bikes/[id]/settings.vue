@@ -8,8 +8,11 @@ const { get, mutate } = useApi()
 const toast = useToast()
 const store = useBikesStore()
 const { t } = useI18n()
-const { hours, km } = useFormatters()
+const { hours, km, dayMonth } = useFormatters()
 const { syncTick } = useOffline()
+
+const { config: checklistConfig, setEnabled: setChecklistEnabled } = usePreRideChecklist(id)
+const checklistOpen = ref(false)
 
 const data = ref<Detail | null>(null)
 const error = ref('')
@@ -337,6 +340,46 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </section>
       </template>
 
+      <!-- Pre-Ride Inspection Checklist -->
+      <h2 :class="h2">{{ t.checklist.settingsTitle }}</h2>
+      <section class="rounded-xl bg-surface p-3.5 border border-track space-y-3" data-testid="checklist-settings-section">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <span class="text-sm font-semibold text-white block">{{ t.checklist.enableLabel }}</span>
+            <span class="text-xs text-muted block mt-0.5">{{ t.checklist.enableHint }}</span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="checklistConfig.enabled"
+            data-testid="checklist-toggle"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+            :class="checklistConfig.enabled ? 'bg-accent' : 'bg-track'"
+            @click="setChecklistEnabled(!checklistConfig.enabled)"
+          >
+            <span
+              aria-hidden="true"
+              class="pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+              :class="checklistConfig.enabled ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+
+        <div v-if="checklistConfig.enabled" class="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
+          <span class="text-xs text-muted">
+            {{ checklistConfig.lastCheckedAt ? t.checklist.lastChecked(dayMonth(checklistConfig.lastCheckedAt)) : t.checklist.neverChecked }}
+          </span>
+          <button
+            type="button"
+            class="rounded-lg bg-bg px-3 py-1.5 text-xs font-semibold text-accent-text border border-white/10 hover:border-accent"
+            data-testid="open-checklist-settings"
+            @click="checklistOpen = true"
+          >
+            {{ t.checklist.openChecklist }}
+          </button>
+        </div>
+      </section>
+
       <!-- Danger zone: remove vehicle -->
       <h2 :class="h2">{{ t.bike.dangerZone }}</h2>
       <section class="rounded-xl border border-danger/30 bg-surface p-3.5" data-testid="danger-section">
@@ -391,6 +434,12 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         :bike-name="data.bike.name"
         :initial-ratio="data.bike.premixRatio ?? 50"
         @saved="(r) => { if (data) data.bike.premixRatio = r }"
+      />
+      <PreRideSheet
+        v-model:open="checklistOpen"
+        :bike-id="id"
+        :bike-name="data.bike.name"
+        :vehicle-type="data.bike.vehicleType"
       />
     </template>
 
