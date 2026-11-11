@@ -49,4 +49,19 @@ describe('usePreRideChecklist', () => {
     setEnabled(false)
     expect(isDue('2026-11-10T10:00:00Z')).toBe(false)
   })
+
+  it('supports per-vehicle custom items and resetting', () => {
+    const { saveItems, resetItems, config } = usePreRideChecklist('bike-custom')
+    expect(config.value.items).toBeUndefined()
+
+    saveItems([
+      { id: 'custom-1', label: 'Check GPS tracker', enabled: true, isCustom: true },
+      { id: 'custom-2', label: 'Bleed fork air', enabled: false, isCustom: true },
+    ])
+    expect(config.value.items).toHaveLength(2)
+    expect(config.value.items?.[0]?.label).toBe('Check GPS tracker')
+
+    resetItems()
+    expect(config.value.items).toBeUndefined()
+  })
 })

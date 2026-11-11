@@ -10,34 +10,12 @@ const emit = defineEmits<{ (e: 'completed'): void }>()
 
 const { t } = useI18n()
 const toast = useToast()
-const { markChecked } = usePreRideChecklist(props.bikeId)
-
-type CheckItem = {
-  id: string
-  label: string
-  hint: string
-}
+const { markChecked, getEffectiveItems } = usePreRideChecklist(props.bikeId)
 
 const isCar = computed(() => props.vehicleType === 'car')
 
-const items = computed<CheckItem[]>(() => {
-  if (isCar.value) {
-    return [
-      { id: 'tires', label: t.value.checklist.car.tires, hint: t.value.checklist.car.tiresHint },
-      { id: 'fluids', label: t.value.checklist.car.fluids, hint: t.value.checklist.car.fluidsHint },
-      { id: 'lights', label: t.value.checklist.car.lights, hint: t.value.checklist.car.lightsHint },
-      { id: 'brakes', label: t.value.checklist.car.brakes, hint: t.value.checklist.car.brakesHint },
-      { id: 'wipers', label: t.value.checklist.car.wipers, hint: t.value.checklist.car.wipersHint },
-    ]
-  }
-  return [
-    { id: 'tires', label: t.value.checklist.moto.tires, hint: t.value.checklist.moto.tiresHint },
-    { id: 'fluids', label: t.value.checklist.moto.fluids, hint: t.value.checklist.moto.fluidsHint },
-    { id: 'chain', label: t.value.checklist.moto.chain, hint: t.value.checklist.moto.chainHint },
-    { id: 'controls', label: t.value.checklist.moto.controls, hint: t.value.checklist.moto.controlsHint },
-    { id: 'bolts', label: t.value.checklist.moto.bolts, hint: t.value.checklist.moto.boltsHint },
-    { id: 'fuel', label: t.value.checklist.moto.fuel, hint: t.value.checklist.moto.fuelHint },
-  ]
+const items = computed(() => {
+  return getEffectiveItems(isCar.value, t.value).filter((it) => it.enabled)
 })
 
 const checked = ref<Set<string>>(new Set())

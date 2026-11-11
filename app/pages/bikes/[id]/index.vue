@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { itemLabel } from '~/lib/server-text'
 import { parseDecimal } from '~/lib/parse-number'
 import { dueChips, type DueChip } from '~/lib/reminders'
 import { rideToast } from '~/lib/save-toast'
@@ -76,7 +75,6 @@ const allSpecs = computed(() => {
   return list
 })
 const allSpecsCount = computed(() => allSpecs.value.length)
-const highlightedSpecs = computed(() => allSpecs.value.slice(0, 4))
 
 function loadReminders() {
   // Reminders for this bike (or all bikes) due in 30 days or less; never blocks the screen.
@@ -290,24 +288,6 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <div v-if="data.bike.notes" class="mt-2.5 rounded-xl border border-white/5 bg-surface/50 p-3 text-xs leading-relaxed" data-testid="bike-notes-card">
         <span class="block font-tag text-[10px] uppercase tracking-wider text-muted mb-1">{{ t.bike.notes }}</span>
         <p class="whitespace-pre-line text-text">{{ data.bike.notes }}</p>
-      </div>
-      <div v-if="allSpecsCount > 0" class="mt-2.5 rounded-xl border border-white/5 bg-surface/50 p-3" data-testid="bike-specs-card">
-        <div class="flex items-center justify-between mb-2">
-          <span class="font-tag text-[10px] uppercase tracking-wider text-muted flex items-center gap-1.5">
-            <Icon name="wrench" :size="12" />
-            {{ t.bike.specs }}
-          </span>
-          <button type="button" class="font-tag text-xs font-bold text-accent-text hover:underline" data-testid="view-all-specs-btn" @click="specsOpen = true">
-            {{ t.bike.viewAllSpecs(allSpecsCount) }} →
-          </button>
-        </div>
-        <div class="grid grid-cols-2 gap-2 text-xs">
-          <div v-for="(s, i) in highlightedSpecs" :key="i" class="rounded bg-bg/60 p-2 cursor-pointer hover:bg-bg transition" @click="specsOpen = true">
-            <div class="text-[10px] text-muted truncate">{{ itemLabel(s.itemName) }}</div>
-            <div class="font-medium text-text truncate">{{ s.label }}</div>
-            <div class="font-tag font-bold text-white text-sm tabular-nums truncate">{{ s.value }}</div>
-          </div>
-        </div>
       </div>
       <div v-if="data.latestReading" class="mb-3.5 mt-3 flex gap-2.5">
         <MeterCard v-if="hasHours" :label="t.common.hours" :value="data.latestReading.hoursTenths === null ? '—' : hours(data.latestReading.hoursTenths)" testid="hours-value" />

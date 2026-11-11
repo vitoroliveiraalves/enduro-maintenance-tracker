@@ -13,6 +13,7 @@ const { syncTick } = useOffline()
 
 const { config: checklistConfig, setEnabled: setChecklistEnabled } = usePreRideChecklist(id)
 const checklistOpen = ref(false)
+const customChecklistOpen = ref(false)
 
 const data = ref<Detail | null>(null)
 const error = ref('')
@@ -365,17 +366,28 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           </button>
         </div>
 
-        <div v-if="checklistConfig.enabled" class="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
-          <span class="text-xs text-muted">
-            {{ checklistConfig.lastCheckedAt ? t.checklist.lastChecked(dayMonth(checklistConfig.lastCheckedAt)) : t.checklist.neverChecked }}
-          </span>
+        <div v-if="checklistConfig.enabled" class="pt-2 border-t border-white/5 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs text-muted">
+              {{ checklistConfig.lastCheckedAt ? t.checklist.lastChecked(dayMonth(checklistConfig.lastCheckedAt)) : t.checklist.neverChecked }}
+            </span>
+            <button
+              type="button"
+              class="rounded-lg bg-bg px-3 py-1.5 text-xs font-semibold text-accent-text border border-white/10 hover:border-accent"
+              data-testid="open-checklist-settings"
+              @click="checklistOpen = true"
+            >
+              {{ t.checklist.openChecklist }}
+            </button>
+          </div>
           <button
             type="button"
-            class="rounded-lg bg-bg px-3 py-1.5 text-xs font-semibold text-accent-text border border-white/10 hover:border-accent"
-            data-testid="open-checklist-settings"
-            @click="checklistOpen = true"
+            class="w-full rounded-xl bg-bg py-2.5 px-3 text-xs font-semibold text-text border border-white/10 hover:border-accent transition flex items-center justify-center gap-1.5"
+            data-testid="customize-checklist-btn"
+            @click="customChecklistOpen = true"
           >
-            {{ t.checklist.openChecklist }}
+            <Icon name="wrench" :size="14" />
+            <span>{{ t.checklist.customize }}</span>
           </button>
         </div>
       </section>
@@ -437,6 +449,12 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       />
       <PreRideSheet
         v-model:open="checklistOpen"
+        :bike-id="id"
+        :bike-name="data.bike.name"
+        :vehicle-type="data.bike.vehicleType"
+      />
+      <ChecklistCustomSheet
+        v-model:open="customChecklistOpen"
         :bike-id="id"
         :bike-name="data.bike.name"
         :vehicle-type="data.bike.vehicleType"

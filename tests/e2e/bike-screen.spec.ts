@@ -183,14 +183,8 @@ test('specs and torques: quick chip and specs sheet with search and card preview
   await page.goto(`/bikes/${id}`)
   await expect(page.getByTestId('specs-chip')).toContainText('(1)')
 
-  // 5. Bike specs preview card is visible on screen
-  const card = page.getByTestId('bike-specs-card')
-  await expect(card).toBeVisible()
-  await expect(card).toContainText('Drain plug')
-  await expect(card).toContainText('20 Nm')
-
-  // 6. Open sheet via View all button
-  await page.getByTestId('view-all-specs-btn').click()
+  // 5. Open sheet via Specs & Torques chip
+  await page.getByTestId('specs-chip').click()
   await expect(page.getByTestId('specs-sheet')).toBeVisible()
   await expect(page.getByTestId('spec-label')).toHaveText('Drain plug')
   await expect(page.getByTestId('spec-value')).toHaveText('20 Nm')
@@ -221,24 +215,36 @@ test('pre-ride inspection: optional setting, alert icon after ride, and quick ve
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-checked', 'true')
 
-  // 3. Return to bike page: since a ride already exists from seeding, icon is now visible!
+  // 3. Customize checklist for this vehicle: add a custom check
+  await page.getByTestId('customize-checklist-btn').click()
+  await expect(page.getByTestId('checklist-custom-sheet')).toBeVisible()
+  await expect(page.getByTestId('active-checks-count')).toContainText('6')
+
+  await page.getByTestId('new-check-title-input').fill('Bleed fork air')
+  await page.getByTestId('add-check-submit').click()
+  await expect(page.getByTestId('active-checks-count')).toContainText('7')
+
+  await page.getByTestId('save-custom-checklist-btn').click()
+  await expect(page.getByTestId('checklist-custom-sheet')).toHaveCount(0)
+
+  // 4. Return to bike page: since a ride already exists from seeding, icon is now visible!
   await page.goto(`/bikes/${id}`)
   const dueIcon = page.getByTestId('preride-due-icon')
   await expect(dueIcon).toBeVisible()
 
-  // 4. Tap the due icon to open Pre-Ride sheet
+  // 5. Tap the due icon to open Pre-Ride sheet: now has 7 items
   await dueIcon.click()
   await expect(page.getByTestId('preride-sheet')).toBeVisible()
-  await expect(page.getByTestId('checklist-progress')).toContainText('0 of 6')
+  await expect(page.getByTestId('checklist-progress')).toContainText('0 of 7')
 
-  // 5. Toggle a check item
+  // 6. Toggle a check item
   await page.getByTestId('check-item-tires').click()
-  await expect(page.getByTestId('checklist-progress')).toContainText('1 of 6')
+  await expect(page.getByTestId('checklist-progress')).toContainText('1 of 7')
 
-  // 6. Complete checklist
+  // 7. Complete checklist
   await page.getByTestId('checklist-done-btn').click()
   await expect(page.getByTestId('preride-sheet')).toHaveCount(0)
 
-  // 7. Due icon is cleared immediately
+  // 8. Due icon is cleared immediately
   await expect(page.getByTestId('preride-due-icon')).toHaveCount(0)
 })
