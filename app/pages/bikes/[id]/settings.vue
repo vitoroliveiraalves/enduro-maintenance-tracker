@@ -165,7 +165,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 </script>
 
 <template>
-  <main class="mx-auto max-w-md px-4 pb-10 pt-[18px]">
+  <main class="mx-auto max-w-md lg:max-w-4xl px-4 pb-10 pt-[18px] lg:px-8 lg:pt-6 w-full">
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
 
     <div class="flex items-center justify-between text-[13px] text-muted">

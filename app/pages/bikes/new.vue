@@ -165,10 +165,12 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
 </script>
 
 <template>
-  <main class="mx-auto max-w-md p-4">
-    <NuxtLink to="/" class="text-sm text-muted">{{ t.newBike.garage }}</NuxtLink>
-    <h1 class="mt-1.5 text-xl font-bold text-white">{{ t.newBike.title }}</h1>
-    <p class="mt-0.5 text-xs text-muted" data-testid="step-indicator">{{ t.newBike.step(step) }}</p>
+  <main class="mx-auto max-w-md lg:max-w-3xl p-4 lg:p-8 w-full">
+    <div class="border-b border-text/10 pb-3 mb-4">
+      <NuxtLink to="/" class="text-sm text-muted font-tag uppercase">‹ {{ t.newBike.garage }}</NuxtLink>
+      <h1 class="mt-1 text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.newBike.title }}</h1>
+      <p class="mt-0.5 text-xs text-muted font-tag" data-testid="step-indicator">{{ t.newBike.step(step) }}</p>
+    </div>
 
     <form v-if="step === 1" class="mt-4 space-y-4" @submit.prevent="next">
       <!-- Vehicle Type Selector -->

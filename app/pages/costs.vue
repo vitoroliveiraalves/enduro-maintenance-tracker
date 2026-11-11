@@ -139,158 +139,182 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
 </script>
 
 <template>
-  <main class="mx-auto max-w-md p-4 pb-6">
-    <div class="flex items-center justify-between gap-2 text-[13px]">
-      <label class="sr-only" for="costs-bike">{{ t.costs.bike }}</label>
-      <select
-        id="costs-bike"
-        :value="bikeId"
-        data-testid="costs-bike"
-        class="min-w-0 max-w-[55%] truncate rounded-lg bg-surface px-2.5 py-2 text-[13px] text-white"
-        @change="go({ bikeId: ($event.target as HTMLSelectElement).value || undefined })"
-      >
-        <option value="">{{ t.common.allBikes }}</option>
-        <option v-for="b in store.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
-      </select>
-      <a :href="exportHref" download data-testid="export-csv" class="shrink-0 rounded-lg px-2.5 py-2 text-muted">{{ t.costs.export }}</a>
+  <main class="mx-auto max-w-md lg:max-w-7xl p-4 pb-6 lg:p-8 lg:pb-12 w-full">
+    <div class="flex items-center justify-between gap-2 border-b border-text/10 pb-3 mb-4">
+      <div>
+        <h1 class="text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.costs.title }}</h1>
+        <p class="hidden lg:block text-xs font-tag text-muted mt-0.5">
+          {{ navLabel }} · {{ label }}
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <label class="sr-only" for="costs-bike">{{ t.costs.bike }}</label>
+        <select
+          id="costs-bike"
+          :value="bikeId"
+          data-testid="costs-bike"
+          class="min-w-0 max-w-[55%] lg:max-w-xs truncate rounded-lg bg-surface px-3 py-2 text-sm text-white border border-text/15"
+          @change="go({ bikeId: ($event.target as HTMLSelectElement).value || undefined })"
+        >
+          <option value="">{{ t.common.allBikes }}</option>
+          <option v-for="b in store.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
+        </select>
+        <a :href="exportHref" download data-testid="export-csv" class="shrink-0 rounded-lg border border-text/20 bg-surface px-3 py-2 text-xs font-bold text-text hover:border-accent uppercase font-tag">{{ t.costs.export }}</a>
+        <button
+          type="button"
+          class="rounded-xl bg-accent px-3.5 py-2 text-xs font-bold text-on-accent hover:brightness-110 active:scale-95 transition"
+          data-testid="costs-add-expense"
+          @click="expenseOpen = true"
+        >
+          {{ t.costs.addExpense }}
+        </button>
+      </div>
     </div>
 
-    <div class="mb-2.5 mt-2 flex items-center justify-between gap-2">
-      <h1 class="text-xl font-bold text-white">{{ t.costs.title }}</h1>
-      <button
-        type="button"
-        class="rounded-xl bg-accent px-3 py-2 text-xs font-bold text-on-accent"
-        data-testid="costs-add-expense"
-        @click="expenseOpen = true"
-      >
-        {{ t.costs.addExpense }}
-      </button>
-    </div>
-
-    <div role="group" :aria-label="t.costs.period" class="mb-3 flex rounded-[10px] bg-surface p-[3px]">
+    <div role="group" :aria-label="t.costs.period" class="mb-3 flex rounded-[10px] bg-surface p-[3px] max-w-md">
       <button
         v-for="s in SEG"
         :key="s.key"
         type="button"
         :aria-pressed="period === s.key"
         :data-testid="`seg-${s.key}`"
-        class="min-h-10 flex-1 rounded-lg py-2 text-xs"
-        :class="period === s.key ? 'bg-track font-bold text-white' : 'text-muted'"
+        class="min-h-10 flex-1 rounded-lg py-2 text-xs font-tag uppercase tracking-wider transition"
+        :class="period === s.key ? 'bg-track font-bold text-white' : 'text-muted hover:text-text'"
         @click="go({ period: s.key === 'month' ? undefined : s.key })"
       >
         {{ s.label }}
       </button>
     </div>
 
-    <div v-if="period !== 'all'" class="mb-3 flex items-center justify-between text-sm">
-      <button type="button" :aria-label="t.costs.previous" data-testid="period-prev" class="h-11 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(-1)">‹</button>
-      <span data-testid="period-label" class="font-semibold text-white">{{ navLabel }}</span>
-      <button type="button" :aria-label="t.costs.next" data-testid="period-next" class="h-11 w-12 rounded-lg bg-surface text-lg text-white" @click="shift(1)">›</button>
+    <div v-if="period !== 'all'" class="mb-4 flex items-center justify-between text-sm max-w-md">
+      <button type="button" :aria-label="t.costs.previous" data-testid="period-prev" class="h-10 w-12 rounded-lg bg-surface text-lg text-white hover:bg-surface/80" @click="shift(-1)">‹</button>
+      <span data-testid="period-label" class="font-semibold text-white font-tag">{{ navLabel }}</span>
+      <button type="button" :aria-label="t.costs.next" data-testid="period-next" class="h-10 w-12 rounded-lg bg-surface text-lg text-white hover:bg-surface/80" @click="shift(1)">›</button>
     </div>
 
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
     <Skeleton v-else-if="!data" :rows="3" height="h-20" />
     <template v-if="data">
-      <section class="mb-2.5 rounded-[14px] bg-surface p-3">
-        <div class="text-[11px] uppercase tracking-wider text-muted">{{ label }}</div>
-        <div class="text-[28px] font-extrabold text-white" data-testid="costs-total">{{ money(data.totalCents) }}</div>
-        <div v-if="compareLine" class="text-xs" :class="compareLine.cls" data-testid="costs-compare">{{ compareLine.text }}</div>
-        <div v-else-if="rideLine" class="text-xs text-muted">{{ rideLine }}</div>
-      </section>
+      <div class="lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start">
+        
+        <!-- Left Column: Primary Telemetry & Monthly Trends (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <section class="rounded-[14px] bg-surface p-4 border border-text/10">
+            <div class="text-[11px] uppercase tracking-wider text-muted font-tag">{{ label }}</div>
+            <div class="text-[32px] font-extrabold text-white font-tag mt-1" data-testid="costs-total">{{ money(data.totalCents) }}</div>
+            <div v-if="compareLine" class="text-xs font-tag mt-1" :class="compareLine.cls" data-testid="costs-compare">{{ compareLine.text }}</div>
+            <div v-else-if="rideLine" class="text-xs text-muted font-tag mt-1">{{ rideLine }}</div>
+          </section>
 
-      <div class="mb-2.5 flex gap-2" data-testid="costs-kpis">
-        <div v-if="data.countsHours !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted">{{ t.costs.perHour }}</span>
-          <b class="block text-[17px] text-white" data-testid="kpi-hour">{{ data.perHourCents === null ? '—' : money(data.perHourCents) }}</b>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" data-testid="costs-kpis">
+            <div v-if="data.countsHours !== false" class="rounded-xl bg-surface px-3 py-2.5 border border-text/10">
+              <span class="text-[10px] uppercase tracking-wide text-muted font-tag block">{{ t.costs.perHour }}</span>
+              <b class="block text-[17px] text-white font-tag" data-testid="kpi-hour">{{ data.perHourCents === null ? '—' : money(data.perHourCents) }}</b>
+            </div>
+            <div v-if="data.countsKm !== false" class="rounded-xl bg-surface px-3 py-2.5 border border-text/10">
+              <span class="text-[10px] uppercase tracking-wide text-muted font-tag block">{{ t.costs.perKm }}</span>
+              <b class="block text-[17px] text-white font-tag" data-testid="kpi-km">{{ data.perKmCents === null ? '—' : money(data.perKmCents) }}</b>
+            </div>
+            <div v-if="data.countsHours !== false" class="rounded-xl bg-surface px-3 py-2.5 border border-text/10">
+              <span class="text-[10px] uppercase tracking-wide text-muted font-tag block">{{ t.costs.hours }}</span>
+              <b class="block text-[17px] text-white font-tag" data-testid="kpi-hours">{{ hours(data.hoursTenths) }}</b>
+            </div>
+            <div v-else class="rounded-xl bg-surface px-3 py-2.5 border border-text/10">
+              <span class="text-[10px] uppercase tracking-wide text-muted font-tag block">{{ t.costs.km }}</span>
+              <b class="block text-[17px] text-white font-tag" data-testid="kpi-km-total">{{ km(data.km) }}</b>
+            </div>
+          </div>
+
+          <template v-if="data.byMonth">
+            <div class="rounded-xl bg-surface p-4 border border-text/10">
+              <h2 class="mb-3 text-[11px] uppercase tracking-widest text-muted font-tag">{{ t.costs.byMonth }}</h2>
+              <BarChart :months="data.byMonth" :current-month="isCurrentYear ? Number(today.slice(5, 7)) : 0" :future-after="isCurrentYear ? Number(today.slice(5, 7)) : year > Number(today.slice(0, 4)) ? 0 : 12" />
+            </div>
+          </template>
         </div>
-        <div v-if="data.countsKm !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted">{{ t.costs.perKm }}</span>
-          <b class="block text-[17px] text-white" data-testid="kpi-km">{{ data.perKmCents === null ? '—' : money(data.perKmCents) }}</b>
+
+        <!-- Right Column: Category Breakdown, By Bike, & Expenses Ledger (7 cols) -->
+        <div class="lg:col-span-7 space-y-4 mt-4 lg:mt-0">
+          <template v-if="data.byCategory.length">
+            <div class="rounded-xl bg-surface p-4 border border-text/10">
+              <h2 class="mb-3 text-[11px] uppercase tracking-widest text-muted font-tag">{{ t.costs.whereItWent }}</h2>
+              <CategoryBars :rows="data.byCategory" :selected-category="selectedCategory" @select="toggleCategory" />
+            </div>
+          </template>
+
+          <template v-if="data.expenses">
+            <div class="rounded-xl bg-surface p-4 border border-text/10">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-[11px] uppercase tracking-widest text-muted font-tag">{{ period === 'month' ? t.costs.spentThisMonth : t.costs.spentInPeriod }}</h2>
+                <button
+                  v-if="selectedCategory"
+                  type="button"
+                  class="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-accent-text"
+                  data-testid="costs-clear-category"
+                  @click="selectedCategory = null"
+                >
+                  {{ categoryLabel(selectedCategory) }} ×
+                </button>
+              </div>
+              <p v-if="!shownExpenses.length" class="text-sm text-muted" data-testid="costs-empty">{{ t.costs.nothingSpent(label) }}</p>
+              <ul class="space-y-[7px]">
+                <li v-for="e in shownExpenses" :key="e.id" class="flex justify-between gap-2 rounded-xl bg-bg px-3 py-2.5 text-[13px] border border-text/5" data-testid="costs-expense">
+                  <span class="min-w-0">
+                    <span class="block truncate text-text font-semibold">{{ e.description || categoryLabel(e.categoryName) }}</span>
+                    <small class="block text-[11px] text-muted font-tag">{{ dayMonth(e.at) }} · {{ categoryLabel(e.categoryName) }}<template v-if="e.bikeName && !bikeId"> · {{ e.bikeName }}</template><template v-if="e.documentId"> · <NuxtLink :to="`/invoice/${e.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" :aria-label="t.item.openInvoice" data-testid="costs-invoice"><Icon name="invoice" :size="15" /></NuxtLink></template></small>
+                  </span>
+                  <b class="shrink-0 text-white font-tag">{{ money(e.amountCents) }}</b>
+                </li>
+              </ul>
+            </div>
+          </template>
+
+          <template v-if="data.upcoming && data.upcoming.length">
+            <div class="rounded-xl bg-surface p-4 border border-text/10">
+              <h2 class="mb-2 text-[11px] uppercase tracking-widest text-muted font-tag">{{ t.costs.comingUp }}</h2>
+              <ul class="space-y-1.5" data-testid="costs-upcoming">
+                <li v-for="u in data.upcoming" :key="u.itemId" class="flex justify-between text-[13px] py-1 border-b border-text/5 last:border-none" data-testid="upcoming-row">
+                  <span>{{ u.name }} <small class="text-muted">· {{ u.state === 'overdue' ? t.costs.dueNow : t.costs.soon }}</small></span>
+                  <span class="text-text font-tag">{{ u.estimateCents === null ? '—' : `~${money(u.estimateCents)}` }}</span>
+                </li>
+              </ul>
+              <p class="mt-2 text-xs text-muted">{{ t.costs.estimates }}</p>
+            </div>
+          </template>
+
+          <template v-if="showBikes">
+            <div class="rounded-xl bg-surface p-4 border border-text/10">
+              <h2 class="mb-3 text-[11px] uppercase tracking-widest text-muted font-tag">{{ t.costs.byBike }}</h2>
+              <ul class="space-y-[7px]">
+                <li
+                  v-for="b in data.byBike"
+                  :key="b.bikeId ?? 'none'"
+                  :role="b.bikeId ? 'button' : undefined"
+                  :tabindex="b.bikeId ? 0 : undefined"
+                  class="flex justify-between gap-2 rounded-xl bg-bg px-3 py-2.5 text-[13px] border border-text/5"
+                  :class="b.bikeId ? 'cursor-pointer transition hover:ring-1 hover:ring-accent' : ''"
+                  data-testid="costs-bike-row"
+                  @click="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
+                  @keydown.enter.prevent="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
+                  @keydown.space.prevent="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
+                >
+                  <span class="min-w-0">
+                    <span class="block truncate text-text font-bold">{{ b.bikeId ? b.name : t.costs.noBike }}</span>
+                    <small v-if="b.bikeId" class="block text-[11px] text-muted font-tag">{{ [countsHours(b.meters ?? 'hours_km') ? hours(b.hoursTenths) : '', countsKm(b.meters ?? 'hours_km') ? km(b.km) : ''].filter(Boolean).join(' · ') }}</small>
+                  </span>
+                  <span class="shrink-0 text-right">
+                    <b class="block text-white font-tag">{{ money(b.cents) }}</b>
+                    <small v-if="countsHours(b.meters ?? 'hours_km') && b.hoursTenths > 0" class="block text-[11px] text-muted font-tag">{{ money(Math.round(b.cents / (b.hoursTenths / 10))) }}/h</small>
+                    <small v-else-if="!countsHours(b.meters ?? 'hours_km') && b.km > 0" class="block text-[11px] text-muted font-tag" data-testid="bike-per-km">{{ money(Math.round(b.cents / b.km)) }}/km</small>
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </template>
         </div>
-        <div v-if="data.countsHours !== false" class="flex-1 rounded-xl bg-surface px-2.5 py-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted">{{ t.costs.hours }}</span>
-          <b class="block text-[17px] text-white" data-testid="kpi-hours">{{ hours(data.hoursTenths) }}</b>
-        </div>
-        <div v-else class="flex-1 rounded-xl bg-surface px-2.5 py-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted">{{ t.costs.km }}</span>
-          <b class="block text-[17px] text-white" data-testid="kpi-km-total">{{ km(data.km) }}</b>
-        </div>
+
       </div>
-
-      <template v-if="data.byMonth">
-        <h2 class="mb-1.5 mt-3 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.byMonth }}</h2>
-        <BarChart :months="data.byMonth" :current-month="isCurrentYear ? Number(today.slice(5, 7)) : 0" :future-after="isCurrentYear ? Number(today.slice(5, 7)) : year > Number(today.slice(0, 4)) ? 0 : 12" />
-        <div class="h-3" />
-      </template>
-
-      <template v-if="data.byCategory.length">
-        <h2 class="mb-2 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.whereItWent }}</h2>
-        <CategoryBars :rows="data.byCategory" :selected-category="selectedCategory" @select="toggleCategory" />
-      </template>
-
-      <template v-if="data.expenses">
-        <div class="mb-1.5 mt-4 flex items-center justify-between gap-2">
-          <h2 class="text-[11px] uppercase tracking-widest text-muted">{{ period === 'month' ? t.costs.spentThisMonth : t.costs.spentInPeriod }}</h2>
-          <button
-            v-if="selectedCategory"
-            type="button"
-            class="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-accent-text"
-            data-testid="costs-clear-category"
-            @click="selectedCategory = null"
-          >
-            {{ categoryLabel(selectedCategory) }} ×
-          </button>
-        </div>
-        <p v-if="!shownExpenses.length" class="text-sm text-muted" data-testid="costs-empty">{{ t.costs.nothingSpent(label) }}</p>
-        <ul class="space-y-[7px]">
-          <li v-for="e in shownExpenses" :key="e.id" class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]" data-testid="costs-expense">
-            <span class="min-w-0">
-              <span class="block truncate text-text">{{ e.description || categoryLabel(e.categoryName) }}</span>
-              <small class="block text-[11px] text-muted">{{ dayMonth(e.at) }} · {{ categoryLabel(e.categoryName) }}<template v-if="e.bikeName && !bikeId"> · {{ e.bikeName }}</template><template v-if="e.documentId"> · <NuxtLink :to="`/invoice/${e.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" :aria-label="t.item.openInvoice" data-testid="costs-invoice"><Icon name="invoice" :size="15" /></NuxtLink></template></small>
-            </span>
-            <b class="shrink-0 text-white">{{ money(e.amountCents) }}</b>
-          </li>
-        </ul>
-      </template>
-
-      <template v-if="data.upcoming && data.upcoming.length">
-        <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.comingUp }}</h2>
-        <ul class="space-y-1.5" data-testid="costs-upcoming">
-          <li v-for="u in data.upcoming" :key="u.itemId" class="flex justify-between text-[13px]" data-testid="upcoming-row">
-            <span>{{ u.name }} <small class="text-muted">· {{ u.state === 'overdue' ? t.costs.dueNow : t.costs.soon }}</small></span>
-            <span class="text-text">{{ u.estimateCents === null ? '—' : `~${money(u.estimateCents)}` }}</span>
-          </li>
-        </ul>
-        <p class="mt-1.5 text-xs text-muted">{{ t.costs.estimates }}</p>
-      </template>
-
-      <template v-if="showBikes">
-        <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-widest text-muted">{{ t.costs.byBike }}</h2>
-        <ul class="space-y-[7px]">
-          <li
-            v-for="b in data.byBike"
-            :key="b.bikeId ?? 'none'"
-            :role="b.bikeId ? 'button' : undefined"
-            :tabindex="b.bikeId ? 0 : undefined"
-            class="flex justify-between gap-2 rounded-xl bg-surface px-3 py-2.5 text-[13px]"
-            :class="b.bikeId ? 'cursor-pointer transition hover:ring-1 hover:ring-accent' : ''"
-            data-testid="costs-bike-row"
-            @click="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
-            @keydown.enter.prevent="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
-            @keydown.space.prevent="b.bikeId ? go({ bikeId: b.bikeId }) : undefined"
-          >
-            <span class="min-w-0">
-              <span class="block truncate text-text">{{ b.bikeId ? b.name : t.costs.noBike }}</span>
-              <small v-if="b.bikeId" class="block text-[11px] text-muted">{{ [countsHours(b.meters ?? 'hours_km') ? hours(b.hoursTenths) : '', countsKm(b.meters ?? 'hours_km') ? km(b.km) : ''].filter(Boolean).join(' · ') }}</small>
-            </span>
-            <span class="shrink-0 text-right">
-              <b class="block text-white">{{ money(b.cents) }}</b>
-              <small v-if="countsHours(b.meters ?? 'hours_km') && b.hoursTenths > 0" class="block text-[11px] text-muted">{{ money(Math.round(b.cents / (b.hoursTenths / 10))) }}/h</small>
-              <small v-else-if="!countsHours(b.meters ?? 'hours_km') && b.km > 0" class="block text-[11px] text-muted" data-testid="bike-per-km">{{ money(Math.round(b.cents / b.km)) }}/km</small>
-            </span>
-          </li>
-        </ul>
-      </template>
     </template>
 
     <ExpenseSheet v-model:open="expenseOpen" :bikes="store.bikes" :default-bike-id="bikeId || null" @saved="load" />

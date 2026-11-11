@@ -88,10 +88,15 @@ async function removeExpense(id: string) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md p-4 pb-6">
-    <div class="flex items-center justify-between gap-2">
-      <h1 class="text-xl font-bold text-white">{{ t.history.title }}</h1>
-      <button type="button" class="rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent" data-testid="add-expense" @click="expenseOpen = true">{{ t.history.addExpense }}</button>
+  <main class="mx-auto max-w-md lg:max-w-7xl p-4 pb-6 lg:p-8 lg:pb-12 w-full">
+    <div class="flex items-center justify-between gap-2 border-b border-text/10 pb-3 mb-4">
+      <div>
+        <h1 class="text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.history.title }}</h1>
+        <p v-if="loaded" class="hidden lg:block text-xs font-tag text-muted mt-0.5">
+          {{ timeline.length }} {{ t.history.title.toLowerCase() }}
+        </p>
+      </div>
+      <button type="button" class="rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent hover:brightness-110 active:scale-95 transition" data-testid="add-expense" @click="expenseOpen = true">{{ t.history.addExpense }}</button>
     </div>
     <div class="mt-3 flex gap-2">
       <input
@@ -104,7 +109,7 @@ async function removeExpense(id: string) {
         class="block min-w-0 flex-1 rounded-xl bg-surface px-3 py-2.5 text-base text-white outline-none focus:ring-2 focus:ring-accent"
       >
       <label v-if="bikes.length > 1" class="sr-only" for="bike-filter">{{ t.history.bike }}</label>
-      <select v-if="bikes.length > 1" id="bike-filter" v-model="bikeFilter" :aria-label="t.history.bike" data-testid="bike-filter" class="max-w-[45%] truncate rounded-xl bg-surface px-3 py-2.5 text-sm normal-case text-white">
+      <select v-if="bikes.length > 1" id="bike-filter" v-model="bikeFilter" :aria-label="t.history.bike" data-testid="bike-filter" class="max-w-[45%] lg:max-w-xs truncate rounded-xl bg-surface px-3 py-2.5 text-sm normal-case text-white">
         <option value="">{{ t.common.allBikes }}</option>
         <option v-for="b in bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
       </select>
@@ -113,7 +118,7 @@ async function removeExpense(id: string) {
     <p v-else-if="loaded && !timeline.length" class="mt-4 text-muted" data-testid="history-empty">{{ t.history.empty }}</p>
 
     <Skeleton v-if="!loaded && !error" :rows="4" class="mt-3" />
-    <ul class="mt-3 space-y-2">
+    <ul class="mt-3 space-y-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
       <li v-for="en in timeline" :key="en.key" class="rounded-xl bg-surface px-3 py-2.5 text-sm" :data-testid="en.kind === 'service' ? 'history-service' : 'history-expense'">
         <template v-if="en.kind === 'service'">
           <div class="flex items-baseline justify-between gap-2">

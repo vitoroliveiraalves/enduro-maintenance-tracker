@@ -52,18 +52,20 @@ async function toggle(r: Rider) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md px-4 pb-6 pt-[18px]">
+  <main class="mx-auto max-w-md lg:max-w-7xl px-4 pb-6 pt-[18px] lg:px-8 lg:pt-6 w-full">
     <div class="text-[13px] text-muted">
-      <NuxtLink to="/settings" class="-m-2 p-2 font-tag text-xs">{{ t.admin.back }}</NuxtLink>
+      <NuxtLink to="/settings" class="-m-2 p-2 font-tag text-xs font-bold uppercase">‹ {{ t.admin.back }}</NuxtLink>
     </div>
-    <h1 class="mt-2 text-[34px] text-white">{{ t.admin.title }}</h1>
-    <p v-if="riders" class="font-tag text-[11px] uppercase tracking-[0.08em] text-muted" data-testid="admin-summary">{{ t.admin.summary(riders.length, aiOn) }}</p>
+    <div class="border-b border-text/10 pb-3 mb-4 mt-2">
+      <h1 class="text-[34px] font-bold text-white tracking-tight">{{ t.admin.title }}</h1>
+      <p v-if="riders" class="font-tag text-[11px] uppercase tracking-[0.08em] text-muted mt-1" data-testid="admin-summary">{{ t.admin.summary(riders.length, aiOn) }}</p>
+    </div>
 
     <p v-if="loadError" role="alert" class="mt-4 text-sm text-danger-text">{{ loadError }}</p>
     <p v-if="saveError" role="alert" class="mt-4 text-sm text-danger-text" data-testid="admin-save-error">{{ saveError }}</p>
 
     <Skeleton v-if="!riders && !loadError" :rows="3" height="h-28" class="mt-4" />
-    <ul v-else-if="riders" class="mt-4 grid gap-2">
+    <ul v-else-if="riders" class="mt-4 grid gap-2 lg:grid-cols-2 xl:grid-cols-3 lg:gap-4">
       <li v-for="r in riders" :key="r.id" class="rounded-xl bg-surface p-3" data-testid="admin-rider">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">

@@ -91,15 +91,28 @@ function open(p: ShelfPart | null) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md p-4 pb-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-xl font-bold text-white">{{ t.shelf.title }}</h1>
-      <NuxtLink to="/" class="-mr-2 flex min-h-11 items-center px-2 text-sm text-muted" data-testid="shelf-back">{{ t.shelf.garage }}</NuxtLink>
+  <main class="mx-auto max-w-md lg:max-w-7xl p-4 pb-6 lg:p-8 lg:pb-12 w-full">
+    <div class="flex items-center justify-between border-b border-text/10 pb-3 mb-4">
+      <div>
+        <h1 class="text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.shelf.title }}</h1>
+        <p v-if="loaded" class="hidden lg:block text-xs font-tag text-muted mt-0.5">
+          {{ parts.length }} {{ t.shelf.title.toLowerCase() }} · {{ buyCount }} {{ t.shelf.toBuy.toLowerCase() }}
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button v-if="tab === 'parts'" type="button" class="hidden lg:inline-flex rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" @click="open(null)">
+          {{ t.shelf.addPart }}
+        </button>
+        <button v-else type="button" class="hidden lg:inline-flex rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" @click="addBuy(null)">
+          {{ t.shelf.addToList }}
+        </button>
+        <NuxtLink to="/" class="-mr-2 flex min-h-11 items-center px-2 text-sm text-muted font-tag uppercase" data-testid="shelf-back">{{ t.shelf.garage }}</NuxtLink>
+      </div>
     </div>
 
-    <div class="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1" role="group" :aria-label="t.shelf.sections">
-      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'parts' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'parts'" data-testid="shelf-tab-parts" @click="tab = 'parts'">{{ t.shelf.title }}</button>
-      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold" :class="tab === 'buy' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'buy'" data-testid="shelf-tab-buy" @click="tab = 'buy'">
+    <div class="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1 max-w-md" role="group" :aria-label="t.shelf.sections">
+      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold font-tag uppercase" :class="tab === 'parts' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'parts'" data-testid="shelf-tab-parts" @click="tab = 'parts'">{{ t.shelf.title }}</button>
+      <button type="button" class="min-h-11 rounded-lg text-sm font-semibold font-tag uppercase" :class="tab === 'buy' ? 'bg-accent text-on-accent' : 'text-muted'" :aria-pressed="tab === 'buy'" data-testid="shelf-tab-buy" @click="tab = 'buy'">
         {{ t.shelf.toBuy }}
         <span v-if="buyCount" class="ml-1 rounded-full px-1.5 text-xs font-bold" :class="tab === 'buy' ? 'bg-black/20' : 'bg-accent text-on-accent'" data-testid="buy-count">{{ buyCount }}</span>
       </button>
@@ -119,7 +132,7 @@ function open(p: ShelfPart | null) {
         v-if="store.bikes.length > 1"
         v-model="bikeFilter"
         data-testid="shelf-bike-filter"
-        class="max-w-[45%] truncate rounded-xl bg-surface px-3 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-accent"
+        class="max-w-[45%] lg:max-w-xs truncate rounded-xl bg-surface px-3 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-accent"
       >
         <option value="">{{ t.shelf.allVehicles }}</option>
         <option v-for="b in store.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
@@ -127,18 +140,18 @@ function open(p: ShelfPart | null) {
     </div>
 
     <template v-if="tab === 'parts'">
-      <p v-if="itemFilter" class="mt-2 text-xs text-muted" data-testid="shelf-item-filter">
+      <p v-if="itemFilter" class="mt-2 text-xs text-muted font-tag" data-testid="shelf-item-filter">
         {{ t.shelf.onlyItem }}
         <NuxtLink to="/shelf" class="inline-flex min-h-11 items-center text-accent-text underline">{{ t.shelf.showAll }}</NuxtLink>
       </p>
       <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
 
       <Skeleton v-if="!loaded && !error" :rows="4" class="mt-3" />
-      <ul v-else-if="shown.length" class="mt-3 space-y-2" data-testid="part-list">
+      <ul v-else-if="shown.length" class="mt-3 space-y-2 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:space-y-0" data-testid="part-list">
         <li v-for="p in shown" :key="p.id">
           <button
             type="button"
-            class="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl bg-surface px-4 py-2.5 text-left"
+            class="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl bg-surface px-4 py-2.5 text-left border border-text/5 hover:border-accent transition"
             :class="[empty(p) ? 'opacity-50' : '', p.pending ? 'opacity-70' : '']"
             :disabled="p.pending"
             data-testid="part-row"
@@ -146,13 +159,13 @@ function open(p: ShelfPart | null) {
           >
             <span class="min-w-0">
               <span class="block truncate font-semibold text-white">{{ p.name }}</span>
-              <span class="block truncate text-xs text-muted">
+              <span class="block truncate text-xs text-muted font-tag">
                 {{ p.bikeName ?? t.shelf.anyBike }}<template v-if="p.pending || p.pendingSync">{{ t.shelf.waiting }}</template>
               </span>
             </span>
             <span class="flex shrink-0 items-center gap-2">
               <span v-if="low(p)" class="rounded border border-danger/40 bg-danger/15 px-1.5 py-0.5 font-tag text-[10px] font-bold uppercase tracking-wider text-danger-text">{{ t.shelf.low }}</span>
-              <span class="text-lg font-bold" :class="low(p) ? 'text-danger-text' : 'text-white'" data-testid="part-qty" :data-low="low(p)">{{ qty(p.qtyHundredths, p.unit) }}</span>
+              <span class="text-lg font-bold font-tag" :class="low(p) ? 'text-danger-text' : 'text-white'" data-testid="part-qty" :data-low="low(p)">{{ qty(p.qtyHundredths, p.unit) }}</span>
             </span>
           </button>
         </li>
@@ -161,7 +174,7 @@ function open(p: ShelfPart | null) {
         {{ parts.length ? t.shelf.noMatch : t.shelf.empty }}
       </p>
 
-      <button type="button" class="mt-5 block w-full rounded-xl bg-accent py-3 text-center font-bold text-on-accent" data-testid="add-part" @click="open(null)">{{ t.shelf.addPart }}</button>
+      <button type="button" class="mt-5 block w-full lg:max-w-md rounded-xl bg-accent py-3 text-center font-bold text-on-accent hover:brightness-110 active:scale-95 transition" data-testid="add-part" @click="open(null)">{{ t.shelf.addPart }}</button>
     </template>
 
     <template v-else>
