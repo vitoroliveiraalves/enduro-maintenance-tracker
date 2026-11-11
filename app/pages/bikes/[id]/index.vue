@@ -337,7 +337,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
               class="w-full flex items-center justify-between border border-text/20 bg-bg px-3 py-2 rounded font-tag text-xs font-semibold text-text hover:border-accent transition"
               @click="checklistOpen = true"
             >
-              <span class="flex items-center gap-2"><Icon name="clipboard" :size="15" />{{ t.checklist.startInspection }}</span>
+              <span class="flex items-center gap-2"><Icon name="clipboard" :size="15" />{{ t.checklist.openChecklist }}</span>
               <span class="text-muted text-[11px]">→</span>
             </button>
           </div>
