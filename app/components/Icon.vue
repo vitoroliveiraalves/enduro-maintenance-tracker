@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Line icons (stroke = currentColor), decorative unless the parent labels them.
-type Name = 'garage' | 'history' | 'invoice' | 'costs' | 'speaker' | 'mic' | 'settings' | 'shelf' | 'chevron-right' | 'camera' | 'wrench' | 'clipboard'
+type Name = 'garage' | 'history' | 'invoice' | 'costs' | 'speaker' | 'mic' | 'settings' | 'shelf' | 'chevron-right' | 'camera' | 'wrench' | 'clipboard' | 'cpu'
 withDefaults(defineProps<{ name: Name; size?: number }>(), { size: 20 })
 const PATHS: Record<Name, string[]> = {
   garage: ['M3 10 12 4l9 6v10H3z', 'M7 20v-6h10v6M7 17h10'],
@@ -18,6 +18,11 @@ const PATHS: Record<Name, string[]> = {
     'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2',
     'M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z',
     'M9 12l2 2 4-4',
+  ],
+  cpu: [
+    'M4 4h16v16H4z',
+    'M9 9h6v6H9z',
+    'M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3',
   ],
 }
 </script>

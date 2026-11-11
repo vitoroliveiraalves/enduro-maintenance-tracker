@@ -44,12 +44,22 @@ test.describe('Desktop Shell (1440x900 viewport)', () => {
       await expect(page).toHaveURL(/\/invoice/)
     }
 
+    // Navigate to MCP / AI section
+    const mcpLink = sidebar.locator('[data-testid="desktop-nav-mcp"]')
+    await expect(mcpLink).toBeVisible()
+    await mcpLink.click()
+    await page.waitForURL(/\/settings#mcp/)
+    await expect(page).toHaveURL(/\/settings#mcp/)
+
     // Navigate back to Garage
     const garageLink = sidebar.locator('a[href="/"]').first()
     await expect(garageLink).toBeVisible()
     await garageLink.click()
     await page.waitForURL('/')
     await expect(page).toHaveURL('/')
+
+    // AI Hub visible on desktop
+    await expect(page.locator('[data-testid="desktop-ai-hub"]')).toBeVisible()
   })
 
   test('desktop layout has no horizontal overflow', async ({ page }) => {
@@ -75,6 +85,7 @@ test.describe('Mobile Viewport (380x780 viewport)', () => {
 
     await expect(bottomTabs).toBeVisible()
     await expect(sidebar).toBeHidden()
+    await expect(page.locator('[data-testid="desktop-ai-hub"]')).toBeHidden()
   })
 
   test('mobile navigation functions properly without regression', async ({ page }) => {

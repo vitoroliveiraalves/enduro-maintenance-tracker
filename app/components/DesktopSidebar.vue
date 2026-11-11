@@ -1,14 +1,36 @@
 <script setup lang="ts">
+import { tick } from '~/lib/haptics'
+
 const route = useRoute()
 const router = useRouter()
 const store = useBikesStore()
 const { t } = useI18n()
 const { online, pending, invoicesWaiting, voiceWaiting, flush } = useOffline()
+const voice = useVoice()
+const rec = useRecorder()
 
 const HIDDEN = ['/login', '/register']
 const visible = computed(() => !HIDDEN.includes(route.path))
 
+rec.onAutoStop((wav) => void finishVoice(wav))
+
+async function finishVoice(wav: ArrayBuffer | null) {
+  tick()
+  if (wav) await voice.sendAudio(wav)
+}
+
+async function toggleVoice() {
+  if (voice.submitting.value) return
+  tick()
+  if (rec.state.value === 'recording') {
+    finishVoice(await rec.stop())
+  } else {
+    await rec.start()
+  }
+}
+
 onMounted(async () => {
+  void voice.checkAvailable()
   if (!store.loaded) {
     try {
       await store.fetchBikes()
@@ -74,6 +96,9 @@ function onKeydown(e: KeyboardEvent) {
   } else if (e.key === 's' || e.key === 'S') {
     e.preventDefault()
     onRecordService()
+  } else if ((e.key === 'v' || e.key === 'V') && voice.available.value) {
+    e.preventDefault()
+    toggleVoice()
   }
 }
 
@@ -122,11 +147,19 @@ const navLinks = computed(() => [
     active: route.path.startsWith('/costs'),
   },
   {
+    key: 'mcp',
+    label: t.value.desktop.nav.mcp,
+    icon: 'cpu' as const,
+    to: '/settings#mcp',
+    active: route.path === '/settings' && route.hash === '#mcp',
+    badge: 'AI',
+  },
+  {
     key: 'settings',
     label: t.value.desktop.nav.settings,
     icon: 'settings' as const,
     to: '/settings',
-    active: route.path.startsWith('/settings'),
+    active: route.path === '/settings' && route.hash !== '#mcp',
   },
 ])
 </script>
@@ -293,6 +326,34 @@ const navLinks = computed(() => [
           <span>{{ t.desktop.actions.recordService }}</span>
           <kbd class="px-1.5 py-0.5 font-tag text-[10px] font-bold rounded bg-surface text-muted border border-track leading-none">
             {{ t.desktop.actions.hotkeyS }}
+          </kbd>
+        </button>
+
+        <!-- Voice Quick Action Capsule -->
+        <button
+          v-if="voice.available.value"
+          type="button"
+          data-testid="desktop-action-voice"
+          class="w-full flex items-center justify-between border px-3.5 py-2.5 font-tag font-bold uppercase text-xs tracking-wider transition active:scale-[0.98]"
+          :class="
+            rec.state.value === 'recording' || voice.submitting.value
+              ? 'border-danger bg-danger/15 text-danger-text animate-pulse'
+              : 'border-text/30 bg-bg text-text hover:border-accent hover:text-accent-text'
+          "
+          @click="toggleVoice"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <span
+              v-if="rec.state.value === 'recording'"
+              class="size-2 rounded-full bg-danger animate-ping shrink-0"
+            />
+            <Icon v-else name="mic" :size="15" class="shrink-0" />
+            <span v-if="voice.submitting.value" class="truncate">{{ t.voiceSheet.working }}</span>
+            <span v-else-if="rec.state.value === 'recording'" class="truncate">{{ t.desktop.actions.recording }} 0:{{ String(rec.seconds.value).padStart(2, '0') }}</span>
+            <span v-else class="truncate">{{ t.desktop.actions.voiceNote }}</span>
+          </div>
+          <kbd class="px-1.5 py-0.5 font-tag text-[10px] font-bold rounded bg-surface text-muted border border-track leading-none shrink-0 ml-1">
+            {{ t.desktop.actions.hotkeyV }}
           </kbd>
         </button>
       </div>

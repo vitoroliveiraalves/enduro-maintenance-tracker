@@ -78,7 +78,7 @@ const waveformBars = computed(() => {
     >
       <div
         v-if="active"
-        class="fixed inset-x-3 z-30 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-surface p-3 pr-20 shadow-lg shadow-black/50 ring-1 ring-white/10"
+        class="fixed inset-x-3 z-30 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-surface p-3 pr-20 shadow-lg shadow-black/50 ring-1 ring-white/10 lg:!bottom-6 lg:!right-24 lg:!left-auto lg:!w-96 lg:!mx-0"
         :style="{ bottom: `calc(3.5rem + env(safe-area-inset-bottom) + ${badge ? '3.5rem' : '0.75rem'})` }"
         data-testid="mic-recording"
       >
@@ -118,7 +118,7 @@ const waveformBars = computed(() => {
     >
       <p
         v-if="blocked && visible"
-        class="fixed inset-x-3 z-30 mx-auto max-w-md rounded-2xl bg-surface p-3 pr-20 text-sm text-muted shadow-lg shadow-black/50"
+        class="fixed inset-x-3 z-30 mx-auto max-w-md rounded-2xl bg-surface p-3 pr-20 text-sm text-muted shadow-lg shadow-black/50 lg:!bottom-6 lg:!right-24 lg:!left-auto lg:!w-96 lg:!mx-0"
         :style="{ bottom: `calc(3.5rem + env(safe-area-inset-bottom) + ${badge ? '3.5rem' : '0.75rem'})` }"
         data-testid="mic-blocked"
         @click="blocked = false"
@@ -130,7 +130,7 @@ const waveformBars = computed(() => {
 
     <!-- Floating Mic Button with Pulsing Radar Effect when Active -->
     <div
-      class="fixed right-3 z-30 flex size-14 items-center justify-center"
+      class="fixed right-3 z-30 flex size-14 items-center justify-center lg:!bottom-6 lg:!right-6"
       :style="{ bottom: `calc(3.5rem + env(safe-area-inset-bottom) + ${badge ? '3.5rem' : '0.75rem'})` }"
     >
       <!-- Radar pulse waves when actively recording or submitting -->

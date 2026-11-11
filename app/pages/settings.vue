@@ -19,6 +19,7 @@ type Reminder = {
 }
 
 const { get, mutate } = useApi()
+const route = useRoute()
 const store = useBikesStore()
 const push = usePush()
 const voice = useVoice()
@@ -138,6 +139,12 @@ onMounted(async () => {
   get<{ admin: boolean }>('/api/account')
     .then((a) => (isAdmin.value = a.admin))
     .catch(() => {})
+
+  if (route.hash === '#mcp' || route.query.section === 'mcp') {
+    nextTick(() => {
+      document.getElementById('mcp')?.scrollIntoView({ behavior: 'smooth' })
+    })
+  }
 })
 watch(syncTick, loadReminders)
 
@@ -206,7 +213,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
 </script>
 
 <template>
-  <main class="mx-auto max-w-md px-4 pb-6 pt-[18px]">
+  <main class="mx-auto max-w-md lg:max-w-4xl px-4 pb-6 pt-[18px] lg:px-8 lg:pt-6">
     <div class="text-[13px] text-muted">
       <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">{{ t.common.garageBack }}</NuxtLink>
     </div>
@@ -298,7 +305,7 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
     </section>
 
     <h2 :class="h2">{{ t.settings.mcpTitle }}</h2>
-    <section class="rounded-xl bg-surface p-3 text-sm" data-testid="mcp-section">
+    <section id="mcp" class="rounded-xl bg-surface p-3 text-sm scroll-mt-6" data-testid="mcp-section">
       <p class="text-xs text-muted mb-3 leading-relaxed">{{ t.settings.mcpHint }}</p>
 
       <div v-if="!mcpTokens.length" class="text-xs text-muted py-1" data-testid="mcp-no-tokens">

@@ -157,6 +157,75 @@ const totalKmCount = computed(() =>
       </li>
     </ul>
 
+    <!-- Desktop AI & MCP Workshop Hub -->
+    <section class="hidden lg:block mt-8 rounded border border-text/15 bg-surface p-5 font-tag" data-testid="desktop-ai-hub">
+      <div class="flex items-center justify-between border-b border-text/10 pb-3 mb-4">
+        <div class="flex items-center gap-2.5">
+          <Icon name="cpu" :size="20" class="text-accent" />
+          <h2 class="text-sm font-bold uppercase tracking-wider text-text">{{ t.desktop.aiHub.title }}</h2>
+          <span class="rounded bg-ok-text/15 px-2 py-0.5 text-[10px] font-bold tracking-widest text-ok-text border border-ok-text/30 uppercase">
+            {{ t.desktop.aiHub.badge }}
+          </span>
+        </div>
+        <NuxtLink
+          to="/settings#mcp"
+          class="text-xs font-bold uppercase tracking-wider text-accent-text hover:underline flex items-center gap-1"
+        >
+          {{ t.desktop.aiHub.connectBtn }}
+        </NuxtLink>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Voice Assistant Feature Card -->
+        <div class="rounded border border-text/10 bg-bg p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-bold uppercase text-white flex items-center gap-2">
+                <Icon name="mic" :size="15" />
+                {{ t.desktop.aiHub.voiceTitle }}
+              </span>
+              <kbd class="px-1.5 py-0.5 text-[10px] rounded bg-surface text-muted border border-track">
+                {{ t.desktop.actions.hotkeyV }}
+              </kbd>
+            </div>
+            <p class="text-xs text-muted leading-relaxed mt-1">
+              {{ t.desktop.aiHub.voiceDesc }}
+            </p>
+          </div>
+          <div class="mt-3 flex items-center gap-2 text-[11px] text-muted">
+            <span class="size-1.5 rounded-full bg-ok" />
+            <span>{{ t.desktop.shortcutsHint }}</span>
+          </div>
+        </div>
+
+        <!-- MCP Protocol Feature Card -->
+        <div class="rounded border border-text/10 bg-bg p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-bold uppercase text-white flex items-center gap-2">
+                <Icon name="cpu" :size="15" />
+                {{ t.desktop.aiHub.mcpTitle }}
+              </span>
+              <code class="px-1.5 py-0.5 text-[10px] rounded bg-surface text-accent font-mono border border-track">
+                /api/mcp
+              </code>
+            </div>
+            <p class="text-xs text-muted leading-relaxed mt-1">
+              {{ t.desktop.aiHub.mcpDesc }}
+            </p>
+          </div>
+          <div class="mt-3">
+            <NuxtLink
+              to="/settings#mcp"
+              class="inline-flex items-center gap-1 text-xs font-bold text-accent-text hover:underline uppercase"
+            >
+              {{ t.settings.mcpCreateKey }} →
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Bottom Actions / Links -->
     <div class="mt-6 flex flex-col sm:flex-row gap-4">
       <NuxtLink to="/shelf" class="flex-1 flex min-h-14 items-center justify-between bg-surface px-4 py-3 border border-text/10 hover:border-accent transition rounded" data-testid="garage-shelf">
