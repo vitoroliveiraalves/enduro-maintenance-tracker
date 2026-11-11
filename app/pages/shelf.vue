@@ -91,23 +91,30 @@ function open(p: ShelfPart | null) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-7xl p-4 pb-6 lg:p-8 lg:pb-12 w-full">
-    <div class="flex items-center justify-between border-b border-text/10 pb-3 mb-4">
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full p-4 pb-6 lg:px-8 lg:py-8">
+    <!-- Desktop Header -->
+    <div class="hidden lg:flex items-center justify-between border-b border-text/10 pb-4 mb-6">
       <div>
-        <h1 class="text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.shelf.title }}</h1>
-        <p v-if="loaded" class="hidden lg:block text-xs font-tag text-muted mt-0.5">
+        <h1 class="text-3xl font-bold text-white tracking-tight">{{ t.shelf.title }}</h1>
+        <p v-if="loaded" class="text-xs font-tag text-muted mt-0.5">
           {{ parts.length }} {{ t.shelf.title.toLowerCase() }} · {{ buyCount }} {{ t.shelf.toBuy.toLowerCase() }}
         </p>
       </div>
-      <div class="flex items-center gap-2">
-        <button v-if="tab === 'parts'" type="button" class="hidden lg:inline-flex rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" @click="open(null)">
+      <div class="flex items-center gap-3">
+        <button v-if="tab === 'parts'" type="button" class="rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" @click="open(null)">
           {{ t.shelf.addPart }}
         </button>
-        <button v-else type="button" class="hidden lg:inline-flex rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" @click="addBuy(null)">
+        <button v-else type="button" class="rounded-xl bg-accent px-4 py-2 font-tag text-xs font-bold uppercase text-on-accent hover:brightness-110 active:scale-95 transition" @click="addBuy(null)">
           {{ t.shelf.addToList }}
         </button>
-        <NuxtLink to="/" class="-mr-2 flex min-h-11 items-center px-2 text-sm text-muted font-tag uppercase" data-testid="shelf-back">{{ t.shelf.garage }}</NuxtLink>
+        <NuxtLink to="/" class="flex min-h-11 items-center px-2 text-sm text-muted font-tag uppercase hover:text-white">{{ t.shelf.garage }}</NuxtLink>
       </div>
+    </div>
+
+    <!-- Mobile Header -->
+    <div class="flex items-center justify-between lg:hidden">
+      <h1 class="text-xl font-bold text-white">{{ t.shelf.title }}</h1>
+      <NuxtLink to="/" class="-mr-2 flex min-h-11 items-center px-2 text-sm text-muted" data-testid="shelf-back">{{ t.shelf.garage }}</NuxtLink>
     </div>
 
     <div class="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1 max-w-md" role="group" :aria-label="t.shelf.sections">

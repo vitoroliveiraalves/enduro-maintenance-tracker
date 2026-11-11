@@ -452,10 +452,10 @@ async function discard() {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-7xl w-full p-4 pt-0 lg:p-8 lg:pt-6 pb-28 lg:pb-12">
-    <div class="mb-4 lg:mb-6">
-      <NuxtLink to="/invoice" class="-m-2 inline-block p-2 text-[13px] lg:text-sm text-muted hover:text-white transition-colors">{{ t.review.back }}</NuxtLink>
-      <h1 class="mt-1.5 text-xl lg:text-3xl font-black uppercase tracking-tight text-white">{{ doc?.status === 'confirmed' ? t.review.invoice : t.review.reviewTitle }}</h1>
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full p-4 pb-28 lg:px-8 lg:py-8">
+    <div class="mb-2 lg:mb-6">
+      <NuxtLink to="/invoice" class="-m-2 inline-block p-2 text-[13px] text-muted hover:text-white transition-colors">{{ t.review.back }}</NuxtLink>
+      <h1 class="mt-1.5 text-xl lg:text-3xl font-bold text-white tracking-tight">{{ doc?.status === 'confirmed' ? t.review.invoice : t.review.reviewTitle }}</h1>
     </div>
 
     <p v-if="notFound" role="alert" class="mt-4 text-danger-text">{{ t.review.notFound }}</p>

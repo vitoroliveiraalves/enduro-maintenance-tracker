@@ -52,14 +52,15 @@ async function toggle(r: Rider) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-7xl px-4 pb-6 pt-[18px] lg:px-8 lg:pt-6 w-full">
-    <div class="text-[13px] text-muted">
-      <NuxtLink to="/settings" class="-m-2 p-2 font-tag text-xs font-bold uppercase">‹ {{ t.admin.back }}</NuxtLink>
-    </div>
-    <div class="border-b border-text/10 pb-3 mb-4 mt-2">
-      <h1 class="text-[34px] font-bold text-white tracking-tight">{{ t.admin.title }}</h1>
-      <p v-if="riders" class="font-tag text-[11px] uppercase tracking-[0.08em] text-muted mt-1" data-testid="admin-summary">{{ t.admin.summary(riders.length, aiOn) }}</p>
-    </div>
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full px-4 pb-6 pt-[18px] lg:px-8 lg:py-8">
+    <div class="lg:max-w-4xl">
+      <div class="text-[13px] text-muted">
+        <NuxtLink to="/settings" class="-m-2 p-2 font-tag text-xs font-bold uppercase">‹ {{ t.admin.back }}</NuxtLink>
+      </div>
+      <div class="border-b border-text/10 pb-3 mb-4 mt-2">
+        <h1 class="text-[34px] font-bold text-white tracking-tight">{{ t.admin.title }}</h1>
+        <p v-if="riders" class="font-tag text-[11px] uppercase tracking-[0.08em] text-muted mt-1" data-testid="admin-summary">{{ t.admin.summary(riders.length, aiOn) }}</p>
+      </div>
 
     <p v-if="loadError" role="alert" class="mt-4 text-sm text-danger-text">{{ loadError }}</p>
     <p v-if="saveError" role="alert" class="mt-4 text-sm text-danger-text" data-testid="admin-save-error">{{ saveError }}</p>
@@ -103,5 +104,6 @@ async function toggle(r: Rider) {
         </dl>
       </li>
     </ul>
+    </div>
   </main>
 </template>

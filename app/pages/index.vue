@@ -30,7 +30,7 @@ const totalKmCount = computed(() =>
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-7xl w-full p-4 pt-0 lg:p-8 lg:pt-6">
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full p-4 pt-0 lg:px-8 lg:py-8">
     <!-- Mobile-only Brand Header -->
     <div class="brand-band -mx-4 mb-4 lg:hidden" aria-hidden="true" />
     <div class="flex items-center justify-between lg:hidden">
@@ -227,15 +227,15 @@ const totalKmCount = computed(() =>
     </section>
 
     <!-- Bottom Actions / Links -->
-    <div class="mt-6 flex flex-col sm:flex-row gap-4">
-      <NuxtLink to="/shelf" class="flex-1 flex min-h-14 items-center justify-between bg-surface px-4 py-3 border border-text/10 hover:border-accent transition rounded" data-testid="garage-shelf">
+    <div class="mt-3 lg:mt-6 flex flex-col sm:flex-row gap-3 lg:gap-4">
+      <NuxtLink to="/shelf" class="flex-1 flex min-h-14 items-center justify-between bg-surface px-4 py-3" data-testid="garage-shelf">
         <span class="brand-slant flex items-center gap-2.5 font-extrabold uppercase text-white" style="font-stretch: 110%"><Icon name="shelf" />{{ t.garage.shelf }}</span>
         <span class="font-tag text-xs text-muted">{{ t.garage.shelfHint }}</span>
       </NuxtLink>
 
       <NuxtLink
         to="/bikes/new"
-        class="brand-slant block bg-accent px-6 py-3.5 text-center font-black uppercase tracking-[0.04em] text-on-accent transition hover:brightness-110 active:scale-95" style="font-stretch: 125%"
+        class="brand-slant block bg-accent py-3.5 px-6 text-center font-black uppercase tracking-[0.04em] text-on-accent transition hover:brightness-110 active:scale-95" style="font-stretch: 125%"
         data-testid="add-bike"
       >
         {{ t.garage.addBike }}

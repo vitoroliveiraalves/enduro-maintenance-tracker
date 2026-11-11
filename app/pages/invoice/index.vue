@@ -152,9 +152,9 @@ onBeforeUnmount(() => pages.value.forEach((p) => URL.revokeObjectURL(p.url)))
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-7xl w-full p-4 pt-0 lg:p-8 lg:pt-6">
-    <div class="mb-6 lg:mb-8">
-      <h1 class="text-xl lg:text-3xl font-black uppercase tracking-tight text-white">{{ t.invoice.title }}</h1>
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full p-4 pb-6 lg:px-8 lg:py-8">
+    <div class="mb-4 lg:mb-8">
+      <h1 class="text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.invoice.title }}</h1>
       <p class="mt-1 text-sm lg:text-base text-muted">{{ t.invoice.intro }}</p>
     </div>
 

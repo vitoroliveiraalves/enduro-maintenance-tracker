@@ -42,38 +42,38 @@ async function submit() {
 
       <form class="mt-6 space-y-4" @submit.prevent="submit">
         <label class="block">
-          <span class="text-xs uppercase font-tag tracking-wider text-muted">{{ t.login.email }}</span>
+          <span class="text-sm text-muted">{{ t.login.email }}</span>
           <input
             v-model="email"
             type="email"
             autocomplete="email"
             required
-            class="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-3 text-base text-text outline-none focus:border-accent"
+            class="mt-1 w-full rounded-lg border border-white/10 bg-surface px-3 py-3 text-base text-text outline-none focus:border-accent"
           >
         </label>
         <label class="block">
-          <span class="text-xs uppercase font-tag tracking-wider text-muted">{{ t.login.password }}</span>
+          <span class="text-sm text-muted">{{ t.login.password }}</span>
           <input
             v-model="password"
             type="password"
             autocomplete="current-password"
             required
-            class="mt-1 w-full rounded-lg border border-white/10 bg-bg px-3 py-3 text-base text-text outline-none focus:border-accent"
+            class="mt-1 w-full rounded-lg border border-white/10 bg-surface px-3 py-3 text-base text-text outline-none focus:border-accent"
           >
         </label>
         <p v-if="error" role="alert" class="text-sm text-danger-text">{{ error }}</p>
         <button
           type="submit"
           :disabled="busy"
-          class="w-full rounded-lg bg-accent py-3 text-base font-bold uppercase font-tag text-on-accent disabled:opacity-60 hover:brightness-110 active:scale-95 transition"
+          class="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-accent disabled:opacity-60 hover:brightness-110 active:scale-95 transition"
         >
           {{ t.login.signIn }}
         </button>
       </form>
 
-      <p class="mt-6 text-center text-xs font-tag uppercase text-muted">
+      <p class="mt-6 text-center text-sm text-muted">
         {{ t.login.newHere }}
-        <NuxtLink to="/register" class="text-accent-text underline font-bold">{{ t.login.create }}</NuxtLink>
+        <NuxtLink to="/register" class="text-accent-text underline">{{ t.login.create }}</NuxtLink>
       </p>
     </div>
   </main>

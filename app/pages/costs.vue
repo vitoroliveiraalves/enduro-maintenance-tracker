@@ -139,31 +139,60 @@ const SEG = computed<Array<{ key: Period; label: string }>>(() => [
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-7xl p-4 pb-6 lg:p-8 lg:pb-12 w-full">
-    <div class="flex items-center justify-between gap-2 border-b border-text/10 pb-3 mb-4">
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full p-4 pb-6 lg:px-8 lg:py-8">
+    <!-- Desktop Header -->
+    <div class="hidden lg:flex items-center justify-between border-b border-text/10 pb-4 mb-6">
       <div>
-        <h1 class="text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.costs.title }}</h1>
-        <p class="hidden lg:block text-xs font-tag text-muted mt-0.5">
+        <h1 class="text-3xl font-bold text-white tracking-tight">{{ t.costs.title }}</h1>
+        <p class="text-xs font-tag text-muted mt-0.5">
           {{ navLabel }} · {{ label }}
         </p>
       </div>
 
       <div class="flex items-center gap-3">
-        <label class="sr-only" for="costs-bike">{{ t.costs.bike }}</label>
+        <label class="sr-only" for="costs-bike-desktop">{{ t.costs.bike }}</label>
         <select
-          id="costs-bike"
+          id="costs-bike-desktop"
           :value="bikeId"
-          data-testid="costs-bike"
-          class="min-w-0 max-w-[55%] lg:max-w-xs truncate rounded-lg bg-surface px-3 py-2 text-sm text-white border border-text/15"
+          class="min-w-0 max-w-xs truncate rounded-lg bg-surface px-3 py-2 text-sm text-white border border-text/15"
           @change="go({ bikeId: ($event.target as HTMLSelectElement).value || undefined })"
         >
           <option value="">{{ t.common.allBikes }}</option>
           <option v-for="b in store.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
         </select>
-        <a :href="exportHref" download data-testid="export-csv" class="shrink-0 rounded-lg border border-text/20 bg-surface px-3 py-2 text-xs font-bold text-text hover:border-accent uppercase font-tag">{{ t.costs.export }}</a>
+        <a :href="exportHref" download class="shrink-0 rounded-lg border border-text/20 bg-surface px-3 py-2 text-xs font-bold text-text hover:border-accent uppercase font-tag">{{ t.costs.export }}</a>
         <button
           type="button"
           class="rounded-xl bg-accent px-3.5 py-2 text-xs font-bold text-on-accent hover:brightness-110 active:scale-95 transition"
+          @click="expenseOpen = true"
+        >
+          {{ t.costs.addExpense }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Header -->
+    <div class="lg:hidden">
+      <div class="flex items-center justify-between gap-2 text-[13px]">
+        <label class="sr-only" for="costs-bike">{{ t.costs.bike }}</label>
+        <select
+          id="costs-bike"
+          :value="bikeId"
+          data-testid="costs-bike"
+          class="min-w-0 max-w-[55%] truncate rounded-lg bg-surface px-2.5 py-2 text-[13px] text-white"
+          @change="go({ bikeId: ($event.target as HTMLSelectElement).value || undefined })"
+        >
+          <option value="">{{ t.common.allBikes }}</option>
+          <option v-for="b in store.bikes" :key="b.id" :value="b.id">{{ b.name }}</option>
+        </select>
+        <a :href="exportHref" download data-testid="export-csv" class="shrink-0 rounded-lg px-2.5 py-2 text-muted">{{ t.costs.export }}</a>
+      </div>
+
+      <div class="mb-2.5 mt-2 flex items-center justify-between gap-2">
+        <h1 class="text-xl font-bold text-white">{{ t.costs.title }}</h1>
+        <button
+          type="button"
+          class="rounded-xl bg-accent px-3 py-2 text-xs font-bold text-on-accent"
           data-testid="costs-add-expense"
           @click="expenseOpen = true"
         >

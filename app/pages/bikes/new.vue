@@ -165,12 +165,13 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-3xl p-4 lg:p-8 w-full">
-    <div class="border-b border-text/10 pb-3 mb-4">
-      <NuxtLink to="/" class="text-sm text-muted font-tag uppercase">‹ {{ t.newBike.garage }}</NuxtLink>
-      <h1 class="mt-1 text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.newBike.title }}</h1>
-      <p class="mt-0.5 text-xs text-muted font-tag" data-testid="step-indicator">{{ t.newBike.step(step) }}</p>
-    </div>
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full p-4 pb-6 lg:px-8 lg:py-8">
+    <div class="lg:max-w-3xl">
+      <div class="lg:border-b lg:border-text/10 lg:pb-4 lg:mb-6 mb-2">
+        <NuxtLink to="/" class="text-sm text-muted font-tag uppercase">‹ {{ t.newBike.garage }}</NuxtLink>
+        <h1 class="mt-1 text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.newBike.title }}</h1>
+        <p class="mt-0.5 text-xs text-muted font-tag" data-testid="step-indicator">{{ t.newBike.step(step) }}</p>
+      </div>
 
     <form v-if="step === 1" class="mt-4 space-y-4" @submit.prevent="next">
       <!-- Vehicle Type Selector -->
@@ -276,5 +277,6 @@ const small = 'mt-1 w-full rounded-lg border border-white/10 bg-bg px-2 py-2 tex
         <button type="button" :disabled="busy" class="flex-1 rounded-lg bg-accent py-3 font-semibold text-on-accent disabled:opacity-60" data-testid="vehicle-save-btn" @click="save">{{ t.newBike.save }}</button>
       </div>
     </section>
+    </div>
   </main>
 </template>

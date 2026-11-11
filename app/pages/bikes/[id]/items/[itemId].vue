@@ -154,10 +154,11 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-4xl px-4 pb-6 pt-[18px] lg:px-8 lg:pt-6 w-full">
-    <div class="text-[13px] text-muted">
-      <NuxtLink :to="`/bikes/${bikeId}`" class="-m-2 p-2" data-testid="back-to-bike">‹ {{ detail?.bike.name ?? t.bike.fallbackName }}</NuxtLink>
-    </div>
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full px-4 pb-6 pt-[18px] lg:px-8 lg:py-8">
+    <div class="lg:max-w-3xl">
+      <div class="text-[13px] text-muted">
+        <NuxtLink :to="`/bikes/${bikeId}`" class="-m-2 p-2" data-testid="back-to-bike">‹ {{ detail?.bike.name ?? t.bike.fallbackName }}</NuxtLink>
+      </div>
     <p v-if="error" role="alert" class="mt-3 text-danger-text">{{ error }}</p>
     <template v-if="hist && detail">
       <h1 class="mb-3 mt-1.5 text-xl font-bold text-white" data-testid="item-name">{{ itemLabel(hist.item.name) }}</h1>
@@ -233,5 +234,6 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <h2 class="mb-1.5 mt-4 text-[11px] uppercase tracking-[0.08em] text-muted">{{ t.item.section }}</h2>
       <ManagePanel what="item" :name="itemLabel(hist.item.name)" :remove-note="t.item.removeNote" :rename="renameItem" :remove="removeItem" />
     </template>
+    </div>
   </main>
 </template>

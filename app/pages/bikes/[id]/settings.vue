@@ -165,8 +165,9 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-4xl px-4 pb-10 pt-[18px] lg:px-8 lg:pt-6 w-full">
-    <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full px-4 pb-10 pt-[18px] lg:px-8 lg:py-8">
+    <div class="lg:max-w-3xl">
+      <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
 
     <div class="flex items-center justify-between text-[13px] text-muted">
       <NuxtLink :to="`/bikes/${id}`" class="-m-2 p-2 font-tag text-xs flex items-center gap-1.5" data-testid="back-to-bike">
@@ -465,6 +466,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <Skeleton :rows="1" height="h-10" />
       <Skeleton :rows="3" height="h-20" class="mt-4" />
       <Skeleton :rows="2" height="h-16" class="mt-4" />
+    </div>
     </div>
   </main>
 </template>

@@ -88,15 +88,22 @@ async function removeExpense(id: string) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-7xl p-4 pb-6 lg:p-8 lg:pb-12 w-full">
-    <div class="flex items-center justify-between gap-2 border-b border-text/10 pb-3 mb-4">
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full p-4 pb-6 lg:px-8 lg:py-8">
+    <!-- Desktop Header -->
+    <div class="hidden lg:flex items-center justify-between border-b border-text/10 pb-4 mb-6">
       <div>
-        <h1 class="text-xl lg:text-3xl font-bold text-white tracking-tight">{{ t.history.title }}</h1>
-        <p v-if="loaded" class="hidden lg:block text-xs font-tag text-muted mt-0.5">
+        <h1 class="text-3xl font-bold text-white tracking-tight">{{ t.history.title }}</h1>
+        <p v-if="loaded" class="text-xs font-tag text-muted mt-0.5">
           {{ timeline.length }} {{ t.history.title.toLowerCase() }}
         </p>
       </div>
-      <button type="button" class="rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent hover:brightness-110 active:scale-95 transition" data-testid="add-expense" @click="expenseOpen = true">{{ t.history.addExpense }}</button>
+      <button type="button" class="rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent hover:brightness-110 active:scale-95 transition" @click="expenseOpen = true">{{ t.history.addExpense }}</button>
+    </div>
+
+    <!-- Mobile Header -->
+    <div class="flex items-center justify-between gap-2 lg:hidden">
+      <h1 class="text-xl font-bold text-white">{{ t.history.title }}</h1>
+      <button type="button" class="rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent" data-testid="add-expense" @click="expenseOpen = true">{{ t.history.addExpense }}</button>
     </div>
     <div class="mt-3 flex gap-2">
       <input

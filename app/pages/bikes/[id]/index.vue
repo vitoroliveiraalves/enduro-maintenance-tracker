@@ -215,7 +215,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-7xl px-4 pb-6 pt-[18px] lg:px-8 lg:pt-6">
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full px-4 pb-6 pt-[18px] lg:px-8 lg:py-8">
     <p v-if="error" role="alert" class="text-danger-text">{{ error }}</p>
     <div class="flex items-center justify-between text-[13px] text-muted">
       <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">{{ t.common.garageBack }}</NuxtLink>
@@ -385,7 +385,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
               <button
                 v-if="!showAddForm"
                 type="button"
-                class="w-full rounded-xl border border-dashed border-white/20 bg-surface/50 py-3 text-center font-tag text-xs font-bold text-accent-text hover:border-accent hover:bg-surface transition"
+                class="w-full rounded-xl border border-dashed border-white/20 py-3 text-center text-sm font-semibold text-muted hover:text-white transition"
                 data-testid="open-add-item-btn"
                 @click="showAddForm = true"
               >

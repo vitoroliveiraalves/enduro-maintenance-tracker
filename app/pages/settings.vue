@@ -213,11 +213,12 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
 </script>
 
 <template>
-  <main class="mx-auto max-w-md lg:max-w-4xl px-4 pb-6 pt-[18px] lg:px-8 lg:pt-6">
-    <div class="text-[13px] text-muted">
-      <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">{{ t.common.garageBack }}</NuxtLink>
-    </div>
-    <h1 class="mt-2 text-[34px] text-white">{{ t.settings.title }}</h1>
+  <main class="mx-auto max-w-md lg:max-w-7xl lg:mx-auto lg:w-full px-4 pb-6 pt-[18px] lg:px-8 lg:py-8">
+    <div class="lg:max-w-3xl">
+      <div class="text-[13px] text-muted">
+        <NuxtLink to="/" class="-m-2 p-2 font-tag text-xs">{{ t.common.garageBack }}</NuxtLink>
+      </div>
+      <h1 class="mt-2 text-[34px] text-white">{{ t.settings.title }}</h1>
 
     <h2 :class="h2">{{ t.language.title }}</h2>
     <fieldset class="grid gap-2" data-testid="language-section">
@@ -471,5 +472,6 @@ const h2 = 'mb-1.5 mt-6 text-[11px] uppercase tracking-[0.08em] text-muted'
         {{ t.settings.deleteTitle }}
       </button>
     </section>
+    </div>
   </main>
 </template>

@@ -17,7 +17,7 @@ const topInset = computed(() => online.value || route.path === '/invoice')
   <div class="app-layout min-h-dvh bg-bg text-text lg:flex lg:flex-row lg:!pb-0" :style="{ paddingBottom: bottomPad }">
     <DesktopSidebar />
     <div class="min-w-0 lg:flex-1">
-      <div v-if="topInset" aria-hidden="true" style="height: env(safe-area-inset-top)" />
+      <div v-if="topInset" aria-hidden="true" style="height: env(safe-area-inset-top)" class="lg:hidden" />
       <OfflineBanner />
       <PendingInvoices />
       <NuxtPage />
