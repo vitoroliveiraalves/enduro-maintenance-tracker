@@ -243,4 +243,141 @@ describe('MCP Server Tools', () => {
     expect(notes[0].item).toBe('Transmission Oil')
     expect(notes[0].specs[0].label).toBe('Drain bolt torque')
   })
+
+  it('add_shelf_part creates a brand-new spare part on the shelf', async () => {
+    const server = createMcpServer(userA)
+    const tools = (server as unknown as { _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools
+
+    const res = await tools.add_shelf_part.handler({
+      name: 'TwinAir Air Filter',
+      quantity: 2,
+      unit: 'pcs',
+      minQuantity: 1,
+      notes: 'Bin 3B, OEM #77202002000',
+      bike: 'Beta',
+      itemNames: ['Transmission Oil'],
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect(res.content[0]!.text).toContain("Part 'TwinAir Air Filter' registered on shelf with 2 pcs for Beta 300 RR")
+
+    const allParts = await db.select().from(parts).where(eq(parts.userId, userA))
+    const filterPart = allParts.find((p) => p.name === 'TwinAir Air Filter')
+    expect(filterPart).toBeDefined()
+    expect(filterPart!.qtyHundredths).toBe(200)
+    expect(filterPart!.minHundredths).toBe(100)
+    expect(filterPart!.notes).toBe('Bin 3B, OEM #77202002000')
+    expect(filterPart!.bikeId).toBe(bikeA)
+  })
+
+  it('add_vehicle creates a new motorcycle with template maintenance items', async () => {
+    const server = createMcpServer(userA)
+    const tools = (server as unknown as { _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools
+
+    const res = await tools.add_vehicle.handler({
+      name: "KTM 300 EXC '23",
+      make: 'KTM',
+      model: '300 EXC',
+      year: 2023,
+      vehicleType: 'motorcycle',
+      stroke: '2T',
+      meters: 'hours_km',
+      hours: 142.5,
+      km: 3812,
+      plate: '01-AB-23',
+      premixRatio: 50,
+      useTemplate: true,
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect(res.content[0]!.text).toContain("Vehicle 'KTM 300 EXC '23' (KTM 300 EXC 2023, 2T) added to garage")
+
+    const userBikes = await db.select().from(bikes).where(eq(bikes.userId, userA))
+    const ktm = userBikes.find((b) => b.name === "KTM 300 EXC '23")
+    expect(ktm).toBeDefined()
+    expect(ktm!.plate).toBe('01-AB-23')
+
+    const items = await db.select().from(maintenanceItems).where(eq(maintenanceItems.bikeId, ktm!.id))
+    expect(items.length).toBeGreaterThan(0)
+  })
+
+  it('add_maintenance_item adds a custom maintenance interval to a bike', async () => {
+    const server = createMcpServer(userA)
+    const tools = (server as unknown as { _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools
+
+    const res = await tools.add_maintenance_item.handler({
+      bike: 'Beta',
+      name: 'Fork oil replacement',
+      everyHours: 40,
+      everyMonths: 12,
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect(res.content[0]!.text).toContain("Maintenance item 'Fork oil replacement' added to Beta 300 RR")
+
+    const [item] = await db.select().from(maintenanceItems).where(eq(maintenanceItems.name, 'Fork oil replacement'))
+    expect(item).toBeDefined()
+    expect(item!.everyHoursTenths).toBe(400)
+    expect(item!.everyMonths).toBe(12)
+  })
+
+  it('add_bike_note saves technical specs to an item', async () => {
+    const server = createMcpServer(userA)
+    const tools = (server as unknown as { _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools
+
+    const res = await tools.add_bike_note.handler({
+      bike: 'Beta',
+      item: 'Transmission Oil',
+      title: 'Transmission Specs',
+      body: 'Drain bolt is located at the bottom right.',
+      specs: [
+        { label: 'Drain bolt torque', value: '20 Nm' },
+        { label: 'Check bolt torque', value: '10 Nm' },
+      ],
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect(res.content[0]!.text).toContain("Note 'Transmission Specs' added to 'Transmission Oil' with 2 spec(s)")
+
+    const allNotes = await db.select().from(itemNotes).where(eq(itemNotes.userId, userA))
+    const note = allNotes.find((n) => n.title === 'Transmission Specs')
+    expect(note).toBeDefined()
+    expect(note!.specs).toHaveLength(2)
+  })
+
+  it('complete_reminder rolls over a yearly reminder', async () => {
+    const server = createMcpServer(userA)
+    const tools = (server as unknown as { _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools
+
+    await db.insert(reminders).values({
+      userId: userA,
+      bikeId: bikeA,
+      title: 'Road Tax (IUC)',
+      dueOn: '2026-04-15',
+      repeatYearly: true,
+    })
+
+    const res = await tools.complete_reminder.handler({
+      query: 'IUC',
+      bike: 'Beta',
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect(res.content[0]!.text).toContain("Reminder 'Road Tax (IUC)' marked as done. Rolled over to next year (due 2027-04-15)")
+  })
+
+  it('delete_shelf_part removes a part from shelf inventory', async () => {
+    const server = createMcpServer(userA)
+    const tools = (server as unknown as { _registeredTools: Record<string, { handler: (args: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools
+
+    const res = await tools.delete_shelf_part.handler({
+      part: 'Motorex',
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect(res.content[0]!.text).toContain("Part 'Motorex Gear Oil 10W40' removed from shelf inventory")
+
+    const [deleted] = await db.select().from(parts).where(eq(parts.id, partA))
+    expect(deleted).toBeUndefined()
+  })
 })

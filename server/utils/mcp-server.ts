@@ -5,16 +5,18 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, itemNotes, maintenanceItems, parts, shoppingEntries } from '../db/schema'
 import type { Bike, MaintenanceItem, Part } from '../db/schema'
-import { itemRows, listBikes } from './bikes'
+import { createBike, createItem, itemRows, listBikes } from './bikes'
 import { listCategories } from './categories'
 import { costsOverview, todayStr } from '../domain/costs-query'
 import { createExpense } from './expenses'
 import { itemHistory } from './item-history'
-import { adjustPart, listPartRows } from './parts'
+import { createNote } from './item-notes'
+import { adjustPart, createPart, listPartRows } from './parts'
 import { logReading } from './readings'
-import { createReminder, listReminders } from './reminders'
+import { createReminder, listReminders, markReminderDone } from './reminders'
 import { createService } from './services'
 import { createEntry, patchEntry, shoppingList } from './shopping'
+import { templatesFor } from '../domain/templates'
 import { matches } from '../../shared/utils/search'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -796,6 +798,377 @@ export function createMcpServer(userId: string): McpServer {
 
       return {
         content: [{ type: 'text', text: JSON.stringify(out, null, 2) }],
+      }
+    },
+  )
+
+  // 16. add_shelf_part (Write tool)
+  server.tool(
+    'add_shelf_part',
+    'Register a new spare part on the garage shelf inventory (name, initial stock count, unit, low stock alert threshold, bin/shelf notes, and vehicle compatibility).',
+    {
+      name: z.string().describe('Part name or description (e.g. "TwinAir Filter", "Motorex 10W40 Gear Oil", "Brembo Front Pads")'),
+      quantity: z.number().min(0).optional().describe('Initial quantity on hand (defaults to 0)'),
+      unit: z.string().optional().describe('Unit of measurement (e.g. "pcs", "bottle", "L", "set"; defaults to "pcs")'),
+      minQuantity: z.number().min(0).optional().describe('Minimum stock alert threshold (warns when stock falls below this)'),
+      notes: z.string().optional().describe('Optional bin location, OEM part number, or notes (e.g. "Shelf 2B, OEM 77202002000")'),
+      bike: z.string().optional().describe('Optional bike name, model, or UUID this part belongs to'),
+      bikeId: z.string().optional().describe('Legacy bike UUID parameter'),
+      itemNames: z.array(z.string()).optional().describe('Optional list of maintenance item names or UUIDs on the bike that this part fits'),
+    },
+    async ({ name, quantity, unit, minQuantity, notes, bike: bikeQuery, bikeId, itemNames }) => {
+      let bike: Bike | null = null
+      const bQuery = bikeQuery ?? bikeId
+      if (bQuery) {
+        const bikeRes = await resolveBike(userId, bQuery, { required: false })
+        if (bikeRes.error) {
+          return { isError: true, content: [{ type: 'text', text: bikeRes.error }] }
+        }
+        bike = bikeRes.bike ?? null
+      }
+
+      const itemIds: string[] = []
+      if (itemNames && itemNames.length > 0) {
+        const userItems = await db
+          .select({ id: maintenanceItems.id, name: maintenanceItems.name, bikeId: maintenanceItems.bikeId })
+          .from(maintenanceItems)
+          .where(and(eq(maintenanceItems.userId, userId), bike ? eq(maintenanceItems.bikeId, bike.id) : undefined))
+
+        for (const itemName of itemNames) {
+          const trimmed = itemName.trim()
+          const found = userItems.find((i) => i.id === trimmed || matches(trimmed, i.name))
+          if (found && !itemIds.includes(found.id)) {
+            itemIds.push(found.id)
+          }
+        }
+      }
+
+      const qtyHundredths = quantity !== undefined ? Math.round(quantity * 100) : 0
+      const minHundredths = minQuantity !== undefined ? Math.round(minQuantity * 100) : null
+
+      try {
+        const part = await db.transaction(async (tx) => {
+          return await createPart(tx, userId, {
+            clientId: randomUUID(),
+            startClientId: qtyHundredths > 0 ? randomUUID() : undefined,
+            name,
+            unit: unit ?? 'pcs',
+            qtyHundredths,
+            minHundredths,
+            notes: notes ?? null,
+            bikeId: bike?.id ?? null,
+            itemIds,
+          })
+        })
+
+        const bikeLabel = bike ? ` for ${bike.name}` : ''
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Part '${part.name}' registered on shelf with ${quantity ?? 0} ${part.unit}${bikeLabel}.${itemIds.length ? ` Linked to ${itemIds.length} maintenance item(s).` : ''}`,
+            },
+          ],
+        }
+      } catch (err: unknown) {
+        const msg = (err as { statusMessage?: string; message?: string })?.statusMessage || (err as Error)?.message || 'Unknown error'
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed adding part to shelf: ${msg}` }],
+        }
+      }
+    },
+  )
+
+  // 17. add_vehicle (Write tool)
+  server.tool(
+    'add_vehicle',
+    'Add a new motorcycle or car to the garage fleet, automatically setting up standard maintenance schedule templates.',
+    {
+      name: z.string().describe('Nickname or vehicle display name (e.g. "KTM 300 EXC \'23", "Beta 300 RR", "BMW E30")'),
+      make: z.string().describe('Manufacturer make (e.g. "KTM", "Beta", "Honda", "Yamaha")'),
+      model: z.string().describe('Model name (e.g. "300 EXC", "RR 300", "CRF450R")'),
+      year: z.number().int().min(1950).max(2100).describe('Manufacture model year (e.g. 2023)'),
+      vehicleType: z.enum(['motorcycle', 'car']).optional().describe('Vehicle type: motorcycle or car (defaults to motorcycle)'),
+      stroke: z.enum(['2T', '4T']).optional().describe('Engine stroke: 2T or 4T (defaults to 2T for motorcycles, 4T for cars)'),
+      meters: z.enum(['hours_km', 'hours', 'km']).optional().describe('Meter counting mode: hours_km, hours, or km (defaults to hours_km for 2T motorcycles, km for cars)'),
+      hours: z.number().min(0).optional().describe('Current engine hours reading at setup (e.g. 45.2)'),
+      km: z.number().int().min(0).optional().describe('Current odometer reading in kilometers (e.g. 3500)'),
+      plate: z.string().optional().describe('License plate number (e.g. "AA-00-BB")'),
+      premixRatio: z.number().int().min(10).max(100).optional().describe('Fuel premix ratio (e.g. 50 or 60 for 2T bikes)'),
+      notes: z.string().optional().describe('General notes about the vehicle'),
+      useTemplate: z.boolean().optional().describe('Whether to load default maintenance items for this vehicle type/stroke (defaults to true)'),
+    },
+    async ({ name, make, model, year, vehicleType, stroke, meters, hours, km, plate, premixRatio, notes, useTemplate }) => {
+      const vType = vehicleType ?? 'motorcycle'
+      const s = stroke ?? (vType === 'car' ? '4T' : '2T')
+      const m = meters ?? (vType === 'car' ? 'km' : 'hours_km')
+      const shouldSeed = useTemplate ?? true
+      const templateItems = shouldSeed ? templatesFor(s, m, vType) : []
+
+      const hoursTenths = (m === 'hours_km' || m === 'hours') ? (hours !== undefined ? Math.round(hours * 10) : 0) : null
+      const kmVal = (m === 'hours_km' || m === 'km') ? (km ?? 0) : null
+
+      try {
+        const bike = await createBike(userId, {
+          clientId: randomUUID(),
+          name,
+          make,
+          model,
+          year,
+          vehicleType: vType,
+          stroke: s,
+          meters: m,
+          plate: plate ?? null,
+          premixRatio: vType !== 'car' && s === '2T' ? (premixRatio ?? 50) : null,
+          notes: notes ?? null,
+          hoursTenths,
+          km: kmVal,
+          items: templateItems,
+        })
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Vehicle '${bike.name}' (${bike.make} ${bike.model} ${bike.year}, ${bike.stroke}) added to garage with ${templateItems.length} maintenance items scheduled.`,
+            },
+          ],
+        }
+      } catch (err: unknown) {
+        const msg = (err as { statusMessage?: string; message?: string })?.statusMessage || (err as Error)?.message || 'Unknown error'
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed adding vehicle: ${msg}` }],
+        }
+      }
+    },
+  )
+
+  // 18. add_maintenance_item (Write tool)
+  server.tool(
+    'add_maintenance_item',
+    'Add a new maintenance schedule/item to a motorcycle or car (e.g. Fork oil replacement every 30h, Spark plug every 6000km, Coolant every 24 months).',
+    {
+      bike: z.string().optional().describe('Bike name, model, nickname, or UUID (optional if you have only one bike)'),
+      bikeId: z.string().optional().describe('Legacy bike UUID parameter'),
+      name: z.string().describe('Name of the maintenance task (e.g. "Fork oil replacement", "Brake pads check", "Valve clearance")'),
+      everyHours: z.number().positive().optional().describe('Interval in engine hours (e.g. 30 for every 30h)'),
+      everyKm: z.number().int().positive().optional().describe('Interval in kilometers (e.g. 5000)'),
+      everyMonths: z.number().int().positive().optional().describe('Interval in calendar months (e.g. 12)'),
+    },
+    async ({ bike: bikeQuery, bikeId, name, everyHours, everyKm, everyMonths }) => {
+      const bikeRes = await resolveBike(userId, bikeQuery ?? bikeId, { required: true })
+      if (bikeRes.error || !bikeRes.bike) {
+        return { isError: true, content: [{ type: 'text', text: bikeRes.error ?? 'Bike not found.' }] }
+      }
+      const bike = bikeRes.bike
+
+      if (everyHours === undefined && everyKm === undefined && everyMonths === undefined) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Please specify at least one interval (everyHours, everyKm, or everyMonths).' }],
+        }
+      }
+
+      try {
+        const item = await createItem(bike, {
+          clientId: randomUUID(),
+          name,
+          everyHoursTenths: everyHours !== undefined ? Math.round(everyHours * 10) : undefined,
+          everyKm,
+          everyMonths,
+          conditionMultipliers: {},
+        })
+
+        const intervalsDesc = [
+          everyHours !== undefined ? `${everyHours} h` : null,
+          everyKm !== undefined ? `${everyKm} km` : null,
+          everyMonths !== undefined ? `${everyMonths} months` : null,
+        ].filter(Boolean).join(' or ')
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Maintenance item '${item.name}' added to ${bike.name} (interval: every ${intervalsDesc}).`,
+            },
+          ],
+        }
+      } catch (err: unknown) {
+        const msg = (err as { statusMessage?: string; message?: string })?.statusMessage || (err as Error)?.message || 'Unknown error'
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed adding maintenance item: ${msg}` }],
+        }
+      }
+    },
+  )
+
+  // 19. add_bike_note (Write tool)
+  server.tool(
+    'add_bike_note',
+    'Save technical notes, torque specifications, clearances, fluid capacities, or setup instructions for a maintenance item and vehicle.',
+    {
+      bike: z.string().optional().describe('Bike name, model, or UUID (optional if you have only one bike)'),
+      bikeId: z.string().optional().describe('Legacy bike UUID parameter'),
+      item: z.string().optional().describe('Maintenance item name or UUID (e.g. "Transmission Oil", "Front Fork", "Piston")'),
+      itemId: z.string().optional().describe('Legacy maintenance item UUID parameter'),
+      title: z.string().describe('Title of the note (e.g. "Torque Specs", "Oil Capacity & Grade", "Suspension Clickers")'),
+      body: z.string().optional().describe('Detailed explanation or procedure notes'),
+      specs: z
+        .array(
+          z.object({
+            label: z.string().describe('Specification label (e.g. "Drain bolt torque", "Fluid capacity", "Spark plug gap")'),
+            value: z.string().describe('Specification value (e.g. "20 Nm", "800 ml Motorex 10W40", "0.6 mm")'),
+          }),
+        )
+        .optional()
+        .describe('Key-value technical specifications table'),
+    },
+    async ({ bike: bikeQuery, bikeId, item: itemQuery, itemId, title, body, specs }) => {
+      const bQuery = bikeQuery ?? bikeId
+      const bikeRes = await resolveBike(userId, bQuery, { required: false })
+      if (bikeRes.error) {
+        return { isError: true, content: [{ type: 'text', text: bikeRes.error }] }
+      }
+
+      const bike = bikeRes.bike
+      const iQuery = itemQuery ?? itemId
+
+      let item: MaintenanceItem | undefined
+      if (iQuery) {
+        if (bike) {
+          const itemRes = await resolveItem(userId, bike.id, iQuery)
+          if (itemRes.error) return { isError: true, content: [{ type: 'text', text: itemRes.error }] }
+          item = itemRes.item
+        } else {
+          const allItems = await db.select().from(maintenanceItems).where(eq(maintenanceItems.userId, userId))
+          const matched = allItems.filter((i) => i.id === iQuery || matches(iQuery, i.name))
+          if (matched.length === 1) item = matched[0]!
+          else if (matched.length > 1) {
+            return {
+              isError: true,
+              content: [{ type: 'text', text: `Ambiguous item '${iQuery}'. Please specify the bike.` }],
+            }
+          }
+        }
+      }
+
+      if (!item) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Please specify the maintenance item to attach this note to (e.g. item: "Transmission Oil").' }],
+        }
+      }
+
+      try {
+        const note = await createNote(item, {
+          clientId: randomUUID(),
+          title,
+          body: body ?? '',
+          specs: specs ?? [],
+        })
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Note '${note.title}' added to '${item.name}'${specs?.length ? ` with ${specs.length} spec(s)` : ''}.`,
+            },
+          ],
+        }
+      } catch (err: unknown) {
+        const msg = (err as { statusMessage?: string; message?: string })?.statusMessage || (err as Error)?.message || 'Unknown error'
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed adding bike note: ${msg}` }],
+        }
+      }
+    },
+  )
+
+  // 20. complete_reminder (Write tool)
+  server.tool(
+    'complete_reminder',
+    'Mark a reminder as completed / renewed (e.g. Insurance renewed, annual road tax IUC paid, technical inspection passed).',
+    {
+      query: z.string().describe('Title of the reminder or its UUID (e.g. "Insurance", "IUC", "Inspection")'),
+      bike: z.string().optional().describe('Optional bike name or model to filter reminders for a specific bike'),
+    },
+    async ({ query, bike: bikeQuery }) => {
+      let filterBikeId: string | undefined
+      if (bikeQuery) {
+        const bikeRes = await resolveBike(userId, bikeQuery, { required: false })
+        if (bikeRes.error) return { isError: true, content: [{ type: 'text', text: bikeRes.error }] }
+        filterBikeId = bikeRes.bike?.id
+      }
+
+      const allReminders = await listReminders(userId, filterBikeId)
+      const trimmed = query.trim()
+      let matched = allReminders.filter((r) => r.id === trimmed)
+      if (!matched.length) {
+        matched = allReminders.filter((r) => matches(trimmed, r.title))
+      }
+
+      if (matched.length === 0) {
+        return { isError: true, content: [{ type: 'text', text: `Reminder '${trimmed}' not found.` }] }
+      }
+      if (matched.length > 1) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Ambiguous reminder '${trimmed}'. Matches: ${matched.map((r) => `${r.title} (${r.bikeName ?? 'All bikes'})`).join(', ')}.` }],
+        }
+      }
+
+      const target = matched[0]!
+      try {
+        const updated = await markReminderDone(userId, target, { dueOn: target.dueOn })
+        const rolled = target.repeatYearly ? ` Rolled over to next year (due ${updated.dueOn}).` : ' Completed.'
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Reminder '${target.title}' marked as done.${rolled}`,
+            },
+          ],
+        }
+      } catch (err: unknown) {
+        const msg = (err as { statusMessage?: string; message?: string })?.statusMessage || (err as Error)?.message || 'Unknown error'
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed completing reminder: ${msg}` }],
+        }
+      }
+    },
+  )
+
+  // 21. delete_shelf_part (Write tool)
+  server.tool(
+    'delete_shelf_part',
+    'Remove a spare part completely from the garage shelf inventory.',
+    {
+      part: z.string().optional().describe('Part name or UUID to remove'),
+      partId: z.string().optional().describe('Legacy part UUID parameter'),
+    },
+    async ({ part: partQuery, partId }) => {
+      const partRes = await resolvePart(userId, partQuery ?? partId)
+      if (partRes.error || !partRes.part) {
+        return { isError: true, content: [{ type: 'text', text: partRes.error ?? 'Part not found.' }] }
+      }
+      const part = partRes.part
+
+      try {
+        await db.delete(parts).where(and(eq(parts.id, part.id), eq(parts.userId, userId)))
+        return {
+          content: [{ type: 'text', text: `Part '${part.name}' removed from shelf inventory.` }],
+        }
+      } catch (err: unknown) {
+        const msg = (err as { statusMessage?: string; message?: string })?.statusMessage || (err as Error)?.message || 'Unknown error'
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed deleting part: ${msg}` }],
+        }
       }
     },
   )
