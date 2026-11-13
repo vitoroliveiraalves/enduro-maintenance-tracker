@@ -4,6 +4,7 @@ import { bikes, itemNotes, maintenanceItems, meterReadings, partItems, parts, se
 import type { Bike, ConditionMultipliers, MaintenanceItem } from '../db/schema'
 import { computeStatus, pickLastDone, sortByUrgency } from '../domain/maintenance-status'
 import type { ItemDef, Reading } from '../domain/maintenance-status'
+import { templatesFor } from '../domain/templates'
 import type { BikeSummary, ItemRow } from '../domain/item-row'
 import { bad, day, int, MAX_YEAR, uuid } from './validate'
 import { countedDef, countsHours, countsKm, isBikeMeters, keepCounted } from '../../shared/utils/meters'
@@ -144,10 +145,11 @@ export function parseBikeInput(raw: unknown) {
   const vehicleType = raw.vehicleType === 'car' ? 'car' : 'motorcycle'
   const stroke = vehicleType === 'car' ? (raw.stroke === '2T' ? '2T' : '4T') : raw.stroke
   if (stroke !== '2T' && stroke !== '4T') throw bad('Invalid stroke')
-  if (!Array.isArray(raw.items) || raw.items.length > 80) throw bad('Invalid items')
   const defaultMeters: BikeMeters = vehicleType === 'car' ? 'km' : 'hours_km'
   if (raw.meters !== undefined && !isBikeMeters(raw.meters)) throw bad('Invalid meters')
   const meters: BikeMeters = raw.meters ?? defaultMeters
+  const rawItems = raw.items === undefined && raw.useTemplate === true ? templatesFor(stroke, meters, vehicleType) : raw.items
+  if (!Array.isArray(rawItems) || rawItems.length > 80) throw bad('Invalid items')
   const plate = typeof raw.plate === 'string' && raw.plate.trim() ? str(raw.plate, 'plate', 20).toUpperCase() : null
   const notes = typeof raw.notes === 'string' && raw.notes.trim() ? str(raw.notes, 'notes', 5000) : null
   const parsed = {
@@ -164,7 +166,7 @@ export function parseBikeInput(raw: unknown) {
     notes,
     hoursTenths: countsHours(meters) ? int(raw.hoursTenths, 'hoursTenths') : null,
     km: countsKm(meters) ? int(raw.km, 'km') : null,
-    items: raw.items.map((i) => cleanItem(i, meters)),
+    items: rawItems.map((i) => cleanItem(i, meters)),
   }
   for (const it of parsed.items) {
     if (it.lastDone) assertNotAboveMeters(it.name, it.lastDone, parsed)

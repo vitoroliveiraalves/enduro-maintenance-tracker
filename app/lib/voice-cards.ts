@@ -7,6 +7,7 @@ export type CardCtx = {
   bikes: Array<{ id: string; name: string; meters: BikeMeters; latestReading: { at: string; hoursTenths: number | null; km: number | null } | null }>
   parts: Array<{ id: string; name: string; unit: string; qtyHundredths: number }>
   categories: Array<{ id: string; name: string }>
+  reminders?: Array<{ id: string; title: string; dueOn: string; bikeName?: string | null; doneAt?: string | null }>
   today: string
 }
 type P = Record<string, unknown> & { kind: string }
@@ -45,6 +46,21 @@ export type Draft = {
   title: string
   dueOn: string
   repeatYearly: boolean
+  reminderId: string
+  reminderChoices: string[] | null
+  make: string
+  model: string
+  year: string
+  vehicleType: 'motorcycle' | 'car'
+  stroke: '2T' | '4T'
+  meters: BikeMeters
+  plate: string
+  premixRatio: string
+  everyHours: string
+  everyKm: string
+  everyMonths: string
+  body: string
+  specs: Array<{ label: string; value: string }>
 }
 
 const s = (v: unknown) => (typeof v === 'string' ? v : '')
@@ -63,10 +79,15 @@ function choice(p: P, key: string, all: string[]): [string, string[] | null] {
 
 export function draftFrom(p: P, ctx: CardCtx): Draft {
   const allBikes = ctx.bikes.map((b) => b.id)
-  const usesBike = ['reading', 'correct_total', 'service'].includes(p.kind)
+  const usesBike = ['reading', 'correct_total', 'service', 'add_maintenance_item', 'add_note'].includes(p.kind)
   const [bikeId, bikeChoices] = usesBike ? choice(p, 'bikeId', allBikes) : [s(p.bikeId), null]
-  const [partId, partChoices] = p.kind === 'use_part' ? choice(p, 'partId', ctx.parts.map((x) => x.id)) : [s(p.partId), null]
+  const [partId, partChoices] = ['use_part', 'delete_part'].includes(p.kind) ? choice(p, 'partId', ctx.parts.map((x) => x.id)) : [s(p.partId), null]
   const [categoryId, categoryChoices] = p.kind === 'expense' ? choice(p, 'categoryId', ctx.categories.map((x) => x.id)) : ['', null]
+  const pendingReminders = (ctx.reminders ?? []).filter((r) => !r.doneAt).map((x) => x.id)
+  const [reminderId, reminderChoices] = p.kind === 'complete_reminder' ? choice(p, 'reminderId', pendingReminders) : ['', null]
+  const vehicleType = p.vehicleType === 'car' ? 'car' : 'motorcycle'
+  const stroke = p.stroke === '2T' ? '2T' : p.stroke === '4T' ? '4T' : vehicleType === 'car' ? '4T' : '2T'
+  const meters: BikeMeters = p.meters === 'hours' || p.meters === 'km' || p.meters === 'hours_km' ? p.meters : vehicleType === 'car' ? 'km' : 'hours_km'
   const d: Draft = {
     key: crypto.randomUUID(),
     kind: p.kind,
@@ -82,8 +103,8 @@ export function draftFrom(p: P, ctx: CardCtx): Draft {
     partChoices,
     categoryId,
     categoryChoices,
-    hours: tenths(p.hoursTenths),
-    km: whole(p.km),
+    hours: tenths(p.hoursTenths) || (p.kind === 'add_vehicle' && countsHours(meters) ? '0' : ''),
+    km: whole(p.km) || (p.kind === 'add_vehicle' && countsKm(meters) ? '0' : ''),
     at: s(p.at) || ctx.today,
     by: p.by === 'garage' ? 'garage' : 'diy',
     garageName: s(p.garageName),
@@ -101,6 +122,23 @@ export function draftFrom(p: P, ctx: CardCtx): Draft {
     title: s(p.title),
     dueOn: s(p.dueOn),
     repeatYearly: p.repeatYearly === true,
+    reminderId,
+    reminderChoices,
+    make: s(p.make),
+    model: s(p.model),
+    year: whole(p.year) || String(new Date().getFullYear()),
+    vehicleType,
+    stroke,
+    meters,
+    plate: s(p.plate),
+    premixRatio: whole(p.premixRatio),
+    everyHours: tenths(p.everyHoursTenths),
+    everyKm: whole(p.everyKm),
+    everyMonths: whole(p.everyMonths),
+    body: s(p.body),
+    specs: (Array.isArray(p.specs) ? p.specs : [])
+      .filter((x): x is { label?: unknown; value?: unknown } => typeof x === 'object' && x !== null)
+      .map((x) => ({ label: s(x.label), value: s(x.value) })),
   }
   // A reading needs every meter the bike counts: the one not spoken starts at its last value.
   if ((p.kind === 'reading' || p.kind === 'correct_total') && bikeId) fillMeters(d, ctx)
@@ -114,9 +152,10 @@ export function fillMeters(d: Draft, ctx: CardCtx) {
   if (!d.km && last?.km != null) d.km = whole(last.km)
 }
 
-export const metersOf = (d: Draft, ctx: CardCtx): BikeMeters => ctx.bikes.find((b) => b.id === d.bikeId)?.meters ?? 'hours_km'
+export const metersOf = (d: Draft, ctx: CardCtx): BikeMeters =>
+  d.kind === 'add_vehicle' ? d.meters : (ctx.bikes.find((b) => b.id === d.bikeId)?.meters ?? 'hours_km')
 
-type Req = { url: string; body: Record<string, unknown>; method?: 'PATCH' } | { error: string }
+type Req = { url: string; body: Record<string, unknown>; method?: 'PATCH' | 'DELETE' } | { error: string }
 
 function num(text: string, scale: number, min = 0): number | null | undefined {
   if (!text.trim()) return null
@@ -199,6 +238,84 @@ export function requestFor(d: Draft, ctx: CardCtx): Req {
       if (!d.title.trim()) return { error: t.enterTitle }
       if (!d.dueOn) return { error: t.enterDate }
       return { url: '/api/reminders', body: { clientId: d.clientId, title: d.title.trim(), dueOn: d.dueOn, repeatYearly: d.repeatYearly, ...optBike } }
+    case 'add_vehicle': {
+      const make = d.make.trim()
+      const model = d.model.trim()
+      if (!make || !model) return { error: t.enterMakeModel }
+      const year = num(d.year, 1, 1950)
+      if (!year || !Number.isInteger(year) || year > 2100) return { error: t.checkYear }
+      const mm = meter()
+      if ('error' in mm) return mm
+      if ((countsHours(m) && mm.hoursTenths === undefined) || (countsKm(m) && mm.km === undefined)) return { error: t.enterMeters }
+      const premix = d.vehicleType !== 'car' && d.stroke === '2T' ? num(d.premixRatio, 1, 10) : null
+      return {
+        url: '/api/bikes',
+        body: {
+          clientId: d.clientId,
+          name: d.name.trim() || `${make} ${model}`,
+          make,
+          model,
+          year,
+          vehicleType: d.vehicleType,
+          stroke: d.stroke,
+          meters: d.meters,
+          ...mm,
+          ...(d.plate.trim() ? { plate: d.plate.trim().toUpperCase() } : {}),
+          ...(premix ? { premixRatio: Math.min(premix, 100) } : {}),
+          useTemplate: true,
+        },
+      }
+    }
+    case 'add_maintenance_item': {
+      if (!d.bikeId) return { error: t.chooseBike }
+      if (!d.name.trim()) return { error: t.enterItemName }
+      const eh = countsHours(m) ? num(d.everyHours, 10, 0.1) : null
+      const ek = countsKm(m) ? num(d.everyKm, 1, 1) : null
+      const em = num(d.everyMonths, 1, 1)
+      if (eh === undefined) return { error: t.checkHours }
+      if (ek === undefined) return { error: t.checkKm }
+      if (eh === null && ek === null && !em) return { error: t.needInterval }
+      return {
+        url: '/api/items',
+        body: {
+          clientId: d.clientId,
+          bikeId: d.bikeId,
+          name: d.name.trim(),
+          ...(eh ? { everyHoursTenths: eh } : {}),
+          ...(ek ? { everyKm: ek } : {}),
+          ...(em ? { everyMonths: em } : {}),
+        },
+      }
+    }
+    case 'add_note': {
+      if (!d.bikeId) return { error: t.chooseBike }
+      const itemId = d.itemIds[0]
+      if (!itemId) return { error: t.chooseItem }
+      if (!d.title.trim()) return { error: t.enterTitle }
+      const specs = d.specs
+        .map((x) => ({ label: x.label.trim(), value: x.value.trim() }))
+        .filter((x) => x.label && x.value)
+      return {
+        url: `/api/items/${itemId}/notes`,
+        body: {
+          clientId: d.clientId,
+          title: d.title.trim(),
+          ...(d.body.trim() ? { body: d.body.trim() } : {}),
+          ...(specs.length ? { specs } : {}),
+        },
+      }
+    }
+    case 'complete_reminder': {
+      if (!d.reminderId) return { error: t.chooseReminder }
+      const rem = ctx.reminders?.find((r) => r.id === d.reminderId)
+      return {
+        url: `/api/reminders/${d.reminderId}/done`,
+        body: rem?.dueOn ? { dueOn: rem.dueOn } : {},
+      }
+    }
+    case 'delete_part':
+      if (!d.partId) return { error: t.choosePart }
+      return { url: `/api/parts/${d.partId}`, method: 'DELETE', body: {} }
     default:
       return { error: t.unknown }
   }

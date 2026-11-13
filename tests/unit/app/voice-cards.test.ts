@@ -8,6 +8,7 @@ const B2 = '22222222-2222-4222-8222-222222222222'
 const I1 = '33333333-3333-4333-8333-333333333333'
 const P1 = '44444444-4444-4444-8444-444444444444'
 const C1 = '55555555-5555-4555-8555-555555555555'
+const R1 = '66666666-6666-4666-8666-666666666666'
 const ctx: CardCtx = {
   bikes: [
     { id: B1, name: 'KTM', meters: 'hours_km', latestReading: { at: '2026-11-01T00:00:00Z', hoursTenths: 1420, km: 3800 } },
@@ -15,6 +16,7 @@ const ctx: CardCtx = {
   ],
   parts: [{ id: P1, name: 'Junta escape', unit: 'pcs', qtyHundredths: 200 }],
   categories: [{ id: C1, name: 'Fuel' }],
+  reminders: [{ id: R1, title: 'IUC', dueOn: '2026-05-01' }],
   today: '2026-11-09',
 }
 
@@ -66,6 +68,39 @@ describe('voice cards', () => {
     expect(requestFor(draftFrom({ kind: 'shopping', text: 'Grips' }, ctx), ctx)).toMatchObject({ url: '/api/shopping', body: { text: 'Grips' } })
     expect(requestFor(draftFrom({ kind: 'reminder', title: 'Insurance', dueOn: '2026-12-01', repeatYearly: true }, ctx), ctx))
       .toMatchObject({ url: '/api/reminders', body: { title: 'Insurance', dueOn: '2026-12-01', repeatYearly: true } })
+  })
+
+  it('add_vehicle, add_maintenance_item, add_note, complete_reminder and delete_part map onto their routes', () => {
+    const v = draftFrom({ kind: 'add_vehicle', make: 'Beta', model: '300 RR', year: 2024, vehicleType: 'motorcycle', stroke: '2T', meters: 'hours_km', hoursTenths: 150, km: 400, plate: '12-AB-34' }, ctx)
+    expect(requestFor(v, ctx)).toEqual({
+      url: '/api/bikes',
+      body: { clientId: v.clientId, name: 'Beta 300 RR', make: 'Beta', model: '300 RR', year: 2024, vehicleType: 'motorcycle', stroke: '2T', meters: 'hours_km', hoursTenths: 150, km: 400, plate: '12-AB-34', useTemplate: true },
+    })
+
+    const m = draftFrom({ kind: 'add_maintenance_item', bikeId: B1, name: 'Fork oil', everyHoursTenths: 400, everyMonths: 12 }, ctx)
+    expect(requestFor(m, ctx)).toEqual({
+      url: '/api/items',
+      body: { clientId: m.clientId, bikeId: B1, name: 'Fork oil', everyHoursTenths: 400, everyMonths: 12 },
+    })
+
+    const n = draftFrom({ kind: 'add_note', bikeId: B1, itemIds: [I1], title: 'Specs', body: 'Bottom drain', specs: [{ label: 'Torque', value: '20 Nm' }] }, ctx)
+    expect(requestFor(n, ctx)).toEqual({
+      url: `/api/items/${I1}/notes`,
+      body: { clientId: n.clientId, title: 'Specs', body: 'Bottom drain', specs: [{ label: 'Torque', value: '20 Nm' }] },
+    })
+
+    const cr = draftFrom({ kind: 'complete_reminder', reminderId: R1 }, ctx)
+    expect(requestFor(cr, ctx)).toEqual({
+      url: `/api/reminders/${R1}/done`,
+      body: { dueOn: '2026-05-01' },
+    })
+
+    const dp = draftFrom({ kind: 'delete_part', partId: P1 }, ctx)
+    expect(requestFor(dp, ctx)).toEqual({
+      url: `/api/parts/${P1}`,
+      method: 'DELETE',
+      body: {},
+    })
   })
 })
 

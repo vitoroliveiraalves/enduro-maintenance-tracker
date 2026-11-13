@@ -4,6 +4,7 @@ import { user } from '../../../server/db/schema'
 import { createBike, itemRows } from '../../../server/utils/bikes'
 import { createCategory } from '../../../server/utils/categories'
 import { createPart } from '../../../server/utils/parts'
+import { createReminder, markReminderDone } from '../../../server/utils/reminders'
 import { validateProposals } from '../../../server/utils/voice-proposals'
 import { truncateUsers } from '../../support/truncate'
 
@@ -85,5 +86,37 @@ describe('validateProposals', () => {
       { kind: 'add_part', name: 'Air filter', unit: 'pcs', qtyHundredths: 200 },
     ])
     expect(r.notes).toHaveLength(3)
+  })
+
+  it('validates add_vehicle, add_maintenance_item, add_note, complete_reminder and delete_part', async () => {
+    const mine = await bike(uid)
+    const item = (await itemRows(mine.id, uid))[0]!
+    const part = await createPart(db, uid, { clientId: crypto.randomUUID(), name: 'Filter', startClientId: crypto.randomUUID() })
+    const theirPart = await createPart(db, other, { clientId: crypto.randomUUID(), name: 'Other Filter', startClientId: crypto.randomUUID() })
+    const pendingRem = await createReminder(uid, mine, { clientId: crypto.randomUUID(), title: 'IUC', dueOn: '2026-05-01', bikeId: mine.id })
+    const doneRem = await createReminder(uid, mine, { clientId: crypto.randomUUID(), title: 'Old', dueOn: '2026-01-01', bikeId: mine.id })
+    await markReminderDone(uid, { id: doneRem.id } as never, { dueOn: '2026-01-01' })
+
+    const r = await validateProposals(uid, [
+      { kind: 'add_vehicle', make: 'Beta', model: '300 RR', year: 2024, vehicleType: 'motorcycle', stroke: '2T', meters: 'hours_km', hoursTenths: 150, km: 400, plate: '12-ab-34' },
+      { kind: 'add_maintenance_item', bikeId: mine.id, name: 'Fork oil', everyHoursTenths: 400, everyMonths: 12 },
+      { kind: 'add_maintenance_item', bikeId: mine.id, name: 'No interval' },
+      { kind: 'add_note', bikeId: mine.id, itemIds: [item.id], title: 'Torque specs', body: 'Bottom bolt', specs: [{ label: 'Bolt', value: '20 Nm' }] },
+      { kind: 'complete_reminder', reminderId: pendingRem.id },
+      { kind: 'complete_reminder', reminderId: doneRem.id },
+      { kind: 'delete_part', partId: part.id },
+      { kind: 'delete_part', partId: theirPart.id },
+    ])
+
+    expect(r.notes).toHaveLength(1) // "No interval" rejected
+    expect(r.proposals).toEqual([
+      { kind: 'add_vehicle', name: 'Beta 300 RR', make: 'Beta', model: '300 RR', year: 2024, vehicleType: 'motorcycle', stroke: '2T', meters: 'hours_km', hoursTenths: 150, km: 400, plate: '12-AB-34' },
+      { kind: 'add_maintenance_item', bikeId: mine.id, name: 'Fork oil', everyHoursTenths: 400, everyMonths: 12 },
+      { kind: 'add_note', bikeId: mine.id, itemIds: [item.id], title: 'Torque specs', body: 'Bottom bolt', specs: [{ label: 'Bolt', value: '20 Nm' }] },
+      { kind: 'complete_reminder', reminderId: pendingRem.id },
+      { kind: 'complete_reminder', candidates: [] },
+      { kind: 'delete_part', partId: part.id },
+      { kind: 'delete_part', candidates: [] },
+    ])
   })
 })

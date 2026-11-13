@@ -1,10 +1,10 @@
-import { countsHours, countsKm, type BikeMeters } from '../../shared/utils/meters'
+import { countsHours, countsKm, isBikeMeters, type BikeMeters } from '../../shared/utils/meters'
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
-import { bikes, categories, maintenanceItems, parts } from '../db/schema'
+import { bikes, categories, maintenanceItems, parts, reminders } from '../db/schema'
 import { isObj, str, type Obj } from './bikes'
 import { amountCents, description } from './expenses'
-import { bad, day, int, isUuid } from './validate'
+import { bad, day, int, isUuid, MAX_YEAR } from './validate'
 
 /** Either one id or, when the model was unsure, owned candidate ids (empty → the card offers every option). */
 type Pick1<K extends string> = { [P in K]: string } | { candidates: string[] }
@@ -26,6 +26,24 @@ export type Proposal =
   | { kind: 'shopping'; text: string; bikeId?: string; partId?: string }
   | ({ kind: 'expense'; amountCents: number; at: string; description: string; bikeId?: string } & Pick1<'categoryId'>)
   | { kind: 'reminder'; title: string; dueOn: string; repeatYearly: boolean; bikeId?: string }
+  | {
+      kind: 'add_vehicle'
+      name: string
+      make: string
+      model: string
+      year: number
+      vehicleType: 'motorcycle' | 'car'
+      stroke: '2T' | '4T'
+      meters: BikeMeters
+      hoursTenths?: number
+      km?: number
+      plate?: string
+      premixRatio?: number
+    }
+  | ({ kind: 'add_maintenance_item'; name: string; everyHoursTenths?: number; everyKm?: number; everyMonths?: number } & Pick1<'bikeId'>)
+  | ({ kind: 'add_note'; title: string; body?: string; specs?: Array<{ label: string; value: string }> } & Pick1<'bikeId'> & ({ itemIds: string[] } | { itemCandidates: string[] }))
+  | ({ kind: 'complete_reminder' } & Pick1<'reminderId'>)
+  | ({ kind: 'delete_part' } & Pick1<'partId'>)
 
 export const MAX_PROPOSALS = 10
 const QTY_MAX = 10_000_000
@@ -35,21 +53,24 @@ type Owned = {
   items: Map<string, string> // itemId → bikeId
   parts: Set<string>
   categories: Set<string>
+  reminders: Set<string>
 }
 
 async function ownedSets(userId: string): Promise<Owned> {
-  const [b, i, p, c] = await Promise.all([
+  const [b, i, p, c, r] = await Promise.all([
     db.select({ id: bikes.id, meters: bikes.meters }).from(bikes).where(and(eq(bikes.userId, userId), isNull(bikes.archivedAt))),
     db.select({ id: maintenanceItems.id, bikeId: maintenanceItems.bikeId }).from(maintenanceItems)
       .where(and(eq(maintenanceItems.userId, userId), isNull(maintenanceItems.archivedAt))),
     db.select({ id: parts.id }).from(parts).where(eq(parts.userId, userId)),
     db.select({ id: categories.id }).from(categories).where(eq(categories.userId, userId)),
+    db.select({ id: reminders.id }).from(reminders).where(and(eq(reminders.userId, userId), isNull(reminders.doneAt))),
   ])
   return {
     bikes: new Map(b.map((x) => [x.id, x.meters])),
     items: new Map(i.map((x) => [x.id, x.bikeId])),
     parts: new Set(p.map((x) => x.id)),
     categories: new Set(c.map((x) => x.id)),
+    reminders: new Set(r.map((x) => x.id)),
   }
 }
 
@@ -132,6 +153,75 @@ function one(o: Obj, own: Owned): Proposal {
     case 'reminder':
       if (o.repeatYearly !== undefined && typeof o.repeatYearly !== 'boolean') throw bad('Invalid repeatYearly')
       return { kind: 'reminder', title: str(o.title, 'title'), dueOn: day(o.dueOn, 'dueOn'), repeatYearly: o.repeatYearly === true, ...optId(o, 'bikeId', ownsBike) }
+    case 'add_vehicle': {
+      const make = str(o.make, 'make', 80)
+      const model = str(o.model, 'model', 80)
+      const name = o.name == null || o.name === '' ? `${make} ${model}`.slice(0, 80) : str(o.name, 'name', 80)
+      const year = o.year == null ? new Date().getFullYear() : int(o.year, 'year', 1950, MAX_YEAR)
+      const vehicleType = o.vehicleType === 'car' ? 'car' : 'motorcycle'
+      const stroke = o.stroke === '2T' ? '2T' : o.stroke === '4T' ? '4T' : vehicleType === 'car' ? '4T' : '2T'
+      const defaultMeters: BikeMeters = vehicleType === 'car' ? 'km' : 'hours_km'
+      const metersVal = isBikeMeters(o.meters) ? o.meters : defaultMeters
+      const m = meters(o, metersVal)
+      const plate = typeof o.plate === 'string' && o.plate.trim() ? str(o.plate, 'plate', 20).toUpperCase() : undefined
+      const premixRatio = vehicleType !== 'car' && stroke === '2T' && o.premixRatio != null ? int(o.premixRatio, 'premixRatio', 10, 100) : undefined
+      return {
+        kind: 'add_vehicle',
+        name,
+        make,
+        model,
+        year,
+        vehicleType,
+        stroke,
+        meters: metersVal,
+        ...m,
+        ...(plate ? { plate } : {}),
+        ...(premixRatio !== undefined ? { premixRatio } : {}),
+      }
+    }
+    case 'add_maintenance_item': {
+      const b = pick(o, 'bikeId', ownsBike)
+      const bikeId = 'bikeId' in b ? b.bikeId : null
+      const m = bikeId ? own.bikes.get(bikeId) : undefined
+      const everyHoursTenths = o.everyHoursTenths != null && (!m || countsHours(m)) ? int(o.everyHoursTenths, 'everyHoursTenths', 1) : undefined
+      const everyKm = o.everyKm != null && (!m || countsKm(m)) ? int(o.everyKm, 'everyKm', 1) : undefined
+      const everyMonths = o.everyMonths != null ? int(o.everyMonths, 'everyMonths', 1) : undefined
+      if (everyHoursTenths === undefined && everyKm === undefined && everyMonths === undefined) throw bad('An item needs at least one interval')
+      return {
+        kind: 'add_maintenance_item',
+        ...b,
+        name: str(o.name, 'name', 80),
+        ...(everyHoursTenths !== undefined ? { everyHoursTenths } : {}),
+        ...(everyKm !== undefined ? { everyKm } : {}),
+        ...(everyMonths !== undefined ? { everyMonths } : {}),
+      }
+    }
+    case 'add_note': {
+      const b = pick(o, 'bikeId', ownsBike)
+      const bikeId = 'bikeId' in b ? b.bikeId : null
+      const ownsItem = (id: string) => own.items.has(id) && (!bikeId || own.items.get(id) === bikeId)
+      const itemIds = ids(o.itemIds).filter(ownsItem).slice(0, 1)
+      const items = itemIds.length ? { itemIds } : { itemCandidates: ids(o.itemCandidates).filter(ownsItem) }
+      let specs: Array<{ label: string; value: string }> | undefined
+      if (Array.isArray(o.specs)) {
+        specs = o.specs
+          .filter((s): s is Obj => isObj(s) && typeof s.label === 'string' && typeof s.value === 'string' && !!s.label.trim() && !!s.value.trim())
+          .slice(0, 20)
+          .map((s) => ({ label: str(s.label, 'spec label', 40), value: str(s.value, 'spec value', 80) }))
+      }
+      return {
+        kind: 'add_note',
+        ...b,
+        ...items,
+        title: str(o.title, 'title', 120),
+        ...optStr(o.body, 'body', 2000),
+        ...(specs?.length ? { specs } : {}),
+      }
+    }
+    case 'complete_reminder':
+      return { kind: 'complete_reminder', ...pick(o, 'reminderId', (id) => own.reminders.has(id)) }
+    case 'delete_part':
+      return { kind: 'delete_part', ...pick(o, 'partId', ownsPart) }
     default:
       throw bad('unknown kind')
   }

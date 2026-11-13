@@ -53,12 +53,13 @@ watch(result, async (r) => {
   if (!r.proposals.length) return void (cards.value = keep)
   ctxError.value = ''
   try {
-    const [bikes, parts, categories] = await Promise.all([
+    const [bikes, parts, categories, reminders] = await Promise.all([
       get<CardCtx['bikes']>('/api/bikes'),
       get<CardCtx['parts']>('/api/parts').catch(() => []),
       get<CardCtx['categories']>('/api/categories').catch(() => []),
+      get<CardCtx['reminders']>('/api/reminders').catch(() => []),
     ])
-    ctx.value = { bikes, parts, categories, today: localToday() }
+    ctx.value = { bikes, parts, categories, reminders, today: localToday() }
   } catch (e) {
     ctxError.value = errorMessage(e, t.value.voiceSheet.loadBikesFailed)
   }

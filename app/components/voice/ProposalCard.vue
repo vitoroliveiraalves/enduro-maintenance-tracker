@@ -10,6 +10,10 @@ defineEmits<{ remove: [] }>()
 const m = computed(() => metersOf(d.value, props.ctx))
 const bikeName = (id: string) => props.ctx.bikes.find((b) => b.id === id)?.name ?? t.value.card.unknownBike
 const partName = (id: string) => props.ctx.parts.find((p) => p.id === id)?.name ?? t.value.card.unknownPart
+const reminderLabel = (id: string) => {
+  const r = props.ctx.reminders?.find((x) => x.id === id)
+  return r ? `${r.title}${r.dueOn ? ` (${r.dueOn})` : ''}` : t.value.card.unknown
+}
 const catName = (id: string) => {
   const name = props.ctx.categories.find((c) => c.id === id)?.name
   return name ? categoryLabel(name) : t.value.card.unknown
@@ -49,7 +53,7 @@ const label = 'block text-xs text-muted'
           <option v-for="id in d.bikeChoices" :key="id" :value="id">{{ bikeName(id) }}</option>
         </select>
       </label>
-      <p v-else-if="d.bikeId && ['reading', 'correct_total', 'service'].includes(d.kind)" class="text-xs text-muted">{{ bikeName(d.bikeId) }}</p>
+      <p v-else-if="d.bikeId && ['reading', 'correct_total', 'service', 'add_maintenance_item', 'add_note'].includes(d.kind)" class="text-xs text-muted">{{ bikeName(d.bikeId) }}</p>
 
       <template v-if="d.kind === 'service'">
         <div v-if="d.bikeId">
@@ -122,6 +126,92 @@ const label = 'block text-xs text-muted'
         <label :class="label">{{ t.card.title }}<input v-model="d.title" :class="field" data-testid="card-title"></label>
         <label :class="label">{{ t.card.due }}<input v-model="d.dueOn" type="date" :class="field"></label>
         <label class="flex min-h-11 items-center gap-2.5 text-sm text-white"><input v-model="d.repeatYearly" type="checkbox" class="size-5 accent-accent">{{ t.card.everyYear }}</label>
+      </template>
+
+      <template v-if="d.kind === 'add_vehicle'">
+        <div class="flex gap-2">
+          <button
+            v-for="vt in (['motorcycle', 'car'] as const)"
+            :key="vt"
+            type="button"
+            class="min-h-11 flex-1 rounded-lg border text-sm"
+            :class="d.vehicleType === vt ? 'border-accent text-accent-text' : 'border-white/10 text-muted'"
+            @click="d.vehicleType = vt; if (vt === 'car') { d.meters = 'km'; d.stroke = '4T' } else { d.meters = 'hours_km' }"
+          >
+            {{ vt === 'motorcycle' ? t.card.motorcycle : t.card.car }}
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <label :class="label">{{ t.card.make }}<input v-model="d.make" :class="field" data-testid="card-make"></label>
+          <label :class="label">{{ t.card.model }}<input v-model="d.model" :class="field" data-testid="card-model"></label>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <label :class="label">{{ t.card.year }}<input v-model="d.year" inputmode="numeric" :class="field" data-testid="card-year"></label>
+          <label :class="label">{{ t.card.plate }}<input v-model="d.plate" :class="field"></label>
+        </div>
+        <div v-if="d.vehicleType === 'motorcycle'" class="flex gap-2">
+          <button
+            v-for="st in (['2T', '4T'] as const)"
+            :key="st"
+            type="button"
+            class="min-h-11 flex-1 rounded-lg border text-sm"
+            :class="d.stroke === st ? 'border-accent text-accent-text' : 'border-white/10 text-muted'"
+            @click="d.stroke = st"
+          >
+            {{ st }}
+          </button>
+        </div>
+        <div class="grid gap-2" :class="countsHours(m) && countsKm(m) ? 'grid-cols-2' : 'grid-cols-1'">
+          <label v-if="countsHours(m)" :class="label">{{ t.common.hours }}<input v-model="d.hours" inputmode="decimal" :class="field" data-testid="card-hours"></label>
+          <label v-if="countsKm(m)" :class="label">{{ t.common.km }}<input v-model="d.km" inputmode="numeric" :class="field" data-testid="card-km"></label>
+        </div>
+      </template>
+
+      <template v-if="d.kind === 'add_maintenance_item'">
+        <label :class="label">{{ t.card.item }}<input v-model="d.name" :class="field" data-testid="card-name"></label>
+        <div class="grid grid-cols-2 gap-2">
+          <label v-if="countsHours(m)" :class="label">{{ t.card.everyHours }}<input v-model="d.everyHours" inputmode="decimal" :class="field" data-testid="card-every-hours"></label>
+          <label v-if="countsKm(m)" :class="label">{{ t.card.everyKm }}<input v-model="d.everyKm" inputmode="numeric" :class="field" data-testid="card-every-km"></label>
+          <label :class="label">{{ t.card.everyMonths }}<input v-model="d.everyMonths" inputmode="numeric" :class="field" data-testid="card-every-months"></label>
+        </div>
+      </template>
+
+      <template v-if="d.kind === 'add_note'">
+        <label v-if="d.bikeId" :class="label">{{ t.card.item }}
+          <select :value="d.itemIds[0] ?? ''" :class="field" data-testid="card-item" @change="d.itemIds = ($event.target as HTMLSelectElement).value ? [($event.target as HTMLSelectElement).value] : []">
+            <option value="" disabled>{{ t.card.chooseItem }}</option>
+            <option v-for="i in bikeItems" :key="i.id" :value="i.id">{{ i.name }}</option>
+          </select>
+        </label>
+        <label :class="label">{{ t.card.title }}<input v-model="d.title" :class="field" data-testid="card-title"></label>
+        <label :class="label">{{ t.card.body }}<textarea v-model="d.body" rows="2" :class="field" data-testid="card-body" /></label>
+        <ul v-if="d.specs.length" class="space-y-1.5">
+          <li v-for="(sp, idx) in d.specs" :key="idx" class="grid grid-cols-2 gap-2">
+            <input v-model="sp.label" :class="field" :aria-label="t.card.specs">
+            <input v-model="sp.value" :class="field" :aria-label="t.card.specs">
+          </li>
+        </ul>
+      </template>
+
+      <template v-if="d.kind === 'complete_reminder'">
+        <label v-if="d.reminderChoices" :class="label">{{ t.card.reminder }}
+          <select v-model="d.reminderId" :class="field" data-testid="card-reminder">
+            <option value="" disabled>{{ t.card.chooseReminder }}</option>
+            <option v-for="id in d.reminderChoices" :key="id" :value="id">{{ reminderLabel(id) }}</option>
+          </select>
+        </label>
+        <p v-else class="text-sm text-white">{{ reminderLabel(d.reminderId) }}</p>
+      </template>
+
+      <template v-if="d.kind === 'delete_part'">
+        <label v-if="d.partChoices" :class="label">{{ t.card.part }}
+          <select v-model="d.partId" :class="field" data-testid="card-part">
+            <option value="" disabled>{{ t.card.choosePart }}</option>
+            <option v-for="id in d.partChoices" :key="id" :value="id">{{ partName(id) }}</option>
+          </select>
+        </label>
+        <p v-else class="text-sm text-white">{{ partName(d.partId) }}</p>
+        <p class="text-xs text-muted">{{ t.card.deletePartConfirm }}</p>
       </template>
 
       <label v-if="['add_part', 'shopping', 'expense', 'reminder'].includes(d.kind)" :class="label">{{ t.card.bike }}
