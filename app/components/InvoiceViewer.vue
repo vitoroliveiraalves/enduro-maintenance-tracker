@@ -68,16 +68,11 @@ function up(e: PointerEvent) {
         data-testid="viewer-image"
       >
     </div>
-    <a
+    <PdfDocViewer
       v-else-if="page"
-      :href="src(page.page)"
-      target="_blank"
-      rel="noopener"
-      class="flex h-40 items-center justify-center rounded-xl bg-black/40 font-semibold text-accent-text"
-      data-testid="viewer-pdf"
-    >
-      {{ t.viewer.openPdf }}
-    </a>
+      :src="src(page.page)"
+      external-test-id="viewer-pdf"
+    />
     <div class="mt-2 flex items-center gap-1.5">
       <button
         v-for="p in pages"

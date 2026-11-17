@@ -4,6 +4,7 @@ import { dueChips, type DueChip } from '~/lib/reminders'
 import { rideToast } from '~/lib/save-toast'
 import { errorMessage } from '~/offline/outbox'
 import type { ItemRowJson } from '../../../../server/domain/item-row'
+import type { BikeManualEntry } from '~/components/ManualsSheet.vue'
 const { t } = useI18n()
 
 export type Detail = {
@@ -30,6 +31,7 @@ export type Detail = {
     body: string
     specs: Array<{ label: string; value: string }>
   }>
+  manuals?: BikeManualEntry[]
 }
 
 type VehicleReminder = {
@@ -54,6 +56,7 @@ const sheetOpen = ref(false)
 const premixOpen = ref(false)
 const reminderOpen = ref(false)
 const specsOpen = ref(false)
+const manualsOpen = ref(false)
 const reminderToEdit = ref<VehicleReminder | null>(null)
 const bikeReminders = ref<VehicleReminder[]>([])
 const chips = ref<DueChip[]>([])
@@ -87,6 +90,7 @@ const allSpecs = computed(() => {
   return list
 })
 const allSpecsCount = computed(() => allSpecs.value.length)
+const manualsCount = computed(() => data.value?.manuals?.length ?? 0)
 
 function loadReminders() {
   // Reminders for this bike (or all bikes) due in 30 days or less; never blocks the screen.
@@ -296,6 +300,15 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           <Icon name="wrench" :size="13" />
           <span>{{ t.bike.specs }}<span v-if="allSpecsCount"> ({{ allSpecsCount }})</span></span>
         </button>
+        <button
+          type="button"
+          class="min-h-8 shrink-0 whitespace-nowrap rounded-full border border-track bg-surface px-3 py-1 text-xs font-semibold text-text font-tag transition hover:border-accent flex items-center gap-1.5"
+          data-testid="manuals-chip"
+          @click="manualsOpen = true"
+        >
+          <Icon name="book" :size="13" />
+          <span>{{ t.bike.manuals }}<span v-if="manualsCount"> ({{ manualsCount }})</span></span>
+        </button>
       </div>
 
       <!-- Asymmetrical 2-Column Workstation Grid on desktop -->
@@ -479,6 +492,13 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         :bike-name="data.bike.name"
         :specs="data.specs ?? []"
         :items="data.items"
+      />
+      <ManualsSheet
+        v-if="data"
+        v-model:open="manualsOpen"
+        :bike-id="data.bike.id"
+        :manuals="data.manuals ?? []"
+        @updated="(list) => { if (data) data.manuals = list }"
       />
       <PreRideSheet
         v-if="data"

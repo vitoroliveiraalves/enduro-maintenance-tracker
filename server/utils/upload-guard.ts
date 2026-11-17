@@ -3,6 +3,9 @@ import { createError } from 'h3'
 export const MAX_FILE_BYTES = 10 * 1024 * 1024
 /** Whole request: one 10 MB PDF, or 5 downscaled photos, plus form overhead. */
 export const MAX_REQUEST_BYTES = 12 * 1024 * 1024
+export const MAX_MANUAL_BYTES = 50 * 1024 * 1024
+/** Whole request: one 50 MB PDF manual, plus form overhead. */
+export const MAX_MANUAL_REQUEST_BYTES = 52 * 1024 * 1024
 export const MAX_PHOTOS = 5
 /** files + qrRaw + slack */
 export const MAX_PARTS = MAX_PHOTOS + 3
@@ -20,10 +23,14 @@ export function magicOk(mime: string, data: Uint8Array): boolean {
 const bad = (statusCode: number, statusMessage: string) => createError({ statusCode, statusMessage })
 
 /** Refuse oversized or length-less bodies before buffering them. */
-export function assertContentLength(header: string | undefined) {
+export function assertContentLength(
+  header: string | undefined,
+  maxBytes = MAX_REQUEST_BYTES,
+  message = 'Files too large (10 MB max per invoice)',
+) {
   const length = Number(header)
   if (!header || !Number.isFinite(length) || length <= 0) throw bad(411, 'Content-Length required')
-  if (length > MAX_REQUEST_BYTES) throw bad(413, 'Files too large (10 MB max per invoice)')
+  if (length > maxBytes) throw bad(413, message)
 }
 
 export function validateUploadFiles(files: Array<{ type?: string; data: Uint8Array }>) {

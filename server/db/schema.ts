@@ -174,6 +174,29 @@ export const bikes = pgTable(
   (t) => [unique('bikes_user_client_uq').on(t.userId, t.clientId), index('bikes_user_idx').on(t.userId)],
 )
 
+export const bikeManuals = pgTable(
+  'bike_manuals',
+  {
+    id: id(),
+    bikeId: uuid('bike_id')
+      .notNull()
+      .references(() => bikes.id, { onDelete: 'cascade' }),
+    userId: userRef(),
+    clientId: clientId(),
+    kind: text('kind', { enum: ['shop', 'user'] }).notNull(),
+    title: text('title').notNull(),
+    fileName: text('file_name').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    bytes: bytea('bytes').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('bike_manuals_user_client_uq').on(t.userId, t.clientId),
+    index('bike_manuals_bike_idx').on(t.bikeId),
+  ],
+)
+
 export const meterReadings = pgTable(
   'meter_readings',
   {
@@ -531,6 +554,7 @@ export type PartMovement = typeof partMovements.$inferSelect
 export type ShoppingEntry = typeof shoppingEntries.$inferSelect
 
 export type Bike = typeof bikes.$inferSelect
+export type BikeManual = typeof bikeManuals.$inferSelect
 export type MaintenanceItem = typeof maintenanceItems.$inferSelect
 export type Document = typeof documents.$inferSelect
 export type Expense = typeof expenses.$inferSelect

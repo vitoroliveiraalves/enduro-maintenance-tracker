@@ -9,6 +9,7 @@ import type { BikeSummary, ItemRow } from '../domain/item-row'
 import { bad, day, int, MAX_YEAR, uuid } from './validate'
 import { countedDef, countsHours, countsKm, isBikeMeters, keepCounted } from '../../shared/utils/meters'
 import type { BikeMeters } from '../../shared/utils/meters'
+import { listManuals } from './manuals'
 
 export type ItemInput = {
   name: string
@@ -339,12 +340,13 @@ export async function bikeSpecs(bikeId: string, userId: string): Promise<BikeSpe
 }
 
 export async function bikeDetail(bike: Bike) {
-  const [rd, rows, specsList] = await Promise.all([
+  const [rd, rows, specsList, manualsList] = await Promise.all([
     latestReading(bike.id, bike.userId),
     itemRows(bike.id, bike.userId),
     bikeSpecs(bike.id, bike.userId),
+    listManuals(bike),
   ])
-  return { bike, latestReading: rd, items: rows, specs: specsList }
+  return { bike, latestReading: rd, items: rows, specs: specsList, manuals: manualsList }
 }
 
 export async function listBikes(userId: string): Promise<BikeSummary[]> {

@@ -64,6 +64,10 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
     cases.push(
       ['get', `/api/bikes/${id}`, null, 404],
       ['patch', `/api/bikes/${id}`, { name: 'x' }, 404],
+      ['get', `/api/bikes/${id}/manuals`, null, 404],
+      ['get', `/api/bikes/${bike.id}/manuals/${id}/file`, null, 404],
+      ['patch', `/api/bikes/${bike.id}/manuals/${id}`, { title: 'x' }, 404],
+      ['delete', `/api/bikes/${bike.id}/manuals/${id}`, null, 404],
       ['get', `/api/readings/${id}`, null, 404],
       ['delete', `/api/bikes/${id}/latest-reading`, { readingId: uuid() }, 404],
       ['patch', `/api/bikes/${id}/latest-reading`, { hoursTenths: 10, km: 10 }, 404],

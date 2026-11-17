@@ -39,6 +39,7 @@ const metersError = ref('')
 // Sheets
 const correctOpen = ref(false)
 const premixOpen = ref(false)
+const manualsOpen = ref(false)
 const askRemove = ref(false)
 const removeBusy = ref(false)
 
@@ -393,6 +394,23 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </div>
       </section>
 
+      <!-- Manuals -->
+      <h2 :class="h2">{{ t.manuals.title }}</h2>
+      <section class="rounded-xl bg-surface p-3.5 border border-track flex items-center justify-between" data-testid="manuals-settings-card">
+        <div>
+          <span class="text-sm font-semibold text-white block">{{ t.manuals.count(data.manuals?.length ?? 0) }}</span>
+          <span class="text-xs text-muted">{{ t.manuals.subtitle }}</span>
+        </div>
+        <button
+          type="button"
+          class="rounded-lg bg-bg px-3 py-2 text-xs font-semibold text-accent-text border border-white/10 hover:border-accent"
+          data-testid="open-manuals-sheet"
+          @click="manualsOpen = true"
+        >
+          {{ t.manuals.manage }}
+        </button>
+      </section>
+
       <!-- Danger zone: remove vehicle -->
       <h2 :class="h2">{{ t.bike.dangerZone }}</h2>
       <section class="rounded-xl border border-danger/30 bg-surface p-3.5" data-testid="danger-section">
@@ -459,6 +477,12 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         :bike-id="id"
         :bike-name="data.bike.name"
         :vehicle-type="data.bike.vehicleType"
+      />
+      <ManualsSheet
+        v-model:open="manualsOpen"
+        :bike-id="id"
+        :manuals="data.manuals ?? []"
+        @updated="(list) => { if (data) data.manuals = list }"
       />
     </template>
 
