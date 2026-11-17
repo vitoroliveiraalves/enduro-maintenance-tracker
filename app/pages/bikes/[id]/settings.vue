@@ -482,7 +482,9 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         v-model:open="manualsOpen"
         :bike-id="id"
         :manuals="data.manuals ?? []"
+        :items="data.items"
         @updated="(list) => { if (data) data.manuals = list }"
+        @spec-saved="load"
       />
     </template>
 

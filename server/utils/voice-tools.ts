@@ -99,7 +99,9 @@ const handlers: Record<string, (userId: string, a: Args, now: Date) => Promise<u
         at: s.atUnknown ? null : String(s.at).slice(0, 10),
         ...(s.hoursTenths !== null ? { hoursTenths: s.hoursTenths } : {}),
         ...(s.km !== null ? { km: s.km } : {}),
-        by: s.by, garageName: s.garageName, partsUsed: s.partsUsed, totalCents: s.costCents,
+        by: s.by, garageName: s.garageName,
+        ...(s.topUp ? { topUp: true, ...(s.topUpMl !== null ? { topUpMl: s.topUpMl } : {}) } : {}),
+        partsUsed: s.partsUsed, totalCents: s.costCents,
       }))
     } catch (e) {
       if (isNotFound(e)) return NOT_FOUND

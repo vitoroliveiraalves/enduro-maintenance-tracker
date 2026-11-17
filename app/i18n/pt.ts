@@ -639,6 +639,13 @@ export const pt: Messages = {
     pageShort: (n) => `pág. ${n}`,
     loadingPdf: 'A carregar PDF…',
     backToList: '← Todos os manuais',
+    pinSpec: '+ Espec.',
+    pinSpecTitle: 'Guardar nas especificações',
+    pinSpecItem: 'Item de manutenção',
+    pinSpecLabel: 'Nome da especificação',
+    pinSpecValue: 'Valor',
+    pinSpecSave: 'Guardar especificação',
+    specSaved: 'Guardado nas especificações',
   },
 
   voiceSheet: {
@@ -902,6 +909,10 @@ export const pt: Messages = {
     notPdf: 'Escolha um ficheiro PDF (.pdf).',
     tooLarge: 'O PDF é demasiado grande (máx. 50 MB).',
     needFile: 'Escolha primeiro um ficheiro PDF.',
+    offlineReady: 'Offline',
+    saveOffline: 'Guardar offline',
+    savingOffline: 'A guardar…',
+    savedOffline: 'Manual guardado para uso offline',
   },
 
   item: {

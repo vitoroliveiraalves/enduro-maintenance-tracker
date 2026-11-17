@@ -546,6 +546,13 @@ export const en = {
     pageShort: (n: number) => `p. ${n}`,
     loadingPdf: 'Loading PDF…',
     backToList: '← All manuals',
+    pinSpec: '+ Spec',
+    pinSpecTitle: 'Save to vehicle specs',
+    pinSpecItem: 'Maintenance item',
+    pinSpecLabel: 'Spec name',
+    pinSpecValue: 'Value',
+    pinSpecSave: 'Save spec',
+    specSaved: 'Saved to vehicle specs',
   },
 
   voiceSheet: {
@@ -809,6 +816,10 @@ export const en = {
     notPdf: 'Choose a PDF file (.pdf).',
     tooLarge: 'PDF is too large (50 MB max).',
     needFile: 'Choose a PDF file first.',
+    offlineReady: 'Offline',
+    saveOffline: 'Save offline',
+    savingOffline: 'Saving…',
+    savedOffline: 'Manual saved for offline use',
   },
 
   item: {

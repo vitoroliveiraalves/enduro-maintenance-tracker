@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPageIndex, normalisePdfText, searchPdfPages } from '../../../app/lib/pdf-search'
+import { buildPageIndex, extractSpecCandidate, normalisePdfText, searchPdfPages } from '../../../app/lib/pdf-search'
 
 describe('pdf-search', () => {
   it('normalises accents and case while preserving character positions', () => {
@@ -45,5 +45,21 @@ describe('pdf-search', () => {
     ])
     expect(torqueMatches[1]!.snippetBefore).toContain('rear axle nut ')
     expect(torqueMatches[1]!.snippetAfter).toContain(' 100 Nm')
+  })
+
+  it('extracts a spec label and value from a search snippet', () => {
+    expect(
+      extractSpecCandidate('Front axle nut ', 'torque', ' 85 Nm and fork oil capacity 615 ml', 'torque'),
+    ).toEqual({
+      label: 'Front axle nut',
+      value: '85 Nm',
+    })
+
+    expect(
+      extractSpecCandidate('', 'Spark plug', ' gap 0.6 mm and rear axle', 'Spark plug'),
+    ).toEqual({
+      label: 'Spark plug',
+      value: '0.6 mm',
+    })
   })
 })

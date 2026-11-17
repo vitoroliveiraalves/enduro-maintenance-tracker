@@ -168,6 +168,8 @@ const ANSWER_TOOL: ToolDef = {
               partId: { type: 'string' }, categoryId: { type: 'string' }, reminderId: { type: 'string' },
               hoursTenths: { type: 'integer' }, km: { type: 'integer' }, at: { type: 'string', description: 'YYYY-MM-DD' },
               by: { type: 'string', enum: ['diy', 'garage'] }, garageName: { type: 'string' }, notes: { type: 'string' },
+              topUp: { type: 'boolean', description: 'true when topping up fluid without resetting the service interval' },
+              topUpMl: { type: 'integer', description: 'fluid volume added in ml (e.g. 500 for 0.5 L)' },
               partsUsed: { type: 'array', items: { type: 'object', properties: { partId: { type: 'string' }, qtyHundredths: { type: 'integer' } } } },
               qtyHundredths: { type: 'integer' }, name: { type: 'string' }, unit: { type: 'string' }, text: { type: 'string' },
               amountCents: { type: 'integer' }, description: { type: 'string' },
@@ -201,6 +203,7 @@ async function systemPrompt(userId: string, today: string): Promise<string> {
     'Never state a number, date or name that a tool did not return. If the records don\'t say, answer exactly that you don\'t know from the records.',
     'When the rider reports something done (a ride, a service, a part used or bought, a cost, a reminder, or completing a reminder) or asks to add a vehicle, maintenance item, or technical note/specs, or remove a shelf part, propose the change; never claim it is saved — the rider reviews and saves it.',
     'A ride or a new reading is kind "reading"; hours and km can only go up. When the rider says the total was wrong or asks to set/correct the bike\'s hours or km (it may go down), propose kind "correct_total" with the right totals instead.',
+    'When the rider reports topping up oil, coolant or fluid (adding fluid without a full change), propose kind "service" with topUp: true and topUpMl in milliliters (e.g. 0.5 L = 500) so the service interval is not reset.',
     'Proposals use ids from tool results only. If unsure which bike, item, part or category, give candidates (ids) instead of one id.',
     'Always finish by calling the answer tool, listing in sources the refs of the tool results you used.',
   ].join('\n\n')
@@ -254,6 +257,17 @@ export async function runVoice(userId: string, input: { transcript: string; hist
 export async function mockVoice(userId: string, transcript: string, now = new Date()): Promise<VoiceResult> {
   const base: VoiceResult = { transcript, answer: null, sources: [], proposals: [], notes: [] }
   const t = transcript.toLowerCase()
+  if (t.includes('top up') || t.includes('topped up') || t.includes('top-up')) {
+    for (const b of await listBikes(userId)) {
+      const item = (await itemRows(b.id, userId, now)).find((i) => /oil/i.test(i.name))
+      if (!item) continue
+      const { proposals, notes } = await validateProposals(userId, [
+        { kind: 'service', bikeId: b.id, itemIds: [item.id], at: todayIn('UTC', now), by: 'diy', topUp: true, topUpMl: 500 },
+      ])
+      return { ...base, proposals, notes }
+    }
+    return base
+  }
   if (t.includes('oil')) {
     for (const b of await listBikes(userId)) {
       const item = (await itemRows(b.id, userId, now)).find((i) => /oil/i.test(i.name))

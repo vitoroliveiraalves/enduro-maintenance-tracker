@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { buildPageIndex, searchPdfPages, type PdfPageIndex, type PdfTextSpan } from '~/lib/pdf-search'
+import { buildPageIndex, extractSpecCandidate, loadPdfJs, searchPdfPages, type PdfPageIndex, type PdfSearchMatch, type PdfTextSpan } from '~/lib/pdf-search'
+import { itemLabel } from '~/lib/server-text'
+import { readManualCache, writeManualCache } from '~/offline/db'
+import { errorMessage } from '~/offline/outbox'
+import { matches as textMatches } from '../../shared/utils/search'
 
 const props = defineProps<{
   src: string
@@ -8,9 +12,17 @@ const props = defineProps<{
   downloadUrl?: string
   fileName?: string
   externalTestId?: string
+  items?: Array<{ id: string; name: string }>
+}>()
+
+const emit = defineEmits<{
+  cached: [src: string]
+  specSaved: []
 }>()
 
 const { t } = useI18n()
+const { mutate } = useApi()
+const toast = useToast()
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const loading = ref(true)
@@ -22,6 +34,13 @@ const zoom = ref(1)
 const searchQuery = ref('')
 const activeMatchIdx = ref(0)
 const pageIndices = ref<PdfPageIndex[]>([])
+
+const pinningMatch = ref<PdfSearchMatch | null>(null)
+const pinItemId = ref('')
+const pinLabel = ref('')
+const pinValue = ref('')
+const pinBusy = ref(false)
+const pinError = ref('')
 
 let pdfDoc: PDFDocumentProxy | null = null
 let loadVersion = 0
@@ -57,6 +76,49 @@ function selectMatch(idx: number) {
   if (!m) return
   activeMatchIdx.value = idx
   currentPage.value = m.page
+}
+
+function startPinSpec(m: PdfSearchMatch) {
+  selectMatch(m.index)
+  const cand = extractSpecCandidate(m.snippetBefore, m.snippetMatch, m.snippetAfter, searchQuery.value)
+  pinLabel.value = cand.label
+  pinValue.value = cand.value
+  pinError.value = ''
+  const list = props.items ?? []
+  const preferred =
+    list.find((it) => textMatches(itemLabel(it.name), cand.label, searchQuery.value) || textMatches(cand.label, itemLabel(it.name))) ??
+    list[0]
+  pinItemId.value = preferred?.id ?? ''
+  pinningMatch.value = m
+}
+
+async function savePinnedSpec() {
+  if (pinBusy.value || !pinningMatch.value || !pinItemId.value) return
+  pinError.value = ''
+  const label = pinLabel.value.trim()
+  if (!label) {
+    pinError.value = t.value.noteSheet.specName
+    return
+  }
+  pinBusy.value = true
+  try {
+    const titleBase = props.title ? `${props.title} (p. ${pinningMatch.value.page})` : `Manual p. ${pinningMatch.value.page}`
+    await mutate(
+      `/api/items/${pinItemId.value}/notes`,
+      {
+        title: titleBase.slice(0, 120),
+        specs: [{ label: label.slice(0, 80), value: pinValue.value.trim().slice(0, 120) }],
+      },
+      { queue: true },
+    )
+    toast.show(t.value.viewer.specSaved)
+    pinningMatch.value = null
+    emit('specSaved')
+  } catch (e) {
+    pinError.value = errorMessage(e, t.value.noteSheet.failed)
+  } finally {
+    pinBusy.value = false
+  }
 }
 
 function setPage(p: number) {
@@ -124,6 +186,7 @@ async function loadDocument(srcUrl: string) {
   pageIndices.value = []
   searchQuery.value = ''
   activeMatchIdx.value = 0
+  pinningMatch.value = null
 
   if (pdfDoc) {
     await pdfDoc.destroy().catch(() => {})
@@ -131,13 +194,18 @@ async function loadDocument(srcUrl: string) {
   }
 
   try {
-    const res = await fetch(srcUrl, { credentials: 'same-origin' })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = new Uint8Array(await res.arrayBuffer())
+    let arrayBuf = await readManualCache(srcUrl)
+    if (!arrayBuf) {
+      const res = await fetch(srcUrl, { credentials: 'same-origin' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      arrayBuf = await res.arrayBuffer()
+      await writeManualCache(srcUrl, arrayBuf)
+      emit('cached', srcUrl)
+    }
+    const data = new Uint8Array(arrayBuf)
     if (ver !== loadVersion) return
 
-    const pdfjs = await import('pdfjs-dist')
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
+    const pdfjs = await loadPdfJs()
     const doc = await pdfjs.getDocument({ data }).promise
     if (ver !== loadVersion) {
       await doc.destroy().catch(() => {})
@@ -258,23 +326,90 @@ onBeforeUnmount(() => {
       class="max-h-36 overflow-y-auto rounded-xl border border-track bg-bg divide-y divide-white/5"
       data-testid="pdf-search-results"
     >
-      <button
+      <div
         v-for="m in matches"
         :key="m.index"
-        type="button"
-        class="w-full flex items-baseline gap-2 px-3 py-2 text-left text-xs transition hover:bg-white/5"
+        class="w-full flex items-center gap-2 px-3 py-1.5 transition hover:bg-white/5"
         :class="m.index === activeMatchIdx ? 'bg-accent/15' : ''"
         data-testid="pdf-search-hit"
-        @click="selectMatch(m.index)"
       >
-        <span class="shrink-0 rounded bg-surface px-1.5 py-0.5 font-tag text-[10px] font-bold text-accent-text tabular-nums">
-          {{ t.viewer.pageShort(m.page) }}
-        </span>
-        <span class="min-w-0 flex-1 truncate text-muted">
-          {{ m.snippetBefore }}<mark class="rounded bg-warn/30 px-0.5 text-white font-semibold">{{ m.snippetMatch }}</mark>{{ m.snippetAfter }}
-        </span>
-      </button>
+        <button
+          type="button"
+          class="min-w-0 flex-1 flex items-baseline gap-2 py-0.5 text-left text-xs"
+          @click="selectMatch(m.index)"
+        >
+          <span class="shrink-0 rounded bg-surface px-1.5 py-0.5 font-tag text-[10px] font-bold text-accent-text tabular-nums">
+            {{ t.viewer.pageShort(m.page) }}
+          </span>
+          <span class="min-w-0 flex-1 truncate text-muted">
+            {{ m.snippetBefore }}<mark class="rounded bg-warn/30 px-0.5 text-white font-semibold">{{ m.snippetMatch }}</mark>{{ m.snippetAfter }}
+          </span>
+        </button>
+        <button
+          v-if="props.items?.length"
+          type="button"
+          class="shrink-0 rounded border border-white/10 bg-surface px-2 py-1 font-tag text-[10px] font-bold text-accent-text hover:border-accent transition"
+          data-testid="pdf-pin-spec"
+          @click.stop="startPinSpec(m)"
+        >
+          {{ t.viewer.pinSpec }}
+        </button>
+      </div>
     </div>
+
+    <!-- Pin to specs inline form -->
+    <form
+      v-if="pinningMatch && props.items?.length"
+      class="rounded-xl border border-accent/40 bg-surface p-3 space-y-2.5"
+      data-testid="pdf-pin-spec-form"
+      @submit.prevent="savePinnedSpec"
+    >
+      <div class="flex items-center justify-between gap-2">
+        <span class="font-tag text-[11px] font-bold uppercase tracking-wider text-accent-text">{{ t.viewer.pinSpecTitle }}</span>
+        <button type="button" class="text-xs text-muted hover:text-white" @click="pinningMatch = null">{{ t.common.cancel }}</button>
+      </div>
+      <label class="block text-[11px] uppercase tracking-wider text-muted font-tag">
+        {{ t.viewer.pinSpecItem }}
+        <select
+          v-model="pinItemId"
+          data-testid="pdf-pin-spec-item"
+          class="mt-1 block w-full rounded-lg bg-bg px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent"
+        >
+          <option v-for="it in props.items" :key="it.id" :value="it.id">{{ itemLabel(it.name) }}</option>
+        </select>
+      </label>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block text-[11px] uppercase tracking-wider text-muted font-tag">
+          {{ t.viewer.pinSpecLabel }}
+          <input
+            v-model="pinLabel"
+            maxlength="80"
+            autocomplete="off"
+            data-testid="pdf-pin-spec-label"
+            class="mt-1 block w-full rounded-lg bg-bg px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent"
+          >
+        </label>
+        <label class="block text-[11px] uppercase tracking-wider text-muted font-tag">
+          {{ t.viewer.pinSpecValue }}
+          <input
+            v-model="pinValue"
+            maxlength="120"
+            autocomplete="off"
+            data-testid="pdf-pin-spec-value"
+            class="mt-1 block w-full rounded-lg bg-bg px-2.5 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-accent"
+          >
+        </label>
+      </div>
+      <p v-if="pinError" role="alert" class="text-xs text-danger-text">{{ pinError }}</p>
+      <button
+        type="submit"
+        :disabled="pinBusy"
+        class="w-full rounded-lg bg-accent py-2 text-xs font-bold text-on-accent disabled:opacity-60"
+        data-testid="pdf-pin-spec-save"
+      >
+        {{ t.viewer.pinSpecSave }}
+      </button>
+    </form>
 
     <!-- Page canvas viewport -->
     <div class="relative overflow-auto rounded-xl bg-black/40 border border-white/5 max-h-[54vh] lg:max-h-[64vh] flex justify-center p-2">

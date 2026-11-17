@@ -50,7 +50,7 @@ const SAMPLE_PDF = makeTextPdf([
   'Spark plug gap 0.6 mm and rear axle nut torque 100 Nm',
 ])
 
-test('save, view, download, and delete shop and user PDF manuals on a vehicle', async ({ page }) => {
+test('save, view, download, and delete shop and user PDF manuals on a vehicle', async ({ page, context }) => {
   const user = { email: `manuals-${crypto.randomUUID()}@example.com`, password: 'enduro-pass-1', name: 'rider' }
   expect((await page.request.post('/api/auth/sign-up/email', { data: user })).ok()).toBeTruthy()
   const res = await page.request.post('/api/bikes', {
@@ -92,6 +92,7 @@ test('save, view, download, and delete shop and user PDF manuals on a vehicle', 
   await expect(page.getByTestId('manual-row')).toHaveCount(2)
   await expect(page.getByTestId('manual-title').first()).toHaveText('2024-Owners-Manual')
   await expect(page.getByTestId('manual-kind-badge').first()).toHaveText(/User|Utilizador/i)
+  await expect(page.getByTestId('manual-offline-badge')).toHaveCount(2)
   await expect(page.getByTestId('manuals-chip')).toContainText('(2)')
 
   // 3. Verify PDF file serving headers (inline & attachment)
@@ -109,7 +110,8 @@ test('save, view, download, and delete shop and user PDF manuals on a vehicle', 
   expect(dlRes.status()).toBe(200)
   expect(dlRes.headers()['content-disposition']).toContain('attachment;')
 
-  // 3b. Open in-app searchable PDF viewer and search across pages
+  // 3b. Open in-app searchable PDF viewer offline and search across pages
+  await context.setOffline(true)
   await page.getByTestId('manual-open').first().click()
   await expect(page.getByTestId('pdf-doc-viewer')).toBeVisible()
   await expect(page.getByTestId('pdf-page-indicator')).toHaveText(/1 \/ 2/)
@@ -128,8 +130,24 @@ test('save, view, download, and delete shop and user PDF manuals on a vehicle', 
   await expect(page.getByTestId('pdf-search-count')).toHaveText('2 / 2')
   await expect(page.getByTestId('pdf-page-indicator')).toHaveText(/2 \/ 2/)
 
+  // 3c. Pin first torque hit directly into vehicle specs when back online
+  await context.setOffline(false)
+  await page.getByTestId('pdf-pin-spec').first().click()
+  await expect(page.getByTestId('pdf-pin-spec-form')).toBeVisible()
+  await expect(page.getByTestId('pdf-pin-spec-label')).toHaveValue('Front axle nut')
+  await expect(page.getByTestId('pdf-pin-spec-value')).toHaveValue('85 Nm')
+  await page.getByTestId('pdf-pin-spec-save').click()
+  await expect(page.getByTestId('pdf-pin-spec-form')).toHaveCount(0)
+
   await page.getByTestId('manual-viewer-back').click()
   await expect(page.getByTestId('manuals-list')).toBeVisible()
+  await page.getByTestId('sheet-close').click()
+  await expect(page.getByTestId('specs-chip')).toContainText('(1)')
+  await page.getByTestId('specs-chip').click()
+  await expect(page.getByTestId('spec-label').first()).toHaveText('Front axle nut')
+  await expect(page.getByTestId('spec-value').first()).toHaveText('85 Nm')
+  await page.getByTestId('sheet-close').click()
+  await page.getByTestId('manuals-chip').click()
 
   // 4. Reject invalid PDF via API
   const badRes = await page.request.post(`/api/bikes/${bike.id}/manuals`, {

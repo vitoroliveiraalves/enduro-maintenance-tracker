@@ -398,8 +398,10 @@ export function createMcpServer(userId: string): McpServer {
       km: z.number().int().min(0).optional().describe('Bike kilometers at the time of service'),
       by: z.enum(['diy', 'garage']).optional().describe('Who did the service (defaults to diy)'),
       notes: z.string().optional().describe('Optional notes about the service'),
+      topUp: z.boolean().optional().describe('Set true to log a fluid top-up without resetting the maintenance interval'),
+      topUpMl: z.number().int().min(1).max(50000).optional().describe('Fluid volume added in ml (e.g. 500 for 0.5 L) when topUp is true'),
     },
-    async ({ bike: bikeQuery, bikeId, item: itemQuery, itemId, date, hours, km, by, notes }) => {
+    async ({ bike: bikeQuery, bikeId, item: itemQuery, itemId, date, hours, km, by, notes, topUp, topUpMl }) => {
       const bikeRes = await resolveBike(userId, bikeQuery ?? bikeId, { required: true })
       if (bikeRes.error || !bikeRes.bike) {
         return { isError: true, content: [{ type: 'text', text: bikeRes.error ?? 'Bike not found.' }] }
@@ -419,6 +421,7 @@ export function createMcpServer(userId: string): McpServer {
         km,
         by: by ?? 'diy',
         notes,
+        ...(topUp ? { topUp: true, ...(topUpMl !== undefined ? { topUpMl } : {}) } : {}),
         itemIds: [item.id],
       }
 
@@ -428,7 +431,9 @@ export function createMcpServer(userId: string): McpServer {
           content: [
             {
               type: 'text',
-              text: `Service '${item.name}' logged successfully for ${bike.name}. Interval reset.`,
+              text: topUp
+                ? `Top-up for '${item.name}'${topUpMl ? ` (${topUpMl} ml)` : ''} logged successfully for ${bike.name}. Interval unchanged.`
+                : `Service '${item.name}' logged successfully for ${bike.name}. Interval reset.`,
             },
           ],
         }

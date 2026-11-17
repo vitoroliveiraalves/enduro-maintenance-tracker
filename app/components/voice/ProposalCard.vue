@@ -56,6 +56,34 @@ const label = 'block text-xs text-muted'
       <p v-else-if="d.bikeId && ['reading', 'correct_total', 'service', 'add_maintenance_item', 'add_note'].includes(d.kind)" class="text-xs text-muted">{{ bikeName(d.bikeId) }}</p>
 
       <template v-if="d.kind === 'service'">
+        <div class="flex gap-2" role="radiogroup" :aria-label="t.markDone.modeLabel">
+          <button
+            type="button"
+            role="radio"
+            :aria-checked="!d.topUp"
+            data-testid="card-mode-service"
+            class="min-h-10 flex-1 rounded-lg border text-xs font-semibold"
+            :class="!d.topUp ? 'border-accent text-accent-text' : 'border-white/10 text-muted'"
+            @click="d.topUp = false"
+          >
+            {{ t.markDone.modeService }}
+          </button>
+          <button
+            type="button"
+            role="radio"
+            :aria-checked="d.topUp"
+            data-testid="card-mode-topup"
+            class="min-h-10 flex-1 rounded-lg border text-xs font-semibold"
+            :class="d.topUp ? 'border-accent text-accent-text' : 'border-white/10 text-muted'"
+            @click="d.topUp = true"
+          >
+            {{ t.markDone.modeTopUp }}
+          </button>
+        </div>
+        <label v-if="d.topUp" :class="label">
+          {{ t.markDone.topUpMl }}
+          <input v-model="d.topUpMl" inputmode="numeric" :placeholder="t.markDone.topUpMlPh" :class="field" data-testid="card-topup-ml">
+        </label>
         <div v-if="d.bikeId">
           <p :class="label">{{ d.itemChoices ? t.card.whichOne : t.card.done }}</p>
           <label v-for="i in bikeItems" :key="i.id" class="flex min-h-11 items-center gap-2.5 text-sm text-white">

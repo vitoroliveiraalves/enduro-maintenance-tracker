@@ -36,6 +36,8 @@ export type Draft = {
   by: 'diy' | 'garage'
   garageName: string
   notes: string
+  topUp: boolean
+  topUpMl: string
   partsUsed: Array<{ clientId: string; partId: string; qty: string }>
   qty: string
   name: string
@@ -109,6 +111,8 @@ export function draftFrom(p: P, ctx: CardCtx): Draft {
     by: p.by === 'garage' ? 'garage' : 'diy',
     garageName: s(p.garageName),
     notes: s(p.notes),
+    topUp: p.topUp === true,
+    topUpMl: whole(p.topUpMl),
     partsUsed: (Array.isArray(p.partsUsed) ? p.partsUsed : []).map((l) => {
       const o = l as { partId?: unknown; qtyHundredths?: unknown }
       return { clientId: crypto.randomUUID(), partId: s(o.partId), qty: hundredths(o.qtyHundredths) || '1' }
@@ -196,6 +200,8 @@ export function requestFor(d: Draft, ctx: CardCtx): Req {
       if (!d.at) return { error: t.enterDate }
       const mm = meter()
       if ('error' in mm) return mm
+      const topUpMl = d.topUp && d.topUpMl.trim() ? num(d.topUpMl, 1, 1) : null
+      if (d.topUp && d.topUpMl.trim() && (!topUpMl || topUpMl > 50_000)) return { error: msgs().markDone.topUpMlInvalid }
       const parts = []
       for (const l of d.partsUsed) {
         const q = num(l.qty, 100, 0.01)
@@ -208,6 +214,7 @@ export function requestFor(d: Draft, ctx: CardCtx): Req {
           clientId: d.clientId, bikeId: d.bikeId, at: d.at, itemIds: d.itemIds, ...mm, by: d.by,
           ...(d.by === 'garage' && d.garageName.trim() ? { garageName: d.garageName.trim() } : {}),
           ...(d.notes.trim() ? { notes: d.notes.trim() } : {}),
+          ...(d.topUp ? { topUp: true, ...(topUpMl ? { topUpMl } : {}) } : {}),
           ...(parts.length ? { partsUsed: parts } : {}),
         },
       }

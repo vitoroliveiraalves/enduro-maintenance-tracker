@@ -104,3 +104,55 @@ export function searchPdfPages(pages: PdfPageIndex[], rawQuery: string): PdfSear
   }
   return results
 }
+
+const UNIT_RE = /\b(\d+(?:[.,]\d+)?\s*(?:Nm|N·m|mm|cm|ml|L|bar|psi|kgf?\.?m|ft[-·]?lbs?|in[-·]?lbs?|kPa))\b/i
+
+/** Pull a likely spec name + measurement/torque value out of a PDF search snippet. */
+export function extractSpecCandidate(
+  snippetBefore: string,
+  snippetMatch: string,
+  snippetAfter: string,
+  query: string,
+): { label: string; value: string } {
+  const raw = `${snippetBefore}${snippetMatch}${snippetAfter}`.replace(/^…|…$/g, '').trim()
+  const m = raw.match(UNIT_RE)
+  if (m && m.index !== undefined) {
+    const value = m[1]!.trim()
+    const before = raw
+      .slice(0, m.index)
+      .replace(/\b(torque|capacity|gap|is|at|:|-)+\s*$/i, '')
+      .trim()
+    const label = (before || snippetMatch.trim() || query.trim() || 'Spec').slice(0, 80)
+    return { label, value: value.slice(0, 120) }
+  }
+  return {
+    label: (snippetMatch.trim() || query.trim() || 'Spec').slice(0, 80),
+    value: raw.slice(0, 120),
+  }
+}
+
+let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null
+let workerBlobUrl: string | null = null
+
+/** Load pdfjs-dist and cache its worker script in a Blob URL while online so offline viewing needs no network fetch. */
+export async function loadPdfJs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import('pdfjs-dist').then(async (pdfjs) => {
+      const assetUrl = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
+      if (!workerBlobUrl && typeof window !== 'undefined') {
+        try {
+          const res = await fetch(assetUrl)
+          if (res.ok) {
+            const blob = new Blob([await res.arrayBuffer()], { type: 'text/javascript' })
+            workerBlobUrl = URL.createObjectURL(blob)
+          }
+        } catch {
+          // Offline with active Service Worker: fall back to precached assetUrl
+        }
+      }
+      pdfjs.GlobalWorkerOptions.workerSrc = workerBlobUrl ?? assetUrl
+      return pdfjs
+    })
+  }
+  return pdfjsPromise
+}

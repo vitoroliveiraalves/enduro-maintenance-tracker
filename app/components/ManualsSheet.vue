@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { loadPdfJs } from '~/lib/pdf-search'
+import { deleteManualCache, hasManualCache, writeManualCache } from '~/offline/db'
 import { errorMessage } from '~/offline/outbox'
 
 export type BikeManualEntry = {
@@ -17,10 +19,12 @@ const MAX_MANUAL_BYTES = 50 * 1024 * 1024
 const props = defineProps<{
   bikeId: string
   manuals: BikeManualEntry[]
+  items?: Array<{ id: string; name: string }>
 }>()
 
 const emit = defineEmits<{
   updated: [manuals: BikeManualEntry[]]
+  specSaved: []
 }>()
 
 const open = defineModel<boolean>('open', { default: false })
@@ -37,9 +41,24 @@ const error = ref('')
 const confirmDeleteId = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
 const activeManual = ref<BikeManualEntry | null>(null)
+const cachedIds = ref<Set<string>>(new Set())
+const cachingId = ref<string | null>(null)
+
+async function refreshCached() {
+  const next = new Set<string>()
+  for (const m of props.manuals) {
+    if (await hasManualCache(fileUrl(m.id))) next.add(m.id)
+  }
+  cachedIds.value = next
+}
+
+watch([() => props.manuals, open], () => {
+  if (open.value) void refreshCached()
+}, { immediate: true })
 
 watch(open, (isOpen) => {
   if (!isOpen) activeManual.value = null
+  else void loadPdfJs().catch(() => {})
 })
 
 function formatBytes(bytes: number): string {
@@ -86,13 +105,18 @@ async function uploadManual() {
   }
   busy.value = true
   try {
+    const file = selectedFile.value
+    const buf = await file.arrayBuffer()
     const form = new FormData()
     form.append('clientId', crypto.randomUUID())
     form.append('kind', kind.value)
     if (title.value.trim()) form.append('title', title.value.trim())
-    form.append('file', selectedFile.value, selectedFile.value.name)
+    form.append('file', file, file.name)
 
     const created = await mutate<BikeManualEntry>(`/api/bikes/${props.bikeId}/manuals`, form)
+    await writeManualCache(fileUrl(created.id), buf)
+    await loadPdfJs().catch(() => {})
+    cachedIds.value = new Set(cachedIds.value).add(created.id)
     emit('updated', [created, ...props.manuals.filter((m) => m.id !== created.id)])
     toast.show(t.value.manuals.saved)
     title.value = ''
@@ -111,6 +135,10 @@ async function removeManual(manualId: string) {
   error.value = ''
   try {
     await mutate(`/api/bikes/${props.bikeId}/manuals/${manualId}`, {}, { method: 'DELETE' })
+    await deleteManualCache(fileUrl(manualId))
+    const next = new Set(cachedIds.value)
+    next.delete(manualId)
+    cachedIds.value = next
     if (activeManual.value?.id === manualId) activeManual.value = null
     emit('updated', props.manuals.filter((m) => m.id !== manualId))
     confirmDeleteId.value = null
@@ -119,6 +147,24 @@ async function removeManual(manualId: string) {
     error.value = errorMessage(e, t.value.manuals.deleteFailed)
   } finally {
     deletingId.value = null
+  }
+}
+
+async function saveOffline(m: BikeManualEntry) {
+  if (cachingId.value) return
+  cachingId.value = m.id
+  error.value = ''
+  try {
+    const res = await fetch(fileUrl(m.id), { credentials: 'same-origin' })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    await writeManualCache(fileUrl(m.id), await res.arrayBuffer())
+    await loadPdfJs().catch(() => {})
+    cachedIds.value = new Set(cachedIds.value).add(m.id)
+    toast.show(t.value.manuals.savedOffline)
+  } catch (e) {
+    error.value = errorMessage(e, t.value.manuals.uploadFailed)
+  } finally {
+    cachingId.value = null
   }
 }
 </script>
@@ -153,6 +199,9 @@ async function removeManual(manualId: string) {
         :download-url="fileUrl(activeManual.id, true)"
         :file-name="activeManual.fileName"
         :title="activeManual.title"
+        :items="props.items"
+        @cached="refreshCached"
+        @spec-saved="emit('specSaved')"
       />
     </div>
 
@@ -175,6 +224,13 @@ async function removeManual(manualId: string) {
                   {{ m.kind === 'shop' ? t.manuals.shopShort : t.manuals.userShort }}
                 </span>
                 <span class="font-tag text-[11px] text-muted tabular-nums">{{ formatBytes(m.sizeBytes) }}</span>
+                <span
+                  v-if="cachedIds.has(m.id)"
+                  class="rounded bg-ok/15 px-1.5 py-0.5 font-tag text-[10px] font-bold uppercase tracking-wider text-ok-text"
+                  data-testid="manual-offline-badge"
+                >
+                  {{ t.manuals.offlineReady }}
+                </span>
               </div>
               <div class="mt-1 text-sm font-semibold text-white truncate" data-testid="manual-title">{{ m.title }}</div>
               <div class="text-[11px] text-muted truncate font-tag">{{ m.fileName }}</div>
@@ -214,6 +270,16 @@ async function removeManual(manualId: string) {
             >
               {{ t.manuals.open }}
             </a>
+            <button
+              v-if="!cachedIds.has(m.id)"
+              type="button"
+              class="rounded-lg bg-bg border border-white/10 py-1.5 px-2.5 text-xs font-semibold text-text hover:border-accent transition disabled:opacity-50"
+              :disabled="cachingId === m.id"
+              data-testid="manual-save-offline"
+              @click="saveOffline(m)"
+            >
+              {{ cachingId === m.id ? t.manuals.savingOffline : t.manuals.saveOffline }}
+            </button>
             <a
               :href="fileUrl(m.id, true)"
               :download="m.fileName"

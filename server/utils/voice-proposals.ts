@@ -19,6 +19,8 @@ export type Proposal =
       by: 'diy' | 'garage'
       garageName?: string
       notes?: string
+      topUp?: boolean
+      topUpMl?: number
       partsUsed?: Array<{ partId: string; qtyHundredths: number }>
     } & Pick1<'bikeId'> & ({ itemIds: string[] } | { itemCandidates: string[] }) & Meters)
   | ({ kind: 'use_part'; qtyHundredths: number } & Pick1<'partId'>)
@@ -120,6 +122,9 @@ function one(o: Obj, own: Owned): Proposal {
       const itemIds = ids(o.itemIds).filter(ownsItem)
       const items = itemIds.length ? { itemIds } : { itemCandidates: ids(o.itemCandidates).filter(ownsItem) }
       if (o.by !== undefined && o.by !== 'diy' && o.by !== 'garage') throw bad('Invalid by')
+      if (o.topUp !== undefined && typeof o.topUp !== 'boolean') throw bad('Invalid topUp')
+      const topUp = o.topUp === true
+      const topUpMl = topUp && o.topUpMl != null ? int(o.topUpMl, 'topUpMl', 1, 50_000) : undefined
       let partsUsed: Array<{ partId: string; qtyHundredths: number }> | undefined
       if (o.partsUsed !== undefined) {
         if (!Array.isArray(o.partsUsed) || o.partsUsed.length > 20) throw bad('Invalid partsUsed')
@@ -133,6 +138,7 @@ function one(o: Obj, own: Owned): Proposal {
         ...meters(o, bikeId ? own.bikes.get(bikeId) : undefined),
         ...(o.by === 'garage' ? optStr(o.garageName, 'garageName', 80) : {}),
         ...optStr(o.notes, 'notes', 500),
+        ...(topUp ? { topUp: true, ...(topUpMl !== undefined ? { topUpMl } : {}) } : {}),
         ...(partsUsed?.length ? { partsUsed } : {}),
       }
     }

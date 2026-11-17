@@ -60,6 +60,9 @@ export type PendingVoice = {
   result?: unknown
 }
 
+/** A PDF manual stored locally for offline reading and search. */
+export type CachedManual = { url: string; data: ArrayBuffer; savedAt: number }
+
 class OfflineDB extends Dexie {
   bikes!: Table<CacheRow, string>
   bikeDetail!: Table<CacheRow, string>
@@ -69,6 +72,7 @@ class OfflineDB extends Dexie {
   outbox!: Table<OutboxRow, number>
   pendingPhotos!: Table<PendingPhoto, number>
   pendingVoice!: Table<PendingVoice, number>
+  manuals!: Table<CachedManual, string>
 
   constructor() {
     super('enduro-offline')
@@ -82,6 +86,7 @@ class OfflineDB extends Dexie {
     })
     this.version(2).stores({ pendingPhotos: '++id, clientId' })
     this.version(3).stores({ pendingVoice: '++id, clientId' })
+    this.version(4).stores({ manuals: 'url' })
   }
 }
 
@@ -130,6 +135,38 @@ export async function writeCache(url: string, data: unknown): Promise<void> {
     await getDb()[t].put({ url, data, savedAt: Date.now() })
   } catch {
     // storage full / unavailable (private mode): the app still works online
+  }
+}
+
+export async function readManualCache(url: string): Promise<ArrayBuffer | undefined> {
+  try {
+    return (await getDb().manuals.get(url))?.data
+  } catch {
+    return undefined
+  }
+}
+
+export async function writeManualCache(url: string, data: ArrayBuffer): Promise<void> {
+  try {
+    await getDb().manuals.put({ url, data, savedAt: Date.now() })
+  } catch {
+    // storage full or unavailable
+  }
+}
+
+export async function deleteManualCache(url: string): Promise<void> {
+  try {
+    await getDb().manuals.delete(url)
+  } catch {
+    // ignore
+  }
+}
+
+export async function hasManualCache(url: string): Promise<boolean> {
+  try {
+    return (await getDb().manuals.get(url)) !== undefined
+  } catch {
+    return false
   }
 }
 

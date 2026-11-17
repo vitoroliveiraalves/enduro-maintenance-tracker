@@ -140,7 +140,7 @@ export default defineNuxtConfig({
       // The SPA shell is rendered by Nitro (no index.html on disk): precache it
       // per build so the worker's navigation fallback has something to serve.
       additionalManifestEntries: [{ url: 'index.html', revision: BUILD_ID }],
-      globPatterns: ['**/*.{js,css,html,wasm,woff2,png,svg,ico,webmanifest}'],
+      globPatterns: ['**/*.{js,mjs,css,html,wasm,woff2,png,svg,ico,webmanifest}'],
       globIgnores: ['splash/**'], // iOS-only, fetched by the OS at launch: no need to precache ~10 images
       // ZXing's decoder wasm is ~1 MB+; the default 2 MB cap is too tight.
       maximumFileSizeToCacheInBytes: 4_000_000,

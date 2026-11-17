@@ -133,3 +133,52 @@ test('register page names voice notes in the privacy note', async ({ page }) => 
   await page.goto('/register')
   await expect(page.getByText("Invoice photos and voice notes are sent to an AI service (via OpenRouter) to read them; voice notes aren't kept.")).toBeVisible()
 })
+
+test('voice top-up proposes top-up card and saves without resetting interval', async ({ page }) => {
+  await fakeMic(page)
+  await signUpFresh(page)
+  const carRes = await page.request.post('/api/bikes', {
+    data: {
+      clientId: crypto.randomUUID(),
+      name: 'Golf TopUp',
+      make: 'VW',
+      model: 'Golf',
+      year: 2019,
+      vehicleType: 'car',
+      meters: 'km',
+      km: 101_000,
+      items: [
+        {
+          name: 'Engine oil + filter',
+          everyKm: 15_000,
+          everyMonths: 12,
+          lastDone: { at: new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10), km: 100_000 },
+        },
+      ],
+    },
+  })
+  expect(carRes.ok()).toBeTruthy()
+  const car = (await carRes.json()) as { id: string }
+  await page.goto(`/bikes/${car.id}`)
+  const beforeState = await page.getByTestId('item-row').first().getByTestId('item-state').textContent()
+
+  await page.getByTestId('mic').click()
+  await page.waitForTimeout(350)
+  await page.getByTestId('mic').click()
+  await page.getByTestId('voice-transcript').fill('topped up oil with 500 ml')
+  await page.getByTestId('voice-resend').click()
+  await expect(page.getByTestId('voice-listening')).toBeHidden()
+
+  const card = page.getByTestId('voice-card')
+  await expect(card).toHaveCount(1)
+  await expect(card.getByTestId('card-mode-topup')).toHaveAttribute('aria-checked', 'true')
+  await expect(card.getByTestId('card-topup-ml')).toHaveValue('500')
+  await page.getByTestId('voice-save').click()
+  await expect(card.getByTestId('card-status')).toHaveText('Saved')
+  await page.getByTestId('sheet-close').click()
+
+  await expect(page.getByTestId('item-row').first().getByTestId('item-state')).toHaveText(beforeState!)
+  await page.getByTestId('item-row').first().click()
+  await expect(page.getByTestId('service-topup-badge').first()).toContainText(/500 ml/)
+  await expect(page.getByTestId('item-topup-summary')).toContainText('500 ml')
+})
