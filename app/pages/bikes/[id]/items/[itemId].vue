@@ -3,6 +3,7 @@ import { itemLabel } from '~/lib/server-text'
 import { stateText, subline } from '~/lib/item-state'
 import { parseDecimal } from '~/lib/parse-number'
 import { partsLine, type PartUsedLine } from '~/lib/parts-used'
+import { computeTopUpSummary, formatVolumeMl } from '~/lib/top-up'
 import { errorMessage, OfflineError } from '~/offline/outbox'
 import type { ItemRowJson } from '../../../../../server/domain/item-row'
 const { t } = useI18n()
@@ -15,6 +16,9 @@ type Service = {
   km: number | null
   by: 'diy' | 'garage'
   garageName: string | null
+  notes?: string | null
+  topUp?: boolean
+  topUpMl?: number | null
   costCents: number
   documentId: string | null
   partsUsed?: PartUsedLine[]
@@ -150,6 +154,7 @@ const tone = computed(() => {
   const s = hist.value?.status.state
   return s === 'overdue' ? 'text-danger-text' : s === 'soon' ? 'text-warn-text' : s === 'ok' ? 'text-ok-text' : 'text-muted'
 })
+const topUpSummary = computed(() => (hist.value ? computeTopUpSummary(hist.value.services, detail.value?.latestReading ?? null) : null))
 const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-case text-white outline-none focus:ring-2 focus:ring-accent'
 </script>
 
@@ -169,6 +174,22 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           {{ subline(hist.item) }}<span v-if="hist.pendingSync" class="text-warn-text">{{ t.itemRow.pendingDone }}</span>
         </div>
         <ProgressBar :state="hist.status.state" :ratio="hist.status.ratio" :label="t.itemRow.wear(itemLabel(hist.item.name))" />
+        <div
+          v-if="topUpSummary"
+          class="mt-2.5 border-t border-white/5 pt-2 text-xs text-muted flex flex-wrap items-center justify-between gap-1"
+          data-testid="item-topup-summary"
+        >
+          <span>
+            {{ topUpSummary.totalMl > 0 ? t.item.topUpSummary(formatVolumeMl(topUpSummary.totalMl), topUpSummary.count) : t.item.topUpCountOnly(topUpSummary.count) }}
+          </span>
+          <span
+            v-if="topUpSummary.litersPer1000Km !== null || topUpSummary.mlPer10Hours !== null"
+            class="font-tag font-bold text-accent-text"
+            data-testid="item-topup-rate"
+          >
+            {{ topUpSummary.litersPer1000Km !== null ? t.item.ratePer1000Km(topUpSummary.litersPer1000Km.toFixed(2)) : t.item.ratePer10Hours(topUpSummary.mlPer10Hours!) }}
+          </span>
+        </div>
       </section>
 
       <button
@@ -218,7 +239,13 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
       <ul v-else class="space-y-[7px]">
         <li v-for="s in hist.services" :key="s.id" class="rounded-xl bg-surface px-3 py-2.5" data-testid="service-entry">
           <div class="flex justify-between gap-2 text-sm font-semibold text-white">
-            <span>{{ s.atUnknown ? t.item.dateUnknown : date(s.at) }}<span v-if="s.pending" class="ml-1.5 text-xs font-normal text-warn-text" data-testid="service-pending">{{ t.common.pendingSync }}</span></span>
+            <span>
+              {{ s.atUnknown ? t.item.dateUnknown : date(s.at) }}<span
+                v-if="s.topUp"
+                class="ml-1.5 rounded bg-accent/20 px-1.5 py-0.5 font-tag text-[10px] font-bold uppercase tracking-wider text-accent-text"
+                data-testid="service-topup-badge"
+              >{{ t.item.topUpBadge }}<template v-if="s.topUpMl"> · {{ formatVolumeMl(s.topUpMl) }}</template></span><span v-if="s.pending" class="ml-1.5 text-xs font-normal text-warn-text" data-testid="service-pending">{{ t.common.pendingSync }}</span>
+            </span>
             <span class="flex shrink-0 items-center gap-2">
               <span v-if="s.costCents" data-testid="service-cost">{{ money(s.costCents) }}</span>
               <NuxtLink v-if="s.documentId" :to="`/invoice/${s.documentId}`" class="-m-2 inline-flex p-2 align-middle text-text" :aria-label="t.item.openInvoice" data-testid="service-invoice"><Icon name="invoice" :size="15" /></NuxtLink>
@@ -227,6 +254,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
           <div class="mt-0.5 text-xs text-muted">
             {{ [s.hoursTenths !== null ? hours(s.hoursTenths) : null, s.km !== null ? km(s.km) : null, s.by === 'garage' ? (s.garageName ? t.item.garageNamed(s.garageName) : t.item.garage) : t.common.diy].filter(Boolean).join(' · ') }}
           </div>
+          <div v-if="s.notes && s.notes !== 'Initial'" class="mt-0.5 text-xs text-text/90" data-testid="service-notes">{{ s.notes }}</div>
           <div v-if="s.partsUsed?.length" class="mt-0.5 text-xs text-muted" data-testid="service-parts">{{ partsLine(s.partsUsed) }}</div>
         </li>
       </ul>

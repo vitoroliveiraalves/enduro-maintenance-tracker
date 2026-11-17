@@ -33,6 +33,8 @@ const garageName = ref('')
 const picked = ref<string[]>([])
 const costText = ref('')
 const notesText = ref('')
+const isTopUp = ref(false)
+const topUpMlText = ref('')
 const categoryId = ref('')
 const categories = ref<Category[]>([])
 const error = ref('')
@@ -99,6 +101,8 @@ watch(
     picked.value = []
     costText.value = ''
     notesText.value = ''
+    isTopUp.value = false
+    topUpMlText.value = ''
     error.value = ''
     use.value = {}
     addedIds.value = []
@@ -132,6 +136,11 @@ async function save() {
   const cents = costText.value.trim() ? parseCents(costText.value) : null
   if (costText.value.trim() && cents === null) return void (error.value = t.value.markDone.costAmount)
   if (cents !== null && !categoryId.value) return void (error.value = t.value.markDone.costCategory)
+  const mlParsed = isTopUp.value && topUpMlText.value.trim() ? parseDecimal(topUpMlText.value) : null
+  if (isTopUp.value && topUpMlText.value.trim() && (mlParsed === null || mlParsed <= 0 || mlParsed > 50_000)) {
+    return void (error.value = t.value.markDone.topUpMlInvalid)
+  }
+  const topUpMl = mlParsed !== null ? Math.round(mlParsed) : null
   const lines = []
   for (const p of shownParts.value) {
     const u = use.value[p.id]
@@ -156,7 +165,8 @@ async function save() {
       ...(k !== null ? { km: Math.round(k) } : {}),
       by: by.value,
       ...(by.value === 'garage' && garageName.value.trim() ? { garageName: garageName.value.trim() } : {}),
-      itemIds: [props.itemId, ...picked.value],
+      itemIds: isTopUp.value ? [props.itemId] : [props.itemId, ...picked.value],
+      ...(isTopUp.value ? { topUp: true, ...(topUpMl !== null ? { topUpMl } : {}) } : {}),
       ...(notesText.value.trim() ? { notes: notesText.value.trim() } : {}),
       ...(partsUsed.length ? { partsUsed } : {}),
       ...(cents !== null ? { expenses: [{ amountCents: cents, categoryId: categoryId.value, description: itemName.value }] } : {}),
@@ -177,6 +187,56 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
 <template>
   <Sheet v-model:open="open" :title="t.markDone.title(itemName)" testid="mark-done-sheet">
     <form @submit.prevent="save" @input="error = ''" @change="error = ''">
+      <div class="mb-3 flex gap-1.5" role="radiogroup" :aria-label="t.markDone.modeLabel">
+        <button
+          type="button"
+          role="radio"
+          :aria-checked="!isTopUp"
+          data-testid="md-mode-service"
+          class="flex-1 rounded-full px-2 py-2 text-sm font-semibold transition"
+          :class="!isTopUp ? 'bg-accent text-on-accent' : 'bg-bg text-muted'"
+          @click="isTopUp = false"
+        >
+          {{ t.markDone.modeService }}
+        </button>
+        <button
+          type="button"
+          role="radio"
+          :aria-checked="isTopUp"
+          data-testid="md-mode-topup"
+          class="flex-1 rounded-full px-2 py-2 text-sm font-semibold transition"
+          :class="isTopUp ? 'bg-accent text-on-accent' : 'bg-bg text-muted'"
+          @click="isTopUp = true"
+        >
+          {{ t.markDone.modeTopUp }}
+        </button>
+      </div>
+      <div v-if="isTopUp" class="mb-3 rounded-xl border border-track bg-bg/70 p-3 space-y-2.5">
+        <p class="text-xs text-muted">{{ t.markDone.topUpHint }}</p>
+        <label class="block text-[11px] uppercase tracking-wider text-muted">
+          {{ t.markDone.topUpMl }}
+          <input
+            v-model="topUpMlText"
+            inputmode="decimal"
+            autocomplete="off"
+            :placeholder="t.markDone.topUpMlPh"
+            data-testid="md-topup-ml"
+            :class="field"
+          >
+        </label>
+        <div class="flex gap-1.5">
+          <button
+            v-for="preset in [250, 500, 1000]"
+            :key="preset"
+            type="button"
+            class="flex-1 rounded-lg border border-white/10 bg-surface py-1.5 font-tag text-xs font-semibold text-text hover:border-accent transition"
+            :data-testid="`md-topup-preset-${preset}`"
+            @click="topUpMlText = String(preset)"
+          >
+            {{ preset }} ml
+          </button>
+        </div>
+      </div>
       <label class="block text-[11px] uppercase tracking-wider text-muted">
         {{ t.common.date }}
         <input v-model="at" type="date" :max="todayLocal()" required data-testid="md-date" :class="field">
@@ -210,7 +270,7 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         {{ t.markDone.garageName }}
         <input v-model="garageName" autocomplete="off" maxlength="80" data-testid="md-garage" :class="field">
       </label>
-      <fieldset v-if="others.length" class="mt-3">
+      <fieldset v-if="others.length && !isTopUp" class="mt-3">
         <legend class="text-[11px] uppercase tracking-wider text-muted">{{ t.markDone.alsoDone }}</legend>
         <div class="mt-1 max-h-44 space-y-1 overflow-y-auto rounded-xl bg-bg p-2">
           <label v-for="i in others" :key="i.id" class="flex min-h-10 items-center gap-2.5 py-1.5 text-sm text-white">

@@ -436,6 +436,13 @@ export const en = {
     category: 'Category',
     notes: 'Notes (optional)',
     notesPh: 'e.g. oil brand, observations...',
+    modeLabel: 'Entry type',
+    modeService: 'Full service',
+    modeTopUp: 'Top-up only',
+    topUpHint: 'Logs a top-up without resetting the service interval.',
+    topUpMl: 'Amount added (ml, optional)',
+    topUpMlPh: 'e.g. 500',
+    topUpMlInvalid: 'Enter the amount added in ml (e.g. 500).',
   },
 
   partSheet: {
@@ -828,6 +835,12 @@ export const en = {
     garage: 'Garage',
     section: 'Item',
     removeNote: 'Its service history and costs stay in History.',
+    topUpBadge: 'Top-up',
+    toppedUp: (name: string) => `${name} top-up logged`,
+    topUpSummary: (vol: string, count: number) => `Topped up ${vol} (${count}×) since last service`,
+    topUpCountOnly: (count: number) => (count === 1 ? '1 top-up since last service' : `${count} top-ups since last service`),
+    ratePer1000Km: (liters: string) => `${liters} L / 1 000 km`,
+    ratePer10Hours: (ml: number) => `${ml} ml / 10 h`,
   },
 
   history: {

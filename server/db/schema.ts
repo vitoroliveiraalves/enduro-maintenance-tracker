@@ -268,6 +268,8 @@ export const services = pgTable(
     by: text('by', { enum: ['diy', 'garage'] }).notNull().default('diy'),
     garageName: text('garage_name'),
     notes: text('notes'),
+    topUp: boolean('top_up').notNull().default(false),
+    topUpMl: integer('top_up_ml'),
     documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

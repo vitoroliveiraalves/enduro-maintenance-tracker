@@ -136,3 +136,48 @@ test('parts used in mark done: stock marks, shelf counts, history line, use anyw
   await expect(page.getByTestId('mark-done-sheet')).toHaveCount(0)
   expect((await counts())['Oil filter']).toBe(-100)
 })
+
+test('top-up inside Mark done logs oil added and consumption without resetting service interval', async ({ page }) => {
+  await signUpFresh(page)
+  const carRes = await page.request.post('/api/bikes', {
+    data: {
+      clientId: crypto.randomUUID(),
+      name: 'Daily Car',
+      make: 'VW',
+      model: 'Golf',
+      year: 2018,
+      vehicleType: 'car',
+      meters: 'km',
+      km: 101_000,
+      items: [
+        {
+          name: 'Engine oil + filter',
+          everyKm: 15_000,
+          everyMonths: 12,
+          lastDone: { at: new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10), km: 100_000 },
+        },
+      ],
+    },
+  })
+  expect(carRes.ok()).toBeTruthy()
+  const car = (await carRes.json()) as { id: string }
+  const detail = (await (await page.request.get(`/api/bikes/${car.id}`)).json()) as { items: Array<{ id: string }> }
+  const itemId = detail.items[0]!.id
+
+  await page.goto(`/bikes/${car.id}/items/${itemId}`)
+  const beforeState = await page.getByTestId('item-state').textContent()
+
+  await page.getByTestId('mark-done').click()
+  await page.getByTestId('md-mode-topup').click()
+  await page.getByTestId('md-topup-preset-500').click()
+  await expect(page.getByTestId('md-topup-ml')).toHaveValue('500')
+  await page.getByTestId('md-save').click()
+  await expect(page.getByTestId('mark-done-sheet')).toHaveCount(0)
+
+  // Interval countdown must NOT reset on a top-up
+  await expect(page.getByTestId('item-state')).toHaveText(beforeState!)
+  await expect(page.getByTestId('service-entry')).toHaveCount(2)
+  await expect(page.getByTestId('service-topup-badge').first()).toContainText(/500 ml/)
+  await expect(page.getByTestId('item-topup-summary')).toContainText('500 ml')
+  await expect(page.getByTestId('item-topup-rate')).toHaveText('0.50 L / 1 000 km')
+})

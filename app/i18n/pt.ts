@@ -529,6 +529,13 @@ export const pt: Messages = {
     category: 'Categoria',
     notes: 'Notas (opcional)',
     notesPh: 'ex. marca do óleo, observações...',
+    modeLabel: 'Tipo de registo',
+    modeService: 'Manutenção completa',
+    modeTopUp: 'Apenas atesto',
+    topUpHint: 'Regista um atesto sem reiniciar o intervalo de manutenção.',
+    topUpMl: 'Quantidade adicionada (ml, opcional)',
+    topUpMlPh: 'ex. 500',
+    topUpMlInvalid: 'Indique a quantidade adicionada em ml (ex. 500).',
   },
 
   partSheet: {
@@ -921,6 +928,12 @@ export const pt: Messages = {
     garage: 'Oficina',
     section: 'Item',
     removeNote: 'O histórico de manutenção e os custos ficam no Histórico.',
+    topUpBadge: 'Atesto',
+    toppedUp: (name) => `Atesto de ${name} registado`,
+    topUpSummary: (vol, count) => `Atestado ${vol} (${count}×) desde a última manutenção`,
+    topUpCountOnly: (count) => (count === 1 ? '1 atesto desde a última manutenção' : `${count} atestos desde a última manutenção`),
+    ratePer1000Km: (liters) => `${liters} L / 1 000 km`,
+    ratePer10Hours: (ml) => `${ml} ml / 10 h`,
   },
 
   history: {

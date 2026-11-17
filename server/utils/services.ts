@@ -4,7 +4,7 @@ import { db } from '../db/client'
 import { bikes, expenseItems, expenses, maintenanceItems, meterReadings, partMovements, parts, serviceItems, services } from '../db/schema'
 import type { Bike, Service } from '../db/schema'
 import { assertNotAboveMeters, bikeDetail, cleanDate, countedMeters, hoursDesc, isObj, latestReading, str } from './bikes'
-import { bad, uuid } from './validate'
+import { bad, int, uuid } from './validate'
 import { applyMovement, qty } from './parts'
 import { amountCents, checkCategory, checkDocument, checkItemIds, description } from './expenses'
 import type { Tx } from './expenses'
@@ -92,6 +92,10 @@ export async function insertService(bike: Bike, raw: unknown, tx: Tx): Promise<s
   if (raw.by !== 'diy' && raw.by !== 'garage') throw bad('Invalid by')
   const garageName = raw.by === 'garage' && raw.garageName != null && raw.garageName !== '' ? str(raw.garageName, 'garageName') : null
   const notes = raw.notes == null || raw.notes === '' ? null : str(raw.notes, 'notes', 500)
+  if (raw.topUp !== undefined && typeof raw.topUp !== 'boolean') throw bad('Invalid topUp')
+  const topUp = raw.topUp === true
+  const parsedTopUpMl = raw.topUpMl === undefined || raw.topUpMl === null ? null : int(raw.topUpMl, 'topUpMl', 1, 50_000)
+  const topUpMl = topUp ? parsedTopUpMl : null
   const rawExpenses = raw.expenses ?? []
   if (!Array.isArray(rawExpenses) || rawExpenses.length > MAX_EXPENSES) throw bad('Invalid expenses')
 
@@ -105,7 +109,7 @@ export async function insertService(bike: Bike, raw: unknown, tx: Tx): Promise<s
   }
   const [svc] = await tx
     .insert(services)
-    .values({ bikeId: bike.id, userId, clientId, at, hoursTenths, km, by: raw.by as 'diy' | 'garage', garageName, notes, documentId })
+    .values({ bikeId: bike.id, userId, clientId, at, hoursTenths, km, by: raw.by as 'diy' | 'garage', garageName, notes, topUp, topUpMl, documentId })
     .onConflictDoNothing({ target: [services.userId, services.clientId] })
     .returning({ id: services.id })
   if (!svc) return null // lost a race with a replay of the same clientId
@@ -190,6 +194,8 @@ export async function listServices(userId: string, f: { bikeId?: string } = {}) 
     by: s.by,
     garageName: s.garageName,
     notes: s.notes,
+    topUp: s.topUp,
+    topUpMl: s.topUpMl,
     documentId: s.documentId,
     itemNames: items.filter((i) => i.serviceId === s.id).map((i) => i.name),
     totalCents: totals.find((t) => t.serviceId === s.id)?.total ?? 0,

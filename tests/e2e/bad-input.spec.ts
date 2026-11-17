@@ -163,6 +163,13 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   for (const partsUsed of [[{ ...pu, qtyHundredths: 0 }], [{ ...pu, qtyHundredths: -1 }], [{ ...pu, partId: 'nope' }], [{ ...pu, clientId: 'nope' }], 'x', {}, Array.from({ length: 21 }, () => ({ ...pu, clientId: uuid(), partId: uuid() }))]) {
     cases.push(['post', '/api/services', svc({ partsUsed }), 400])
   }
+  cases.push(
+    ['post', '/api/services', svc({ topUp: 'yes' }), 400],
+    ['post', '/api/services', svc({ topUp: true, topUpMl: 0 }), 400],
+    ['post', '/api/services', svc({ topUp: true, topUpMl: -50 }), 400],
+    ['post', '/api/services', svc({ topUp: true, topUpMl: 999_999 }), 400],
+    ['post', '/api/services', svc({ topUp: true, topUpMl: 'nope' }), 400],
+  )
 
   // Shelf: bad ids in the path -> 404, bad name/unit/qty/min/notes/itemIds -> 400.
   const part = (await (await request.post('/api/parts', { data: { clientId: uuid(), name: 'Plug' } })).json()) as { id: string }

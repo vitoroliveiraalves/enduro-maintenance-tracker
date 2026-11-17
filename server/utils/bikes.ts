@@ -280,7 +280,7 @@ export async function itemRows(bikeId: string, userId: string, now = new Date())
 
   const rows = items.map((item): ItemRow => {
     const list = svcRows
-      .filter((x) => x.itemId === item.id)
+      .filter((x) => x.itemId === item.id && !x.s.topUp)
       .map(({ s }) => ({
         id: s.id,
         at: new Date(s.at),

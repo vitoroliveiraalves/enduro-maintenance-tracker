@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { E2E_ADMIN, loginAs, signUpFresh } from './helpers/login'
 import { bikeBody, seedMockupBike } from './helpers/seed'
 
@@ -439,4 +439,106 @@ test('admin riders', async ({ page, browser }) => {
   await page.goto('/admin')
   await page.getByTestId('admin-rider').first().waitFor()
   await page.screenshot({ path: 'tests/e2e/__screenshots__/admin-riders.png' })
+})
+
+function makeTextPdf(pages: string[]): Buffer {
+  const objects: string[] = []
+  const fontId = 3
+  const pageIds: number[] = []
+  let nextId = 4
+  const bodyParts: Array<{ id: number; body: string }> = []
+  for (const text of pages) {
+    const escaped = text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+    const stream = `BT /F1 12 Tf 72 720 Td (${escaped}) Tj ET`
+    const contentId = nextId++
+    const pageId = nextId++
+    pageIds.push(pageId)
+    bodyParts.push({
+      id: contentId,
+      body: `${contentId} 0 obj\n<< /Length ${Buffer.byteLength(stream, 'latin1')} >>\nstream\n${stream}\nendstream\nendobj\n`,
+    })
+    bodyParts.push({
+      id: pageId,
+      body: `${pageId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>\nendobj\n`,
+    })
+  }
+  objects.push(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`)
+  objects.push(`2 0 obj\n<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>\nendobj\n`)
+  objects.push(`3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`)
+  for (const part of bodyParts.sort((a, b) => a.id - b.id)) objects.push(part.body)
+  const header = '%PDF-1.4\n'
+  const offsets: number[] = [0]
+  let cursor = Buffer.byteLength(header, 'latin1')
+  for (const obj of objects) {
+    offsets.push(cursor)
+    cursor += Buffer.byteLength(obj, 'latin1')
+  }
+  const xrefStart = cursor
+  let xref = `xref\n0 ${offsets.length}\n0000000000 65535 f \n`
+  for (let i = 1; i < offsets.length; i++) xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`
+  const trailer = `trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`
+  return Buffer.from(header + objects.join('') + xref + trailer, 'latin1')
+}
+
+test('manuals pdf search and fluid top-up', async ({ page }) => {
+  await signUpFresh(page)
+  const carRes = await page.request.post('/api/bikes', {
+    data: {
+      clientId: crypto.randomUUID(),
+      name: 'VW Golf',
+      make: 'VW',
+      model: 'Golf',
+      year: 2018,
+      vehicleType: 'car',
+      meters: 'km',
+      km: 101_000,
+      items: [
+        {
+          name: 'Engine oil + filter',
+          everyKm: 15_000,
+          everyMonths: 12,
+          lastDone: { at: new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10), km: 100_000 },
+        },
+      ],
+    },
+  })
+  expect(carRes.ok()).toBeTruthy()
+  const car = (await carRes.json()) as { id: string }
+  const detail = (await (await page.request.get(`/api/bikes/${car.id}`)).json()) as { items: Array<{ id: string }> }
+  const itemId = detail.items[0]!.id
+
+  const pdf = makeTextPdf([
+    'Front axle nut torque 85 Nm and fork oil capacity 615 ml',
+    'Spark plug gap 0.6 mm and rear axle nut torque 100 Nm',
+  ])
+  const uploadRes = await page.request.post(`/api/bikes/${car.id}/manuals`, {
+    multipart: {
+      clientId: crypto.randomUUID(),
+      kind: 'shop',
+      title: 'Golf Workshop Manual',
+      file: { name: 'golf-workshop.pdf', mimeType: 'application/pdf', buffer: pdf },
+    },
+  })
+  expect(uploadRes.ok()).toBeTruthy()
+
+  await page.goto(`/bikes/${car.id}`)
+  await page.getByTestId('manuals-chip').click()
+  await page.getByTestId('manual-open').first().click()
+  await page.getByTestId('pdf-canvas').waitFor()
+  await page.getByTestId('pdf-search-input').fill('torque')
+  await expect(page.getByTestId('pdf-search-count')).toHaveText('1 / 2')
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/manuals-pdf-search.png' })
+
+  await page.goto(`/bikes/${car.id}/items/${itemId}`)
+  await page.getByTestId('mark-done').click()
+  await page.getByTestId('md-mode-topup').click()
+  await page.getByTestId('md-topup-preset-500').click()
+  await page.getByTestId('md-notes').fill('0.5 L Castrol 5W-30')
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/top-up-sheet.png' })
+
+  await page.getByTestId('md-save').click()
+  await page.getByTestId('item-topup-summary').waitFor()
+  await page.getByTestId('service-topup-badge').first().waitFor()
+  await page.screenshot({ path: 'tests/e2e/__screenshots__/top-up-item.png' })
 })

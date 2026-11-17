@@ -2,11 +2,12 @@
 import { categoryLabel, itemLabel } from '~/lib/server-text'
 import { errorMessage } from '~/offline/outbox'
 import { partsLine, type PartUsedLine } from '~/lib/parts-used'
+import { formatVolumeMl } from '~/lib/top-up'
 const { t } = useI18n()
 
 type Bike = { id: string; name: string }
 type Svc = {
-  id: string; bikeId: string; bikeName: string; at: string; atUnknown?: boolean; notes: string | null; hoursTenths: number | null; km: number | null
+  id: string; bikeId: string; bikeName: string; at: string; atUnknown?: boolean; notes: string | null; topUp?: boolean; topUpMl?: number | null; hoursTenths: number | null; km: number | null
   by: 'diy' | 'garage'; garageName: string | null; documentId: string | null; itemNames: string[]; totalCents: number
   partsUsed?: PartUsedLine[]
   pending?: boolean
@@ -129,7 +130,13 @@ async function removeExpense(id: string) {
       <li v-for="en in timeline" :key="en.key" class="rounded-xl bg-surface px-3 py-2.5 text-sm" :data-testid="en.kind === 'service' ? 'history-service' : 'history-expense'">
         <template v-if="en.kind === 'service'">
           <div class="flex items-baseline justify-between gap-2">
-            <span class="font-semibold text-white">{{ en.s.itemNames.map(itemLabel).join(', ') || t.history.service }}</span>
+            <span class="font-semibold text-white">
+              {{ en.s.itemNames.map(itemLabel).join(', ') || t.history.service }}<span
+                v-if="en.s.topUp"
+                class="ml-1.5 rounded bg-accent/20 px-1.5 py-0.5 font-tag text-[10px] font-bold uppercase tracking-wider text-accent-text"
+                data-testid="history-topup-badge"
+              >{{ t.item.topUpBadge }}<template v-if="en.s.topUpMl"> · {{ formatVolumeMl(en.s.topUpMl) }}</template></span>
+            </span>
             <span v-if="en.s.totalCents" class="shrink-0 font-bold text-white" data-testid="history-amount">{{ money(en.s.totalCents) }}</span>
           </div>
           <p class="mt-0.5 text-xs text-muted">
