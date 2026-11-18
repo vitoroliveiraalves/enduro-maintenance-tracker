@@ -20,7 +20,7 @@ const props = defineProps<{
 const hasHours = computed(() => countsHours(props.meters ?? 'hours_km'))
 const hasKm = computed(() => countsKm(props.meters ?? 'hours_km'))
 const open = defineModel<boolean>('open', { default: false })
-const emit = defineEmits<{ saved: [detail: Detail] }>()
+const emit = defineEmits<{ saved: [detail: Detail, meta?: { topUp: boolean }] }>()
 
 const { get, mutate } = useApi()
 const { qty: fmtQty } = useFormatters()
@@ -125,6 +125,37 @@ watch(
   { immediate: true },
 )
 
+function syncTopUpShelfQty(mlStr: string) {
+  if (!isTopUp.value) return
+  const ml = parseDecimal(mlStr)
+  if (ml === null || ml <= 0) return
+  for (const p of shownParts.value) {
+    const u = use.value[p.id]
+    if (!u) continue
+    const unit = p.unit.trim().toLowerCase()
+    if (unit === 'l' || unit === 'litro' || unit === 'litros' || unit === 'liters') {
+      u.on = p.qtyHundredths > 0
+      u.qtyText = String(Math.round((ml / 1000) * 100) / 100)
+      u.anyway = false
+    } else if (unit === 'ml') {
+      u.on = p.qtyHundredths > 0
+      u.qtyText = String(Math.round(ml))
+      u.anyway = false
+    }
+  }
+}
+
+watch(isTopUp, (topUp) => {
+  if (!topUp) return
+  for (const p of shownParts.value) {
+    const u = use.value[p.id]
+    if (u && p.unit.trim().toLowerCase() === 'pcs') u.on = false
+  }
+  syncTopUpShelfQty(topUpMlText.value)
+})
+
+watch(topUpMlText, syncTopUpShelfQty)
+
 async function save() {
   if (busy.value || !props.itemId) return
   error.value = ''
@@ -171,9 +202,10 @@ async function save() {
       ...(partsUsed.length ? { partsUsed } : {}),
       ...(cents !== null ? { expenses: [{ amountCents: cents, categoryId: categoryId.value, description: itemName.value }] } : {}),
     }, { queue: true })
+    const savedTopUp = isTopUp.value
     clientId = crypto.randomUUID()
     open.value = false
-    emit('saved', detail)
+    emit('saved', detail, { topUp: savedTopUp })
   } catch (e) {
     error.value = errorMessage(e, t.value.markDone.failed)
   } finally {

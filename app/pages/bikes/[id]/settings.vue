@@ -411,6 +411,33 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         </button>
       </section>
 
+      <!-- Service book -->
+      <h2 :class="h2">{{ t.bike.dossierTitle }}</h2>
+      <section class="rounded-xl bg-surface p-3.5 border border-track flex items-center justify-between gap-3" data-testid="dossier-settings-card">
+        <div class="min-w-0 flex-1">
+          <span class="text-sm font-semibold text-white block">{{ t.bike.dossierTitle }}</span>
+          <span class="text-xs text-muted block">{{ t.bike.dossierSubtitle }}</span>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <a
+            :href="`/api/bikes/${id}/dossier`"
+            target="_blank"
+            rel="noopener"
+            class="rounded-lg bg-bg px-3 py-2 text-xs font-semibold text-accent-text border border-white/10 hover:border-accent"
+            data-testid="open-dossier-link"
+          >
+            {{ t.bike.dossierOpen }}
+          </a>
+          <a
+            :href="`/api/bikes/${id}/dossier?download=1`"
+            class="rounded-lg bg-bg px-3 py-2 text-xs font-semibold text-text border border-white/10 hover:border-accent"
+            data-testid="download-dossier-link"
+          >
+            {{ t.bike.dossierDownload }}
+          </a>
+        </div>
+      </section>
+
       <!-- Danger zone: remove vehicle -->
       <h2 :class="h2">{{ t.bike.dangerZone }}</h2>
       <section class="rounded-xl border border-danger/30 bg-surface p-3.5" data-testid="danger-section">

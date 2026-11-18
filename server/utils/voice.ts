@@ -292,5 +292,20 @@ export async function mockVoice(userId: string, transcript: string, now = new Da
     }
     return { ...base, answer: DONT_KNOW }
   }
+  if (t.includes('torque') || t.includes('spec')) {
+    for (const b of await listBikes(userId)) {
+      const { ref, result } = await runTool(userId, 'vehicle_specs', { bikeId: b.id }, now)
+      const list = result as Array<{ itemName: string; title: string; specs: Array<{ label: string; value: string }> }>
+      const flat = list.flatMap((n) => n.specs.map((s) => ({ ...s, itemName: n.itemName })))
+      if (!flat.length) continue
+      const s = flat[0]!
+      return {
+        ...base,
+        answer: `${s.label}: ${s.value} (${s.itemName}).`,
+        sources: [{ tool: 'vehicle_specs', ref, data: result }],
+      }
+    }
+    return { ...base, answer: DONT_KNOW }
+  }
   return base
 }

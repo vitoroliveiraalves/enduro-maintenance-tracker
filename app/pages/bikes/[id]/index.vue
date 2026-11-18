@@ -359,10 +359,14 @@ const field = 'mt-1 block w-full rounded-xl bg-bg px-3 py-3 text-base normal-cas
         <!-- Right Column: Workstation Main Checklist -->
         <div data-testid="workstation-main" class="lg:col-span-7 xl:col-span-8 mt-2 lg:mt-0 lg:space-y-4">
           <template v-if="data.items.length">
-            <div class="flex items-center justify-between mb-2 mt-3 lg:mt-0">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2 mt-3 lg:mt-0">
               <h2 class="font-tag text-[11px] uppercase tracking-[0.12em] text-muted">{{ t.bike.maintenance }}</h2>
-              <!-- Desktop Urgency Filters -->
-              <div class="hidden lg:flex items-center gap-1 bg-surface/80 p-0.5 rounded border border-track font-tag text-xs">
+              <!-- Urgency Filters -->
+              <div
+                :class="overdueCount || soonCount ? 'flex' : 'hidden lg:flex'"
+                class="items-center gap-1 bg-surface/80 p-0.5 rounded border border-track font-tag text-xs"
+                data-testid="urgency-filters"
+              >
                 <button
                   type="button"
                   class="px-2.5 py-1 rounded transition"

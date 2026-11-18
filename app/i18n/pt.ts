@@ -751,6 +751,7 @@ export const pt: Messages = {
     shelf: 'Prateleira',
     shelfHint: 'PEÇAS · A COMPRAR →',
     addBike: '+ Juntar veículo',
+    openStation: 'Posto →',
     kpi: {
       activeFleet: 'Frota Ativa',
       vehicles: (n) => plural(n, 'veículo', 'veículos'),
@@ -878,6 +879,10 @@ export const pt: Messages = {
     noSpecsHint: 'Adicione notas com valores de aperto ou capacidades aos itens de manutenção para os ver aqui num instante.',
     searchSpecs: 'Procurar apertos, fluidos, folgas...',
     manuals: 'Manuais',
+    dossierTitle: 'Livro de revisões',
+    dossierSubtitle: 'Histórico de manutenção e especificações para imprimir',
+    dossierOpen: 'Abrir livro',
+    dossierDownload: 'Transferir',
   },
 
   manuals: {

@@ -658,6 +658,7 @@ export const en = {
     shelf: 'Shelf',
     shelfHint: 'PARTS · TO BUY →',
     addBike: '+ Add vehicle',
+    openStation: 'Station →',
     kpi: {
       activeFleet: 'Active Fleet',
       vehicles: (n: number) => plural(n, 'vehicle', 'vehicles'),
@@ -785,6 +786,10 @@ export const en = {
     noSpecsHint: 'Add notes with torque values or capacities to your maintenance items to see them here at a glance.',
     searchSpecs: 'Search specs, torques, fluids...',
     manuals: 'Manuals',
+    dossierTitle: 'Service book',
+    dossierSubtitle: 'Printable maintenance history & specs',
+    dossierOpen: 'Open service book',
+    dossierDownload: 'Download',
   },
 
   manuals: {

@@ -156,3 +156,28 @@ export async function loadPdfJs() {
   }
   return pdfjsPromise
 }
+
+const VIEWER_STATE_PREFIX = 'enduro.pdfState:'
+export type PdfViewerSavedState = { page: number; zoom: number }
+
+export function readPdfViewerState(src: string): PdfViewerSavedState | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(VIEWER_STATE_PREFIX + src)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<PdfViewerSavedState>
+    if (typeof parsed.page !== 'number' || typeof parsed.zoom !== 'number') return null
+    return { page: parsed.page, zoom: parsed.zoom }
+  } catch {
+    return null
+  }
+}
+
+export function writePdfViewerState(src: string, state: PdfViewerSavedState): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(VIEWER_STATE_PREFIX + src, JSON.stringify(state))
+  } catch {
+    // ignore quota errors
+  }
+}

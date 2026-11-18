@@ -139,6 +139,14 @@ test('save, view, download, and delete shop and user PDF manuals on a vehicle', 
   await page.getByTestId('pdf-pin-spec-save').click()
   await expect(page.getByTestId('pdf-pin-spec-form')).toHaveCount(0)
 
+  // Verify last viewed page is remembered across viewer close/re-open
+  await page.getByTestId('pdf-next-page').click()
+  await expect(page.getByTestId('pdf-page-indicator')).toHaveText(/2 \/ 2/)
+  await page.getByTestId('manual-viewer-back').click()
+  await expect(page.getByTestId('manuals-list')).toBeVisible()
+  await page.getByTestId('manual-open').first().click()
+  await expect(page.getByTestId('pdf-page-indicator')).toHaveText(/2 \/ 2/)
+
   await page.getByTestId('manual-viewer-back').click()
   await expect(page.getByTestId('manuals-list')).toBeVisible()
   await page.getByTestId('sheet-close').click()
@@ -165,8 +173,20 @@ test('save, view, download, and delete shop and user PDF manuals on a vehicle', 
   await expect(page.getByTestId('manual-row')).toHaveCount(1)
   await expect(page.getByTestId('manuals-chip')).toContainText('(1)')
 
-  // 6. Verify Manuals card in vehicle settings
+  // 6. Verify Manuals & Service Book cards in vehicle settings
   await page.goto(`/bikes/${bike.id}/settings`)
+  await expect(page.getByTestId('dossier-settings-card')).toBeVisible()
+  const dossierHref = await page.getByTestId('open-dossier-link').getAttribute('href')
+  expect(dossierHref).toBeTruthy()
+  const dossierRes = await page.request.get(dossierHref!)
+  expect(dossierRes.status()).toBe(200)
+  expect(dossierRes.headers()['content-type']).toContain('text/html')
+  const dossierHtml = await dossierRes.text()
+  expect(dossierHtml).toContain('300 EXC')
+  expect(dossierHtml).toContain('Front axle nut')
+  expect(dossierHtml).toContain('85 Nm')
+  expect(dossierHtml).toContain('Oil')
+
   await expect(page.getByTestId('manuals-settings-card')).toContainText(/1 manual/i)
   await page.getByTestId('open-manuals-sheet').click()
   await expect(page.getByTestId('manuals-sheet')).toBeVisible()

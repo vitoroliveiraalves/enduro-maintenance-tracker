@@ -5,7 +5,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, itemNotes, maintenanceItems, parts, shoppingEntries } from '../db/schema'
 import type { Bike, MaintenanceItem, Part } from '../db/schema'
-import { createBike, createItem, itemRows, listBikes } from './bikes'
+import { bikeSpecs, createBike, createItem, itemRows, listBikes } from './bikes'
 import { listCategories } from './categories'
 import { costsOverview, todayStr } from '../domain/costs-query'
 import { createExpense } from './expenses'
@@ -443,6 +443,25 @@ export function createMcpServer(userId: string): McpServer {
           isError: true,
           content: [{ type: 'text', text: `Failed logging service: ${msg}` }],
         }
+      }
+    },
+  )
+
+  server.tool(
+    'get_vehicle_specs',
+    'Get all saved torque specs, fluid capacities, and technical notes for a vehicle.',
+    {
+      bike: z.string().optional().describe('Vehicle name, model, or UUID (optional if you have only one vehicle)'),
+      bikeId: z.string().optional().describe('Legacy vehicle UUID parameter'),
+    },
+    async ({ bike: bikeQuery, bikeId }) => {
+      const bikeRes = await resolveBike(userId, bikeQuery ?? bikeId, { required: true })
+      if (bikeRes.error || !bikeRes.bike) {
+        return { isError: true, content: [{ type: 'text', text: bikeRes.error ?? 'Bike not found.' }] }
+      }
+      const specs = await bikeSpecs(bikeRes.bike.id, userId)
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ vehicle: bikeRes.bike.name, specs }, null, 2) }],
       }
     },
   )

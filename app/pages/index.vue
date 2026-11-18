@@ -143,7 +143,7 @@ const totalKmCount = computed(() =>
               <span v-if="countsKm(b.meters) && b.latestReading.km !== null"><small class="bike-tag-sub block text-[10px] tracking-[0.12em]">{{ t.garage.km }}</small><b class="text-[22px] font-semibold">{{ km(b.latestReading.km).replace(/ km$/, '') }}</b></span>
             </div>
             <span class="hidden lg:inline-flex items-center gap-1 font-tag text-xs font-bold uppercase tracking-wider text-muted hover:text-text transition">
-              Station →
+              {{ t.garage.openStation }}
             </span>
           </div>
         </NuxtLink>

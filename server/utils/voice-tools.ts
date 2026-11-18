@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { bikes, categoryKinds } from '../db/schema'
 import { costsOverview, periodRange, todayStr, type Period } from '../domain/costs-query'
-import { itemRows, listBikes } from './bikes'
+import { bikeSpecs, itemRows, listBikes } from './bikes'
 import { listCategories } from './categories'
 import { itemHistory } from './item-history'
 import { listPartRows } from './parts'
@@ -37,6 +37,7 @@ export const VOICE_TOOLS: ToolDef[] = [
     categoryKind: { type: 'string', enum: [...categoryKinds] },
   }, ['period']),
   fn('reminders', 'Upcoming paperwork reminders (insurance, inspection…) not yet done, soonest first.'),
+  fn('vehicle_specs', 'Torque values, fluid capacities and technical specs saved on one bike.', { bikeId: id }, ['bikeId']),
 ]
 
 const NOT_FOUND = { error: 'not found' }
@@ -145,6 +146,12 @@ const handlers: Record<string, (userId: string, a: Args, now: Date) => Promise<u
       .filter((r) => !r.doneAt)
       .sort((x, y) => x.dueOn.localeCompare(y.dueOn))
       .map((r) => ({ id: r.id, title: r.title, dueOn: r.dueOn, bikeName: r.bikeName, repeatYearly: r.repeatYearly }))
+  },
+
+  async vehicle_specs(userId, a) {
+    if (!(await ownedMeters(userId, a.bikeId))) return NOT_FOUND
+    const rows = await bikeSpecs(a.bikeId as string, userId)
+    return rows.map((r) => ({ itemName: r.itemName, title: r.title, body: r.body, specs: r.specs }))
   },
 }
 

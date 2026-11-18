@@ -63,6 +63,7 @@ test('bad input is a 400/404, never a 500', async ({ request }) => {
   for (const id of ['nope', '123', `${uuid()}x`]) {
     cases.push(
       ['get', `/api/bikes/${id}`, null, 404],
+      ['get', `/api/bikes/${id}/dossier`, null, 404],
       ['patch', `/api/bikes/${id}`, { name: 'x' }, 404],
       ['get', `/api/bikes/${id}/manuals`, null, 404],
       ['get', `/api/bikes/${bike.id}/manuals/${id}/file`, null, 404],

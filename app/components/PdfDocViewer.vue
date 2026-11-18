@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { buildPageIndex, extractSpecCandidate, loadPdfJs, searchPdfPages, type PdfPageIndex, type PdfSearchMatch, type PdfTextSpan } from '~/lib/pdf-search'
+import { buildPageIndex, extractSpecCandidate, loadPdfJs, readPdfViewerState, searchPdfPages, writePdfViewerState, type PdfPageIndex, type PdfSearchMatch, type PdfTextSpan } from '~/lib/pdf-search'
 import { itemLabel } from '~/lib/server-text'
 import { readManualCache, writeManualCache } from '~/offline/db'
 import { errorMessage } from '~/offline/outbox'
@@ -213,8 +213,10 @@ async function loadDocument(srcUrl: string) {
     }
 
     pdfDoc = doc
+    const saved = readPdfViewerState(srcUrl)
     totalPages.value = doc.numPages
-    currentPage.value = 1
+    currentPage.value = saved ? Math.min(doc.numPages, Math.max(1, saved.page)) : 1
+    zoom.value = saved ? Math.min(3, Math.max(0.75, saved.zoom)) : 1
     loading.value = false
     await nextTick()
     void renderPage()
@@ -256,6 +258,12 @@ watch(() => props.src, (newSrc) => {
 
 watch([currentPage, zoom, matches, activeMatchIdx], () => {
   if (!loading.value && !loadError.value) void renderPage()
+})
+
+watch([currentPage, zoom], () => {
+  if (!loading.value && !loadError.value && totalPages.value > 0) {
+    writePdfViewerState(props.src, { page: currentPage.value, zoom: zoom.value })
+  }
 })
 
 onBeforeUnmount(() => {

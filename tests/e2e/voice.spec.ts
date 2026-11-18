@@ -181,4 +181,23 @@ test('voice top-up proposes top-up card and saves without resetting interval', a
   await page.getByTestId('item-row').first().click()
   await expect(page.getByTestId('service-topup-badge').first()).toContainText(/500 ml/)
   await expect(page.getByTestId('item-topup-summary')).toContainText('500 ml')
+
+  // Save a torque spec on this item, then query it via voice assistant
+  const itemId = new URL(page.url()).pathname.split('/').pop()!
+  const noteRes = await page.request.post(`/api/items/${itemId}/notes`, {
+    data: {
+      clientId: crypto.randomUUID(),
+      title: 'Drain plug',
+      specs: [{ label: 'Drain plug torque', value: '30 Nm' }],
+    },
+  })
+  expect(noteRes.ok()).toBeTruthy()
+  await page.getByTestId('back-to-bike').click()
+  await page.getByTestId('mic').click()
+  await page.waitForTimeout(350)
+  await page.getByTestId('mic').click()
+  await page.getByTestId('voice-transcript').fill('what is the torque spec')
+  await page.getByTestId('voice-resend').click()
+  await expect(page.getByTestId('voice-listening')).toBeHidden()
+  await expect(page.getByTestId('voice-answer-text')).toContainText('Drain plug torque: 30 Nm')
 })

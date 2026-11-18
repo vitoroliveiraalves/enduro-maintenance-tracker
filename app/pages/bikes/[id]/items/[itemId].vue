@@ -106,9 +106,12 @@ async function removeItem() {
 }
 
 const toast = useToast()
-async function onDone(detail?: unknown) {
+async function onDone(detail?: unknown, meta?: { topUp: boolean }) {
   const name = hist.value && itemLabel(hist.value.item.name)
-  if (name) toast.show(isQueued(detail) ? t.value.item.doneHere(name) : t.value.item.done(name))
+  if (name) {
+    if (meta?.topUp) toast.show(t.value.item.toppedUp(name))
+    else toast.show(isQueued(detail) ? t.value.item.doneHere(name) : t.value.item.done(name))
+  }
   await load()
   fillEditor(hist.value!.item)
 }

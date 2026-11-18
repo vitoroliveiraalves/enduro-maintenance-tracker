@@ -48,7 +48,7 @@ async function seed() {
 describe('voice tools', () => {
   it('declares one schema per tool', () => {
     expect(VOICE_TOOLS.map((t) => t.function.name).sort()).toEqual(
-      ['costs', 'item_history', 'item_status', 'list_bikes', 'reminders', 'search_shelf', 'shopping_list'],
+      ['costs', 'item_history', 'item_status', 'list_bikes', 'reminders', 'search_shelf', 'shopping_list', 'vehicle_specs'],
     )
   })
 
@@ -79,6 +79,7 @@ describe('voice tools', () => {
     expect((await runTool(uid, 'item_status', { bikeId: 'nope' })).result).toEqual({ error: 'not found' })
     expect((await runTool(other, 'item_history', { itemId: item.id })).result).toEqual({ error: 'not found' })
     expect((await runTool(other, 'costs', { period: 'all', bikeId: ktm.id })).result).toEqual({ error: 'not found' })
+    expect((await runTool(other, 'vehicle_specs', { bikeId: ktm.id })).result).toEqual({ error: 'not found' })
     expect((await runTool(uid, 'no_such_tool', {})).result).toEqual({ error: 'unknown tool' })
   })
 

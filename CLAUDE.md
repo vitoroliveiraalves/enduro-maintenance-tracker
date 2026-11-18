@@ -37,4 +37,4 @@ Loop fix and rerun until all pass; if one is N/A, say why in the commit body.
 - Saved invoices: listed on `/invoice` (`GET /api/documents`). Change = `confirm` with `replace: true`, which undoes what the invoice made (its expenses, its service and its `bought` shelf movements) and saves again in one transaction. `DELETE /api/documents/:id` undoes the same and also removes a part one of its saves created (`parts.createdByDocumentId`, migration 0007) that nothing else touched. Discard stays for unsaved ones only.
 - Port code from `~/encomentio` by copying and adapting; never import from it. Ignore `~/moto-tracker`.
 - Every create POST carries a `clientId` (uuid); server upserts on `(userId, clientId)`.
-- Commit after each task; messages end with the session attribution lines.
+- Commit and push to `origin/main` after each task without waiting to be asked; messages end with the session attribution lines.
